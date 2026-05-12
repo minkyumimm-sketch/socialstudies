@@ -1,0 +1,11 @@
+questionId,subject,unit,subunit,difficulty,mode,question,answer,choices,explanation,status,answerGroup,relatedQuestionIds,tags,answerAlias,sortGroup,sortItems,eraCorrect,year,documentId,timelineGroup
+h_era_001,history,古代,飛鳥,1,era,大化の改新が行われた時代を選びなさい。,飛鳥,,中大兄皇子・中臣鎌足らが政治改革を進めた時代です。,active,era_asuka_01,,,飛鳥,,,飛鳥,645,,
+h_era_002,history,古代,奈良,1,era,平城京が置かれた時代を選びなさい。,奈良,,710年に都が平城京に移されました。,active,era_nara_01,,,奈良,,,奈良,710,,
+h_era_003,history,古代,平安,1,era,遣唐使が廃止された時代を選びなさい。,平安,,894年、菅原道真の提案で遣唐使が廃止されました。,active,era_heian_01,,,平安,,,平安,894,,
+h_era_004,history,近代,明治,1,era,廃藩置県が行われた時代を選びなさい。,明治前期,,1871年、藩を廃止して県を置きました。,active,era_meiji_01,,,明治前期,,,明治前期,1871,,
+h_sort_001,history,古代,,2,sort,次の出来事を古い順に並べ替えなさい。,大化の改新|平城京遷都|平安京遷都|鎌倉幕府成立,,大化の改新→平城京遷都→平安京遷都→鎌倉幕府成立の順です。,active,sort_ancient_01,,,,sort_ancient_01,大化の改新|平城京遷都|平安京遷都|鎌倉幕府成立,,,,
+h_sort_002,history,中世,,2,sort,次の出来事を古い順に並べ替えなさい。,応仁の乱|鉄砲伝来|関ヶ原の戦い|江戸幕府成立,,応仁の乱→鉄砲伝来→関ヶ原の戦い→江戸幕府成立の順です。,active,sort_medieval_01,,,,sort_medieval_01,応仁の乱|鉄砲伝来|関ヶ原の戦い|江戸幕府成立,,,,
+h_sort_003,history,近代,,2,sort,次の出来事を古い順に並べ替えなさい。,日清戦争|日露戦争|韓国併合|第一次世界大戦,,日清戦争→日露戦争→韓国併合→第一次世界大戦の順です。,active,sort_modern_01,,,,sort_modern_01,日清戦争|日露戦争|韓国併合|第一次世界大戦,,,,
+h_sort_004,history,近代,,2,sort,次の出来事を古い順に並べ替えなさい。,五箇条の御誓文|廃藩置県|大日本帝国憲法発布|日清戦争,,五箇条の御誓文→廃藩置県→大日本帝国憲法発布→日清戦争の順です。,active,sort_modern_02,,,,sort_modern_02,五箇条の御誓文|廃藩置県|大日本帝国憲法発布|日清戦争,,,,
+history_text_test_001,history,古代,飛鳥時代,1,text,大化の改新が始まった年を答えなさい。,645,,中大兄皇子と中臣鎌足が進めた改革。645年。,active,,,,,,,,,,
+history_choice_test_001,history,近代,明治,1,choice,明治維新の中心人物として最も適切なものを選びなさい。,西郷隆盛,徳川家康|西郷隆盛|藤原道長|足利義満,明治維新では薩摩・長州などの人物が中心となった。,active,,,,,,,,,,

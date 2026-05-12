@@ -1,0 +1,139 @@
+【SVG hit / visual テンプレ（世界地理 map_click 用）】
+
+目的：
+- 見た目は細いまま
+- スマホ用に押しやすい透明当たり判定を作る
+- visual と hit を分離する
+
+────────────────
+■ SVG構造
+────────────────
+
+amazon
+ ├ amazon_visual
+ └ amazon_hit
+
+nile
+ ├ nile_visual
+ └ nile_hit
+
+andes
+ ├ andes_visual
+ └ andes_hit
+
+親ID = 問題ID
+
+renderer は親IDを参照する。
+
+────────────────
+■ 作成手順（Inkscape）
+────────────────
+
+① 元の線を作成
+
+例：
+amazon
+
+② Ctrl + D で複製
+
+③ ID変更
+
+見た目用：
+amazon_visual
+
+当たり判定用：
+amazon_hit
+
+④ hit を太くする
+
+stroke-width:
+40
+
+⑤ hit を透明化
+
+フィル、ストロークを共にオプションから×ボタンで透明化できる
+
+stroke-opacity: 0
+fill-opacity: 0
+
+（テスト時は赤推奨）
+stroke: rgba(255,0,0,0.35)
+
+⑥ 2つを選択 → Ctrl + G
+
+⑦ 親グループID設定
+
+amazon
+
+────────────────
+■ visual 推奨設定
+────────────────
+
+stroke-width:
+2〜4
+
+用途：
+見た目・色変化用
+
+────────────────
+■ hit 推奨設定
+────────────────
+
+stroke-width:
+40
+
+pointer-events:
+stroke
+
+用途：
+透明クリック判定
+
+────────────────
+■ CSS重要設定
+────────────────
+
+.line-hit {
+  fill: none !important;
+  stroke: rgba(0,0,0,0.01) !important;
+  stroke-width: 40 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke !important;
+}
+
+────────────────
+■ JS側仕様
+────────────────
+
+_hit
+→ クリック対象
+
+_visual
+→ 色変更対象
+
+旧SVG互換あり。
+
+────────────────
+■ world_base
+────────────────
+
+背景世界地図は：
+
+id="world_base"
+
+として独立管理。
+
+hideNonTargetFeatures から除外する。
+
+────────────────
+■ 適用対象
+────────────────
+
+河川
+山脈
+海峡
+地中海
+小国
+島
+細い国
