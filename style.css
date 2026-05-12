@@ -1,0 +1,620 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", sans-serif;
+  background: #f5f7fb;
+  color: #222;
+}
+
+.app {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+}
+
+.app-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.app-header h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+.subtitle {
+  margin: 0;
+  color: #666;
+}
+
+.screen {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
+.card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+}
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cfd6e4;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.primary-button,
+.secondary-button,
+.choice-button {
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.primary-button {
+  background: #2f6fed;
+  color: #fff;
+}
+
+.primary-button:hover {
+  opacity: 0.92;
+}
+
+.primary-button:disabled {
+  background: #9fb7eb;
+  cursor: not-allowed;
+}
+
+.secondary-button {
+  background: #e6ebf5;
+  color: #223;
+}
+
+.secondary-button:hover {
+  opacity: 0.92;
+}
+
+.error-message {
+  color: #d93025;
+  margin-top: 12px;
+  min-height: 1.2em;
+}
+
+.quiz-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.meta-text {
+  margin: 4px 0;
+  color: #555;
+  font-size: 0.95rem;
+}
+
+.unit-badge {
+  display: inline-block;
+  margin: 0 0 14px;
+  padding: 6px 10px;
+  background: #eef3ff;
+  color: #2f4d8f;
+  border-radius: 999px;
+  font-size: 0.9rem;
+}
+
+#question-text {
+  margin: 0 0 20px;
+  line-height: 1.7;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.choice-button {
+  width: 100%;
+  text-align: left;
+  background: #f3f6fc;
+  color: #222;
+  border: 1px solid #d8e0ef;
+}
+
+.choice-button:hover:not(:disabled) {
+  background: #eaf0fb;
+}
+
+.choice-button:disabled {
+  cursor: default;
+}
+
+.choice-button.correct {
+  background: #dff5e3;
+  border-color: #86c98f;
+}
+
+.choice-button.incorrect {
+  background: #fde3e3;
+  border-color: #e09a9a;
+}
+
+.result-box {
+  min-height: 72px;
+  margin-top: 18px;
+  padding: 14px;
+  border-radius: 12px;
+  background: #f7f9fc;
+  line-height: 1.7;
+  white-space: pre-line;
+}
+
+.button-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  flex-wrap: wrap;
+}
+
+.result-text,
+.result-score {
+  margin: 12px 0;
+}
+
+.result-score {
+  font-size: 1.4rem;
+  font-weight: bold;
+}
+
+.suggestions {
+  margin-top: 6px;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  background: #fff;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.suggestions.hidden {
+  display: none;
+}
+
+.suggestion-item {
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #eef1f4;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-item:hover {
+  background: #f6f8fa;
+}
+
+.selected-student {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #2563eb;
+}
+
+.selected-student.hidden {
+  display: none;
+}
+
+.checkbox-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-weight: normal;
+  cursor: pointer;
+}
+
+.checkbox-inline input {
+  width: auto;
+}
+
+#answer-result {
+  white-space: pre-line;
+  margin-top: 12px;
+  font-weight: bold;
+}
+
+#answer-result.correct {
+  color: #2e7d32;
+}
+
+#answer-result.incorrect {
+  color: #c62828;
+}
+
+/* =========================
+   sort
+========================= */
+
+.sort-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sort-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: #f3f6fc;
+  border: 1px solid #d8e0ef;
+  border-radius: 12px;
+}
+
+.sort-item-text {
+  flex: 1;
+  line-height: 1.6;
+}
+
+.sort-controls {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sort-move-button {
+  min-width: 52px;
+  padding: 10px 12px;
+}
+
+.sort-move-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* =========================
+   map_click
+========================= */
+
+.map-click-container {
+  display: none;
+  margin: 8px 0 0;
+  border: 1px solid #d8e0ef;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 6px;
+  overflow: hidden;
+}
+
+.map-click-status {
+  display: none;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eef4ff;
+  color: #24437a;
+  font-weight: bold;
+  min-height: 44px;
+  line-height: 1.5;
+}
+
+.map-click-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.world-map-svg {
+  width: 200% !important;
+  max-width: none !important;
+  margin-left: -17%;
+}
+
+.map-loading,
+.map-error {
+  padding: 18px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  line-height: 1.7;
+  font-weight: 700;
+}
+
+.map-error code {
+  background: #eef2ff;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+/* ===== 都道府県クリック用 ===== */
+
+.map-prefecture {
+  cursor: pointer;
+}
+
+.map-shape {
+  fill: #e9eef7 !important;
+  stroke: #5b6b88 !important;
+  stroke-width: 2 !important;
+  transition: fill 0.15s ease, opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.map-prefecture:not(.is-selected):not(.is-correct):not(.is-wrong):not(.map-disabled):hover .map-shape,
+.map-shape:hover:not(.is-selected):not(.is-correct):not(.is-wrong) {
+  fill: #dce8ff !important;
+}
+
+.map-prefecture.is-selected .map-shape,
+.map-shape.is-selected {
+  fill: #93c5fd !important;
+  stroke: #2563eb !important;
+  stroke-width: 3 !important;
+}
+
+.map-prefecture.is-correct .map-shape,
+.map-shape.is-correct {
+  fill: #86efac !important;
+  stroke: #16a34a !important;
+  stroke-width: 3 !important;
+}
+
+.map-prefecture.is-wrong .map-shape,
+.map-shape.is-wrong {
+  fill: #fca5a5 !important;
+  stroke: #dc2626 !important;
+  stroke-width: 3 !important;
+}
+
+.map-prefecture.is-dim,
+.map-shape.is-dim {
+  opacity: 0.45;
+}
+
+.map-prefecture.map-disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.map-prefecture.map-disabled .map-shape {
+  fill: #eef2f7 !important;
+}
+
+.map-prefecture.map-disabled:hover .map-shape,
+.map-prefecture.map-disabled .map-shape:hover {
+  fill: #eef2f7 !important;
+}
+
+/* ===== 線系クリック用（河川・山脈・山地） ===== */
+
+.map-click-line-svg {
+  background: #ffffff;
+}
+
+.map-click-line-svg path,
+.map-click-line-svg polyline,
+.map-click-line-svg polygon,
+.map-click-line-svg line,
+.map-click-line-svg rect,
+.map-click-line-svg circle,
+.map-click-line-svg ellipse {
+  vector-effect: non-scaling-stroke;
+}
+
+/* =========================
+   hit area
+========================= */
+
+.map-hit {
+  fill: transparent !important;
+  stroke: transparent !important;
+  pointer-events: auto !important;
+}
+
+.line-hit {
+  fill: none !important;
+  stroke: rgba(0, 0, 0, 0.01) !important;
+  stroke-width: 40 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke !important;
+}
+
+.map-visual {
+  pointer-events: none !important;
+}
+
+/* 背景線 */
+.map-click-line-svg path:not(.line-shape):not(.line-hit),
+.map-click-line-svg polyline:not(.line-shape):not(.line-hit),
+.map-click-line-svg polygon:not(.line-shape):not(.line-hit),
+.map-click-line-svg line:not(.line-shape):not(.line-hit),
+.map-click-line-svg rect:not(.line-shape):not(.line-hit),
+.map-click-line-svg circle:not(.line-shape):not(.line-hit),
+.map-click-line-svg ellipse:not(.line-shape):not(.line-hit) {
+  stroke: #8f8f8f !important;
+  stroke-width: 0.9 !important;
+  stroke-opacity: 0.8 !important;
+  vector-effect: non-scaling-stroke;
+}
+
+/* クリック対象 */
+.map-line {
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+
+.line-shape {
+  fill: none !important;
+  stroke: #8b5a2b !important;
+  stroke-width: 3.6 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke;
+  transition: stroke 0.12s ease, stroke-width 0.12s ease, opacity 0.12s ease;
+}
+
+/* 河川だけ初期色を青にする */
+.map-line[data-area-id="tone"] .line-shape,
+.map-line[data-area-id="shinano"] .line-shape,
+.map-line[data-area-id="nile"] .line-shape,
+.map-line[data-area-id="amazon"] .line-shape,
+
+.map-line.line-shape[data-area-id="tone"],
+.map-line.line-shape[data-area-id="shinano"],
+.map-line.line-shape[data-area-id="nile"],
+.map-line.line-shape[data-area-id="amazon"] {
+  stroke: #2563eb !important;
+}
+
+/* g配下にshapeがある場合 */
+.map-line.is-selected .line-shape {
+  stroke: #facc15 !important;
+  stroke-width: 4.4 !important;
+}
+
+.map-line.is-correct .line-shape {
+  stroke: #16a34a !important;
+  stroke-width: 4.4 !important;
+}
+
+.map-line.is-wrong .line-shape {
+  stroke: #dc2626 !important;
+  stroke-width: 4.4 !important;
+}
+
+/* path本体が map-line + line-shape を兼ねる場合 */
+.map-line.line-shape.is-selected {
+  stroke: #facc15 !important;
+  stroke-width: 4.4 !important;
+}
+
+.map-line.line-shape.is-correct {
+  stroke: #16a34a !important;
+  stroke-width: 4.4 !important;
+}
+
+.map-line.line-shape.is-wrong {
+  stroke: #dc2626 !important;
+  stroke-width: 4.4 !important;
+}
+
+.map-line.is-dim,
+.map-line.line-shape.is-dim {
+  opacity: 0.22;
+}
+
+/* ===== 面クリック用（半島） ===== */
+
+.map-area {
+  cursor: pointer;
+  fill: rgba(59, 130, 246, 0.28) !important;
+  stroke: #2563eb !important;
+  stroke-width: 2 !important;
+  transition: fill 0.12s ease, opacity 0.12s ease, stroke 0.12s ease;
+}
+
+.map-area:hover:not(.is-selected):not(.is-correct) {
+  fill: rgba(250, 204, 21, 0.45) !important;
+  stroke: #eab308 !important;
+}
+
+.map-area.is-selected {
+  fill: #facc15 !important;
+  stroke: #eab308 !important;
+  opacity: 0.85 !important;
+}
+
+.map-area.is-correct {
+  fill: #16a34a !important;
+  stroke: #16a34a !important;
+  opacity: 0.8 !important;
+}
+
+.map-area.is-wrong {
+  fill: #dc2626 !important;
+  stroke: #dc2626 !important;
+  opacity: 0.85 !important;
+}
+
+.world-map-svg .is-selected {
+  fill: #facc15 !important;
+  stroke: #eab308 !important;
+}
+
+.world-map-svg .is-correct {
+  fill: #16a34a !important;
+  stroke: #16a34a !important;
+}
+.world-map-svg .is-wrong {
+  fill: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+
+.world-map-svg .is-dim {
+  opacity: 0.25 !important;
+}
+
+@media (max-width: 600px) {
+  .card {
+    padding: 18px;
+  }
+
+  .app-header h1 {
+    font-size: 1.6rem;
+  }
+
+  .button-row {
+    flex-direction: column;
+  }
+
+  .primary-button,
+  .secondary-button {
+    width: 100%;
+  }
+
+  .sort-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sort-controls {
+    justify-content: flex-end;
+  }
+
+  .map-click-container {
+    padding: 4px;
+  }
+}

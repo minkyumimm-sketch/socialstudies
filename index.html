@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>都立　社会対策</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="app-header">
+      <h1>都立 社会対策</h1>
+      <p class="subtitle">日本地理・世界地理・歴史 統合版</p>
+    </header>
+
+    <section id="start-screen" class="screen active">
+      <div class="card">
+        <h2>学習開始</h2>
+
+        <div class="form-group">
+          <label for="student-name-input">生徒名</label>
+          <input
+            type="text"
+            id="student-name-input"
+            placeholder="番号または名字で検索（例: 01 / 田中）"
+            autocomplete="off"
+          />
+          <input type="hidden" id="student-id" />
+          <div id="student-suggestions" class="suggestions hidden"></div>
+          <div id="selected-student-label" class="selected-student hidden"></div>
+        </div>
+
+        <div class="filter-grid">
+          <div class="form-group">
+            <label for="subject-select">科目</label>
+            <select id="subject-select">
+              <option value="japan_geo">日本地理</option>
+              <option value="world_geo">世界地理</option>
+              <option value="history">歴史</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="unit-filter-select">単元</label>
+            <select id="unit-filter-select">
+              <option value="all" selected>すべて</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="subunit-filter-select">分野</label>
+            <select id="subunit-filter-select">
+              <option value="all" selected>すべて</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="mode-filter-select">出題形式</label>
+            <select id="mode-filter-select">
+              <option value="all" selected>すべて</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="question-count">問題数</label>
+          <select id="question-count">
+            <option value="5">5問</option>
+            <option value="10" selected>10問</option>
+            <option value="15">15問</option>
+            <option value="20">20問</option>
+          </select>
+
+          <label class="checkbox-inline">
+            <input type="checkbox" id="retry-wrong-only" checked />
+            間違えた問題を最後にもう一度出す
+          </label>
+        </div>
+
+        <button id="start-button" class="primary-button">開始</button>
+        <p id="start-error" class="error-message"></p>
+      </div>
+    </section>
+
+    <section id="quiz-screen" class="screen">
+      <div class="card">
+        <div class="quiz-top">
+          <div>
+            <p id="quiz-student" class="meta-text"></p>
+            <p id="quiz-subject" class="meta-text"></p>
+          </div>
+          <div>
+            <p id="quiz-progress" class="meta-text"></p>
+            <p id="quiz-score" class="meta-text"></p>
+          </div>
+        </div>
+
+        <p id="quiz-unit" class="unit-badge"></p>
+        <h2 id="question-text">問題文</h2>
+
+        <div id="choices-container" class="choices"></div>
+
+        <div id="map-click-container" class="map-click-container" style="display:none;"></div>
+        <div id="map-click-status" class="map-click-status" style="display:none;"></div>
+
+        <input
+          id="answer-input"
+          type="text"
+          placeholder="答えを入力"
+          style="display:none;"
+        />
+        <button id="submit-button" class="primary-button">解答</button>
+
+        <div id="answer-result" class="result-box"></div>
+
+        <div class="button-row">
+          <button id="back-to-start-button" class="secondary-button">開始画面へ戻る</button>
+          <button id="next-button" class="primary-button" disabled>次へ</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="result-screen" class="screen">
+      <div class="card">
+        <h2>学習終了</h2>
+        <p id="final-student" class="result-text"></p>
+        <p id="final-subject" class="result-text"></p>
+        <p id="final-score" class="result-score"></p>
+
+        <div class="button-row">
+          <button id="retry-button" class="primary-button">同じ条件でもう一度</button>
+          <button id="wrong-retry-button" class="secondary-button">間違えた問題だけもう一度</button>
+          <button id="back-button" class="secondary-button">開始画面へ戻る</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
