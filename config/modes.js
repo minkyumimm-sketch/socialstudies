@@ -6,13 +6,16 @@ export const MODE_LABELS = {
   map_click: "地図クリック"
 };
 
+const GEO_MODE_FILTER_OPTIONS = [
+  { value: "all", label: "すべて" },
+  { value: "text", label: "記述" },
+  { value: "choice", label: "選択" },
+  { value: "map_click", label: "地図クリック" }
+];
+
 export const MODE_FILTER_OPTIONS = {
-  geography: [
-    { value: "all", label: "すべて" },
-    { value: "text", label: "記述" },
-    { value: "choice", label: "選択" },
-    { value: "map_click", label: "地図クリック" }
-  ],
+  japan_geo: GEO_MODE_FILTER_OPTIONS,
+  world_geo: GEO_MODE_FILTER_OPTIONS,
   history: [
     { value: "all", label: "すべて" },
     { value: "text", label: "記述" },
