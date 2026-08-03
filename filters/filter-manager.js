@@ -28,7 +28,7 @@ export function createFilterManager(params) {
     const loaded = await loadQuestions(SUBJECT_CONFIG[normalizedSubject].csvPath);
     const normalized = loaded
       .map((q) => normalizeQuestion(q, normalizedSubject))
-      .filter((q) => q.status !== "inactive");
+      .filter((q) => q.status === "active");
 
     state.session.questionCacheBySubject[normalizedSubject] = normalized;
     return normalized;
