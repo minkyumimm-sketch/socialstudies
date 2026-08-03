@@ -82,4 +82,4 @@ geo_world_region_005,world_geo,地形,地域,1,map_click,北アメリカ大陸�
 geo_world_region_006,world_geo,地形,地域,1,map_click,オセアニアを選べ,オセアニア,,オーストラリアや太平洋諸島を含む地域。,active,,,,oceania,world_continents_edu,,single,oceania
 geo_world_region_007,world_geo,地形,地域,1,map_click,豪州を選べ,豪州,,オーストラリア大陸を中心とする地域。,active,,,,oceania,world_continents_edu,,single,australia
 geo_world_region_008,world_geo,地形,地域,1,map_click,欧州を選べ,欧州＝ヨーロッパ,,ヨーロッパ地域の総称。,active,,,,europe,world_continents_edu,,single,europe
-geo_world_region_009,world_geo,地形,地域,1,map_click,中東を選べ,中東,,西アジアを中心とした石油資源の豊富な地域。（中東もアジアに含みますが、アプリ側の問題で分けています）,active,,,,middle_east,world_regions_edu,,single,middle_east
+geo_world_region_009,world_geo,地形,地域,1,map_click,中東を選べ,中東,,西アジアを中心とした石油資源の豊富な地域。（中東もアジアに含みますが、アプリ側の問題で分けています）,active,,,,middle_east,world_continents_edu,,single,middle_east
