@@ -65,6 +65,8 @@ const QUESTION_MODE_HANDLERS = {
   }
 };
 
+export const VALID_QUESTION_MODES = Object.keys(QUESTION_MODE_HANDLERS);
+
 function getQuestionModeHandler(mode) {
   const normalizedMode = String(mode || "").trim().toLowerCase();
   return QUESTION_MODE_HANDLERS[normalizedMode] || QUESTION_MODE_HANDLERS.text;

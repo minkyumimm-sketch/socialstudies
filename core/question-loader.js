@@ -9,7 +9,7 @@ export async function loadQuestions(csvPath) {
   return parseDelimitedText(text);
 }
 
-function parseDelimitedText(text) {
+export function parseDelimitedText(text) {
   const normalizedText = String(text || "").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   const lines = normalizedText
     .split("\n")
@@ -34,7 +34,7 @@ function parseDelimitedText(text) {
   });
 }
 
-function detectDelimiter(headerLine) {
+export function detectDelimiter(headerLine) {
   const commaCount = countDelimiterOutsideQuotes(headerLine, ",");
   const tabCount = countDelimiterOutsideQuotes(headerLine, "\t");
 
@@ -71,7 +71,7 @@ function countDelimiterOutsideQuotes(line, delimiter) {
   return count;
 }
 
-function splitDelimitedLine(line, delimiter) {
+export function splitDelimitedLine(line, delimiter) {
   const result = [];
   let current = "";
   let inQuotes = false;

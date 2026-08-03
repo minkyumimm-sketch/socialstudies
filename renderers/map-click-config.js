@@ -169,7 +169,7 @@ const WORLD_CONTINENT_IDS = [
   "middle_east"
 ];
 
-const SVG_SOURCES = {
+export const SVG_SOURCES = {
   prefecture: {
     path: PREFECTURE_SVG_FILE_PATH,
     cacheKey: "prefecture"
