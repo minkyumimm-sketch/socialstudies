@@ -42,6 +42,8 @@ import {
 } from "./services/student-service.js";
 import { ERA_CHOICES } from "./config/era-choices.js";
 import { startAttemptForQuiz } from "./features/history/quiz-start-integration.js";
+import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
+import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 
 const startScreen = document.getElementById("start-screen");
 const quizScreen = document.getElementById("quiz-screen");
@@ -171,6 +173,9 @@ async function initApp() {
   }
 }
 
+// Phase2 Task14-2: Task14-1で発行されたAttemptのIDを、回答確定時のAnswerRecord保存で使うために保持する。
+let currentDomainAttemptId = "";
+
 async function startQuiz() {
   const studentName = String(studentNameInput.value || "").trim();
   const studentId = String(studentIdInput.value || "").trim();
@@ -207,13 +212,15 @@ async function startQuiz() {
 
     // Phase2 Task14-1: 裏側でQuestionSet/Attemptを生成・保存する（既存の出題フローには影響しない）
     try {
-      startAttemptForQuiz({
+      const domainAttemptResult = await startAttemptForQuiz({
         quizQuestions: state.quiz.quizQuestions,
         subject: state.session.subject,
         studentId: state.session.studentId
       });
+      currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
     } catch (domainError) {
       console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
+      currentDomainAttemptId = "";
     }
 
     await renderQuestion();
@@ -374,6 +381,22 @@ function handleAnswer(selectedChoice) {
   });
 
   saveAnswerRecord(savePayload);
+
+  // Phase2 Task14-2: 裏側でAnswerRecordを生成・保存する（既存の正誤判定・GAS保存には影響しない）
+  try {
+    recordAnswerForAttempt({
+      attemptId: currentDomainAttemptId,
+      studentId: savePayload.studentId,
+      questionId: savePayload.questionId,
+      fieldId: state.session.subject,
+      unit: savePayload.unit,
+      selectedChoice: savePayload.selectedChoice,
+      correctAnswer: savePayload.correctAnswer,
+      isCorrect: savePayload.isCorrect
+    });
+  } catch (domainError) {
+    console.error("recordAnswerForAttempt error（既存の回答フローには影響しません）:", domainError);
+  }
 }
 
 function formatMapClickChoiceForDisplay(selectedChoice, getMapAreaLabelById) {
@@ -423,6 +446,13 @@ function showFinalResult() {
     wrongRetryButton
   });
   showResultScreen(resultScreen, allScreens);
+
+  // Phase2 Task14-3: 裏側でAttemptを完了状態へ更新する（既存のリザルト表示には影響しない）
+  try {
+    completeAttempt(currentDomainAttemptId);
+  } catch (domainError) {
+    console.error("completeAttempt error（既存のリザルト表示フローには影響しません）:", domainError);
+  }
 }
 
 function retryQuiz() {
