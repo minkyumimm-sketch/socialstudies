@@ -41,6 +41,7 @@ import {
   filterStudents
 } from "./services/student-service.js";
 import { ERA_CHOICES } from "./config/era-choices.js";
+import { startAttemptForQuiz } from "./features/history/quiz-start-integration.js";
 
 const startScreen = document.getElementById("start-screen");
 const quizScreen = document.getElementById("quiz-screen");
@@ -202,6 +203,17 @@ async function startQuiz() {
     if (!result.ok) {
       startError.textContent = result.errorMessage || "開始に失敗しました。";
       return;
+    }
+
+    // Phase2 Task14-1: 裏側でQuestionSet/Attemptを生成・保存する（既存の出題フローには影響しない）
+    try {
+      startAttemptForQuiz({
+        quizQuestions: state.quiz.quizQuestions,
+        subject: state.session.subject,
+        studentId: state.session.studentId
+      });
+    } catch (domainError) {
+      console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
     }
 
     await renderQuestion();

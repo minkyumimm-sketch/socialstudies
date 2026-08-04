@@ -1,0 +1,36 @@
+// features/repository/student-repository.js
+//
+// 【重要】StudentRefの正本（Single Source of Truth）は既存の生徒管理システム（外部GAS/Sheets）。
+// このRepositoryが保持するのはあくまで学習アプリ側の一時的な参照キャッシュであり、
+// 生徒情報そのものを新規に作成・所有するものではない
+// （docs/specification/domain-model-v1.md 3.1節、features/student/student-model.jsの設計と同じ前提）。
+// 将来的な実装では、save()はキャッシュの更新、findById()は
+// 「キャッシュに無ければ生徒管理システムへ問い合わせる」という読み取りスルー方式に
+// 差し替わる可能性が高い。
+//
+// 内部の保存先はStorageInterface（features/storage/storage-interface.js）互換の
+// オブジェクトに委譲する。デフォルトはMemoryStorageだが、コンストラクタ引数で
+// 任意のStorageInterface実装に差し替え可能にしてある。公開API（save/findById）は不変。
+//
+// ドメインモデル（features/student/student-model.js）へは一切importしない。
+
+import { createMemoryStorage } from "../storage/memory-storage.js";
+
+/**
+ * @param {import("../storage/storage-interface.js").StorageInterface} [storage]
+ */
+export function createStudentRepository(storage = createMemoryStorage()) {
+  function save(studentRef) {
+    if (!studentRef?.studentId) {
+      throw new Error("studentIdが無いStudentRefは保存できません。");
+    }
+
+    return storage.save(studentRef.studentId, studentRef);
+  }
+
+  function findById(studentId) {
+    return storage.load(studentId);
+  }
+
+  return { save, findById };
+}
