@@ -10,8 +10,15 @@
 // （既存renderers/*.jsと同じ「DOM要素+データ→描画」のみを行う位置づけ）。
 //
 // 責務分離: 画面切り替え自体はcore/screen-controller.jsの責務、DOM要素参照の取得・
-// イベントリスナー登録はapp.jsの責務。本ファイルは「渡されたDOM要素へ、取得したデータを
-// 描画する」ことだけを行う。
+// イベントリスナー登録・「苦手を復習」等のクリック時に実際に何をするか（Bridge呼び出し・
+// クイズ開始）はapp.jsの責務。本ファイルは「渡されたDOM要素へ、取得したデータを描画し、
+// ボタンが押されたらapp.js側から渡されたコールバックを呼ぶだけ」に徹する
+// （renderers/choice-renderer.js の renderChoiceQuestion(question, elements, onSelectChoice)
+// と同じ「描画対象・DOM要素・コールバック」を受け取る形を踏襲）。
+//
+// Phase2 Task21-3: 「苦手を復習」「復習する」ボタンはfieldId単位でのみ表示する
+// （features/weakness/weakness-quiz-bridge.jsがfieldId単位でのみ問題を突き合わせる
+// 設計のため、科目をまたいだ一括復習ボタンは提供しない）。
 
 import { getHomeInitialData } from "./home-service.js";
 import { SUBJECT_CONFIG } from "../../config/subjects.js";
@@ -80,7 +87,59 @@ function showHomeErrorState(elements) {
   elements.startButton.disabled = false;
 }
 
-function renderFieldList(fieldDashboards, listElement) {
+/**
+ * 【表示整形のみ】fieldId毎の苦手問題数を、ボタン表示用に集計する。
+ * WeaknessServiceが既に持つgetWeakFields()と同じ「fieldId一致で数える」だけの単純な
+ * 集約であり、新しい苦手判定ロジックではない（判定自体はWeaknessService側で完結済み）。
+ *
+ * @param {Array<{ fieldId: string, weakQuestionCount: number }>} weakFields
+ * @returns {Map<string, number>}
+ */
+function buildWeakCountByField(weakFields) {
+  const map = new Map();
+  (Array.isArray(weakFields) ? weakFields : []).forEach((field) => {
+    if (field?.fieldId) map.set(field.fieldId, field.weakQuestionCount ?? 0);
+  });
+  return map;
+}
+
+/**
+ * 【表示整形のみ】復習推奨問題（questionId単位の配列）を、ボタン表示用にfieldId毎の
+ * 件数へ集計する。dormantQuestionsは既にWeaknessServiceが判定済みの配列であり、
+ * ここではその表示上の件数集計のみを行う（新しい復習推奨判定ロジックではない）。
+ *
+ * @param {Array<{ fieldId: string }>} dormantQuestions
+ * @returns {Map<string, number>}
+ */
+function buildDormantCountByField(dormantQuestions) {
+  const map = new Map();
+  (Array.isArray(dormantQuestions) ? dormantQuestions : []).forEach((question) => {
+    const fieldId = question?.fieldId || "";
+    if (!fieldId) return;
+    map.set(fieldId, (map.get(fieldId) || 0) + 1);
+  });
+  return map;
+}
+
+/**
+ * 「苦手を復習」「復習する」共通のボタンを1つ生成する。DOM生成のみを行い、
+ * クリック時に何が起きるかはapp.js側から渡されたonPracticeコールバックに委ねる
+ * （本ファイルはBridge呼び出し・クイズ開始処理を一切知らない）。
+ *
+ * @param {string} label
+ * @param {() => void} onPractice
+ * @returns {HTMLButtonElement}
+ */
+function createPracticeButton(label, onPractice) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary-button home-practice-button";
+  button.textContent = label;
+  button.addEventListener("click", onPractice);
+  return button;
+}
+
+function renderFieldList(fieldDashboards, weakCountByField, listElement, onPracticeWeakField) {
   listElement.innerHTML = "";
 
   const items = Array.isArray(fieldDashboards) ? fieldDashboards : [];
@@ -95,6 +154,9 @@ function renderFieldList(fieldDashboards, listElement) {
     const item = document.createElement("div");
     item.className = "home-field-item";
 
+    const row = document.createElement("div");
+    row.className = "home-field-item-row";
+
     const name = document.createElement("span");
     name.className = "home-field-item-name";
     name.textContent = getSubjectLabel(field.fieldId);
@@ -104,15 +166,24 @@ function renderFieldList(fieldDashboards, listElement) {
     const rate = Math.round((field.summary?.overallCorrectRate ?? 0) * 100);
     count.textContent = `${field.summary?.attemptCount ?? 0}回 正答率${rate}%`;
 
-    item.appendChild(name);
-    item.appendChild(count);
+    row.appendChild(name);
+    row.appendChild(count);
+    item.appendChild(row);
+
+    const weakCount = weakCountByField.get(field.fieldId) || 0;
+    if (weakCount > 0 && typeof onPracticeWeakField === "function") {
+      item.appendChild(
+        createPracticeButton(`苦手を復習（${weakCount}問）`, () => onPracticeWeakField(field.fieldId))
+      );
+    }
+
     listElement.appendChild(item);
   });
 
   return true;
 }
 
-function renderDormantList(dormantQuestions, listElement) {
+function renderDormantList(dormantQuestions, dormantCountByField, listElement, onPracticeDormantField) {
   listElement.innerHTML = "";
 
   const items = Array.isArray(dormantQuestions) ? dormantQuestions : [];
@@ -148,26 +219,62 @@ function renderDormantList(dormantQuestions, listElement) {
     listElement.appendChild(more);
   }
 
+  // fieldId単位の「復習する」ボタンは、既存の個別問題一覧（上記）とは別の行として
+  // 末尾へ追加する（既存の個別一覧の見た目・構造は変更しない）。
+  if (typeof onPracticeDormantField === "function") {
+    Array.from(dormantCountByField.entries()).forEach(([fieldId, count]) => {
+      const actionItem = document.createElement("div");
+      actionItem.className = "home-dormant-item home-dormant-action-item";
+      actionItem.appendChild(
+        createPracticeButton(
+          `${getSubjectLabel(fieldId) || fieldId}を復習する（${count}問）`,
+          () => onPracticeDormantField(fieldId)
+        )
+      );
+      listElement.appendChild(actionItem);
+    });
+  }
+
   return true;
 }
+
+/**
+ * @typedef {Object} HomePracticeCallbacks
+ * @property {(fieldId: string) => void} [onPracticeWeakField] - 「苦手を復習」ボタン押下時
+ * @property {(fieldId: string) => void} [onPracticeDormantField] - 「復習する」ボタン押下時
+ */
 
 /**
  * getHomeInitialData()の返り値をホーム画面のDOMへ描画する。
  * @param {ReturnType<typeof getHomeInitialData>} homeInitialData
  * @param {HomeScreenElements} elements
+ * @param {HomePracticeCallbacks} callbacks
  */
-function renderHomeDashboard(homeInitialData, elements) {
+function renderHomeDashboard(homeInitialData, elements, callbacks) {
   const dashboard = homeInitialData.dashboard;
   const historyOverview = dashboard.overview.historyOverview;
-  const weakSummary = dashboard.weakness.weakDashboard.summary;
+  const weakDashboard = dashboard.weakness.weakDashboard;
 
   elements.totalStudyDays.textContent = `${historyOverview.totalStudyDays}日`;
   elements.currentStreak.textContent = `${historyOverview.currentStudyStreak}日`;
   elements.latestStudy.textContent = formatLatestStudyText(dashboard.overview.latestAttempt);
-  elements.weakCount.textContent = `${weakSummary.weakQuestionCount}問`;
+  elements.weakCount.textContent = `${weakDashboard.summary.weakQuestionCount}問`;
 
-  const hasFieldDetail = renderFieldList(dashboard.fields.fieldDashboards, elements.fieldList);
-  const hasDormantDetail = renderDormantList(dashboard.weakness.weakDashboard.dormantQuestions, elements.dormantList);
+  const weakCountByField = buildWeakCountByField(weakDashboard.weakFields);
+  const dormantCountByField = buildDormantCountByField(weakDashboard.dormantQuestions);
+
+  const hasFieldDetail = renderFieldList(
+    dashboard.fields.fieldDashboards,
+    weakCountByField,
+    elements.fieldList,
+    callbacks?.onPracticeWeakField
+  );
+  const hasDormantDetail = renderDormantList(
+    weakDashboard.dormantQuestions,
+    dormantCountByField,
+    elements.dormantList,
+    callbacks?.onPracticeDormantField
+  );
 
   elements.detailToggleWrap.classList.toggle("hidden", !(hasFieldDetail || hasDormantDetail));
   elements.detail.classList.add("hidden");
@@ -184,9 +291,10 @@ function renderHomeDashboard(homeInitialData, elements) {
  *
  * @param {string} studentId
  * @param {HomeScreenElements} elements
+ * @param {HomePracticeCallbacks} [callbacks] - 「苦手を復習」「復習する」ボタン押下時のコールバック
  * @returns {ReturnType<typeof getHomeInitialData>|null} 取得できたデータ（失敗・未選択時はnull）
  */
-export function renderHomeForStudent(studentId, elements) {
+export function renderHomeForStudent(studentId, elements, callbacks = {}) {
   if (!studentId) {
     showHomeEmptyState(elements);
     return null;
@@ -194,7 +302,7 @@ export function renderHomeForStudent(studentId, elements) {
 
   try {
     const homeInitialData = getHomeInitialData(studentId);
-    renderHomeDashboard(homeInitialData, elements);
+    renderHomeDashboard(homeInitialData, elements, callbacks);
     return homeInitialData;
   } catch (error) {
     console.error("getHomeInitialData error（ホーム画面の表示のみ失敗。既存のクイズフローには影響しません）:", error);

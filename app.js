@@ -6,6 +6,7 @@ import {
 } from "./core/state.js";
 import { normalizeQuestion, buildFallbackQuestionId } from "./core/question-normalizer.js";
 import { prepareQuizStart, startRetryWrongRound } from "./core/quiz-controller.js";
+import { pickQuestions } from "./core/question-picker.js";
 import {
   buildResultMessage,
   buildSavedSubjectName,
@@ -46,6 +47,7 @@ import { startAttemptForQuiz } from "./features/history/quiz-start-integration.j
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
+import { buildWeakQuestionQuiz, buildDormantQuestionQuiz } from "./features/weakness/weakness-quiz-bridge.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -87,6 +89,13 @@ const homeElements = {
   fieldList: homeFieldList,
   dormantList: homeDormantList,
   startButton: homeStartButton
+};
+
+// Phase2 Task21-3: 「苦手を復習」「復習する」ボタン押下時に呼ばれるコールバック。
+// home-renderer.js はこれらの中身（Bridge呼び出し・クイズ開始）を一切知らない。
+const homePracticeCallbacks = {
+  onPracticeWeakField: startWeaknessReview,
+  onPracticeDormantField: startDormantReview
 };
 
 const studentNameInput = document.getElementById("student-name-input");
@@ -253,21 +262,7 @@ async function startQuiz() {
       return;
     }
 
-    // Phase2 Task14-1: 裏側でQuestionSet/Attemptを生成・保存する（既存の出題フローには影響しない）
-    try {
-      const domainAttemptResult = await startAttemptForQuiz({
-        quizQuestions: state.quiz.quizQuestions,
-        subject: state.session.subject,
-        studentId: state.session.studentId
-      });
-      currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
-    } catch (domainError) {
-      console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
-      currentDomainAttemptId = "";
-    }
-
-    await renderQuestion();
-    showQuizScreen(quizScreen, allScreens);
+    await beginAttemptAndShowQuiz();
   } catch (error) {
     console.error("startQuiz error:", error);
     startError.textContent = "開始に失敗しました。GAS URLやCSVを確認してください。";
@@ -275,6 +270,72 @@ async function startQuiz() {
     startButton.disabled = false;
     startButton.textContent = "開始";
   }
+}
+
+// Phase2 Task14-1相当の裏側処理（QuestionSet/Attempt生成）とクイズ画面表示をまとめた
+// 共通処理。state.quiz.quizQuestions・state.session.subject等が既に正しく設定済みで
+// あることを前提とする（通常のstartQuiz()、Task21-3の苦手復習・復習推奨開始の両方から
+// 呼ばれる。既存の出題フロー・裏側の記録処理自体は一切変更しない）。
+async function beginAttemptAndShowQuiz() {
+  try {
+    const domainAttemptResult = await startAttemptForQuiz({
+      quizQuestions: state.quiz.quizQuestions,
+      subject: state.session.subject,
+      studentId: state.session.studentId
+    });
+    currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
+  } catch (domainError) {
+    console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
+    currentDomainAttemptId = "";
+  }
+
+  await renderQuestion();
+  showQuizScreen(quizScreen, allScreens);
+}
+
+// Phase2 Task21-3: ホーム画面の「苦手を復習」「復習する」から、既存start-screenの
+// 科目/単元/分野/出題形式選択を経由せず直接quiz-screenへ入るための共通処理。
+// buildQuizFn（features/weakness/weakness-quiz-bridge.jsのbuildWeakQuestionQuiz/
+// buildDormantQuestionQuiz）が返す「現在の問題データと一致した問題」だけを対象にし、
+// 0件の場合はクイズを開始しない（存在する問題だけ出題する、というご指示のとおり）。
+async function startPracticeSession(fieldId, buildQuizFn) {
+  if (!state.session.studentId || !fieldId) return;
+
+  homeError.textContent = "";
+
+  const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
+  const bridgeResult = buildQuizFn({
+    studentId: state.session.studentId,
+    fieldId,
+    availableQuestions
+  });
+
+  if (bridgeResult.questions.length === 0) {
+    homeError.textContent = "現在解ける問題がありません。時間をおいて再度お試しください。";
+    return;
+  }
+
+  state.session.subject = fieldId;
+  state.session.unitFilter = "all";
+  state.session.modeFilter = "all";
+  state.session.subunitFilter = "all";
+  state.session.requestedQuestionCount = bridgeResult.questions.length;
+
+  resetQuizState(state);
+  resetUiState(state);
+
+  state.quiz.allQuestions = bridgeResult.questions;
+  state.quiz.quizQuestions = pickQuestions(bridgeResult.questions, bridgeResult.questions.length);
+
+  await beginAttemptAndShowQuiz();
+}
+
+function startWeaknessReview(fieldId) {
+  return startPracticeSession(fieldId, buildWeakQuestionQuiz);
+}
+
+function startDormantReview(fieldId) {
+  return startPracticeSession(fieldId, buildDormantQuestionQuiz);
 }
 
 function getQuestionId(question) {
@@ -516,6 +577,14 @@ function backToStart() {
     startError,
     answerResult
   });
+
+  // Phase2 Task21-3: 苦手復習・復習推奨はhome-screenからstart-screenを経由せず直接
+  // quiz-screenへ入るため、そこから結果画面を経て「開始画面へ戻る」を押した場合、
+  // start-screen側の生徒入力欄が一度も同期されていない状態になり得る。既存の
+  // syncStartScreenStudentDisplay()（Task20-C）を呼ぶだけで、選択処理自体は作り直さない。
+  // 通常のstart-screen経由フローでは既に同じ値が入っているため、この呼び出しは
+  // 実質的に無害（べき等）。
+  syncStartScreenStudentDisplay();
   showStartScreen(startScreen, allScreens);
 }
 
@@ -598,7 +667,7 @@ function handleHomeStudentInput() {
 
   state.session.studentId = "";
   state.session.studentName = "";
-  renderHomeForStudent("", homeElements);
+  renderHomeForStudent("", homeElements, homePracticeCallbacks);
 
   const filtered = filterStudents(state.session.activeStudents, keyword);
 
@@ -619,7 +688,7 @@ function handleHomeStudentSelect(student) {
     studentSuggestions: homeStudentSuggestions
   });
 
-  renderHomeForStudent(state.session.studentId, homeElements);
+  renderHomeForStudent(state.session.studentId, homeElements, homePracticeCallbacks);
 }
 
 // Phase2 Task20-C: ホーム画面で選択済みのstudentId（state.session.studentId）は新しく

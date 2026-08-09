@@ -674,16 +674,38 @@ select {
   gap: 8px;
 }
 
-.home-field-item,
+.home-field-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.home-field-item-row,
 .home-dormant-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
+
+.home-dormant-item {
   padding: 10px 12px;
   background: #f7f9fc;
   border-radius: 10px;
   font-size: 0.92rem;
+}
+
+.home-dormant-action-item {
+  display: block;
+}
+
+.home-practice-button {
+  width: 100%;
+  margin-top: 2px;
 }
 
 .home-field-item-name,
