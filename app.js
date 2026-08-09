@@ -16,6 +16,7 @@ import { restartQuiz, resetStartScreenMessages } from "./core/session-controller
 import { applyAnswerResult } from "./core/answer-controller.js";
 import { renderCurrentQuestion } from "./core/question-screen-controller.js";
 import {
+  showHomeScreen,
   showQuizScreen,
   showResultScreen,
   showStartScreen
@@ -44,11 +45,49 @@ import { ERA_CHOICES } from "./config/era-choices.js";
 import { startAttemptForQuiz } from "./features/history/quiz-start-integration.js";
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
+import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
 
+const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
 const quizScreen = document.getElementById("quiz-screen");
 const resultScreen = document.getElementById("result-screen");
-const allScreens = [startScreen, quizScreen, resultScreen];
+const allScreens = [homeScreen, startScreen, quizScreen, resultScreen];
+
+// Phase2 Task20-A: ホーム画面の生徒選択欄。既存start-screenの生徒選択（下記
+// studentNameInput等）とはDOM要素が別だが、選択処理はservices/student-service.jsの
+// 既存関数（selectStudent等）をそのまま再利用し、別実装として複製しない。
+const homeStudentNameInput = document.getElementById("home-student-name-input");
+const homeStudentIdInput = document.getElementById("home-student-id");
+const homeStudentSuggestions = document.getElementById("home-student-suggestions");
+const homeSelectedStudentLabel = document.getElementById("home-selected-student-label");
+const homeInfo = document.getElementById("home-info");
+const homeEmptyMessage = document.getElementById("home-empty-message");
+const homeError = document.getElementById("home-error");
+const homeTotalStudyDays = document.getElementById("home-total-study-days");
+const homeCurrentStreak = document.getElementById("home-current-streak");
+const homeLatestStudy = document.getElementById("home-latest-study");
+const homeWeakCount = document.getElementById("home-weak-count");
+const homeDetailToggleWrap = document.getElementById("home-detail-toggle-wrap");
+const homeDetailToggle = document.getElementById("home-detail-toggle");
+const homeDetail = document.getElementById("home-detail");
+const homeFieldList = document.getElementById("home-field-list");
+const homeDormantList = document.getElementById("home-dormant-list");
+const homeStartButton = document.getElementById("home-start-button");
+
+const homeElements = {
+  infoContainer: homeInfo,
+  emptyMessage: homeEmptyMessage,
+  errorMessage: homeError,
+  totalStudyDays: homeTotalStudyDays,
+  currentStreak: homeCurrentStreak,
+  latestStudy: homeLatestStudy,
+  weakCount: homeWeakCount,
+  detailToggleWrap: homeDetailToggleWrap,
+  detail: homeDetail,
+  fieldList: homeFieldList,
+  dormantList: homeDormantList,
+  startButton: homeStartButton
+};
 
 const studentNameInput = document.getElementById("student-name-input");
 const studentIdInput = document.getElementById("student-id");
@@ -117,6 +156,9 @@ const filterManager = createFilterManager({
   normalizeValue
 });
 
+homeStartButton.addEventListener("click", goToStartScreenFromHome);
+homeDetailToggle.addEventListener("click", () => toggleHomeDetail(homeElements));
+
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
 nextButton.addEventListener("click", goToNextQuestion);
@@ -167,6 +209,7 @@ async function initApp() {
       filterManager.syncFiltersForSubjectChange()
     ]);
     setupStudentAutocomplete();
+    setupHomeStudentAutocomplete();
   } catch (error) {
     console.error("initApp error:", error);
     startError.textContent = "生徒一覧または問題設定の取得に失敗しました。GAS公開設定やCSVを確認してください。";
@@ -522,4 +565,79 @@ function handleStudentSelect(student) {
     selectedStudentLabel,
     studentSuggestions
   });
+}
+
+// Phase2 Task20-A/B: ホーム画面の生徒選択・情報表示。
+// 生徒検索・選択のロジック自体はservices/student-service.jsの既存関数
+// （filterStudents/renderStudentSuggestions/selectStudent、上記setupStudentAutocomplete等と同じもの）
+// をそのまま再利用し、別実装として複製しない。DOM要素だけがhome-screen用に異なる。
+function setupHomeStudentAutocomplete() {
+  homeStudentNameInput.addEventListener("input", handleHomeStudentInput);
+
+  homeStudentNameInput.addEventListener("focus", () => {
+    renderStudentSuggestions(
+      homeStudentSuggestions,
+      state.session.activeStudents.slice(0, 20),
+      handleHomeStudentSelect
+    );
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!homeStudentSuggestions.contains(event.target) && event.target !== homeStudentNameInput) {
+      homeStudentSuggestions.classList.add("hidden");
+    }
+  });
+}
+
+function handleHomeStudentInput() {
+  const keyword = String(homeStudentNameInput.value || "").trim().toLowerCase();
+
+  homeStudentIdInput.value = "";
+  homeSelectedStudentLabel.textContent = "";
+  homeSelectedStudentLabel.classList.add("hidden");
+
+  state.session.studentId = "";
+  state.session.studentName = "";
+  renderHomeForStudent("", homeElements);
+
+  const filtered = filterStudents(state.session.activeStudents, keyword);
+
+  renderStudentSuggestions(
+    homeStudentSuggestions,
+    filtered.slice(0, 20),
+    handleHomeStudentSelect
+  );
+}
+
+function handleHomeStudentSelect(student) {
+  selectStudent({
+    student,
+    state,
+    studentNameInput: homeStudentNameInput,
+    studentIdInput: homeStudentIdInput,
+    selectedStudentLabel: homeSelectedStudentLabel,
+    studentSuggestions: homeStudentSuggestions
+  });
+
+  renderHomeForStudent(state.session.studentId, homeElements);
+}
+
+// Phase2 Task20-C: ホーム画面で選択済みのstudentId（state.session.studentId）は新しく
+// 作らず、既存start-screen側の表示（studentNameInput/studentIdInput/selectedStudentLabel）
+// だけを最小限同期する。student-service.jsの選択処理自体（selectStudent等）は呼び直さない。
+function syncStartScreenStudentDisplay() {
+  studentNameInput.value = state.session.studentName || "";
+  studentIdInput.value = state.session.studentId || "";
+
+  if (state.session.studentId) {
+    selectedStudentLabel.textContent = `選択中：${state.session.studentId} ${state.session.studentName}`;
+    selectedStudentLabel.classList.remove("hidden");
+  }
+}
+
+function goToStartScreenFromHome() {
+  if (!state.session.studentId) return;
+
+  syncStartScreenStudentDisplay();
+  showStartScreen(startScreen, allScreens);
 }

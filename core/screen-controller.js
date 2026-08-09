@@ -6,6 +6,10 @@ export function showScreen(targetScreen, allScreens) {
   targetScreen.classList.add("active");
 }
 
+export function showHomeScreen(homeScreen, allScreens) {
+  showScreen(homeScreen, allScreens);
+}
+
 export function showQuizScreen(quizScreen, allScreens) {
   showScreen(quizScreen, allScreens);
 }
