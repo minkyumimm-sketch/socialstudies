@@ -2,6 +2,7 @@
 
 対象ファイル: `features/home/home-service.js`
 作成: Phase2 Task17-1〜17-12完了時点の公開API整理（コード変更なし、ドキュメント化のみ）
+更新: Task19-1〜19-4でWeaknessService連携（`getHomeWeakness`追加、`getHomeDashboard`/`getAvailableHomeSections`へ`weakness`キー追加）を反映
 
 ---
 
@@ -20,14 +21,16 @@ config
   ↓
 core
   ↓
-features/history/history-service.js
-  ↓
-features/home/home-service.js → app.js（今後）
+features/history/history-service.js     features/weakness/weakness-service.js
+                    ↓                                  ↓
+                    └──────────── features/home/home-service.js → app.js（今後）
 ```
 
-- HomeServiceが直接importするのは`features/history/history-service.js`の公開APIのみ（`getHistoryDashboard`・`getHistoryOverview`・`getLatestAttempt`・`getStudyPeriod`・`getCurrentStudyStreak`・`getStudiedFields`・`getFieldDashboards`）。
+- HomeServiceが直接importするのは以下の2つのみ:
+  - `features/history/history-service.js`の公開API（`getHistoryDashboard`・`getHistoryOverview`・`getLatestAttempt`・`getStudyPeriod`・`getCurrentStudyStreak`・`getStudiedFields`・`getFieldDashboards`）
+  - `features/weakness/weakness-service.js`の公開APIのうち`getWeakDashboard`のみ（Task19-1）。`getWeakSummary`・`getWeakQuestions`・`hasWeakQuestions`等、WeaknessServiceの他の公開APIは直接呼ばない。
 - `features/repository/`・`features/storage/`・`AttemptService`・`AnswerRecordService`・`QuestionSetService`へは一切直接アクセスしない。
-- HomeService内の一部API（`hasHomeData`・`getHomeLatestAttempt`・`getHomeFieldList`・`getHomeFieldDashboards`・`getHomeOverviewData`・`getHomeDashboard`・`getHomeInitialData`・`getAvailableHomeSections`）は、HistoryServiceを直接呼ばず、**HomeService内の他の公開APIにのみ依存**する（HomeService内での多層合成）。
+- HomeService内の一部API（`hasHomeData`・`getHomeLatestAttempt`・`getHomeFieldList`・`getHomeFieldDashboards`・`getHomeOverviewData`・`getHomeDashboard`・`getHomeInitialData`・`getAvailableHomeSections`）は、HistoryService・WeaknessServiceを直接呼ばず、**HomeService内の他の公開APIにのみ依存**する（HomeService内での多層合成）。
 
 ### 利用方針
 
@@ -62,8 +65,9 @@ features/home/home-service.js → app.js（今後）
 
 ### `getHomeDashboard(studentId)`
 - 引数: `studentId: string`
-- 返り値: `{ overview, studyInfo, fields, historyDashboard }`
-- 内部利用API: `getHomeOverview()` / `getHomeStudyInfo()` / `getHomeFields()` / `getHomeData()`（いずれもHomeService。HistoryServiceは直接呼ばない）
+- 返り値: `{ overview, studyInfo, fields, historyDashboard, weakness }`
+- 内部利用API: `getHomeOverview()` / `getHomeStudyInfo()` / `getHomeFields()` / `getHomeData()` / `getHomeWeakness()`（いずれもHomeService。HistoryService・WeaknessServiceは直接呼ばない）
+- 備考: Task19-2で`weakness`キーを追加。既存の`overview`/`studyInfo`/`fields`/`historyDashboard`キーの意味・構造は変更していない。
 
 ### `getHomeInitialData(studentId)`
 - 引数: `studentId: string`
@@ -72,8 +76,9 @@ features/home/home-service.js → app.js（今後）
 
 ### `getAvailableHomeSections(studentId)`
 - 引数: `studentId: string`
-- 返り値: `{ overview, studyInfo, fields, dashboard }`
-- 内部利用API: `getHomeOverview()` / `getHomeStudyInfo()` / `getHomeFields()` / `getHomeDashboard()`（いずれもHomeService）
+- 返り値: `{ overview, studyInfo, fields, dashboard, weakness }`
+- 内部利用API: `getHomeOverview()` / `getHomeStudyInfo()` / `getHomeFields()` / `getHomeDashboard()` / `getHomeWeakness()`（いずれもHomeService）
+- 備考: Task19-3で`weakness`キーを追加。既存の`overview`/`studyInfo`/`fields`/`dashboard`キーの意味・構造は変更していない。
 
 ### `hasHomeData(studentId)`
 - 引数: `studentId: string`
@@ -100,13 +105,20 @@ features/home/home-service.js → app.js（今後）
 - 返り値: `{ hasHomeData, latestAttempt, studyInfo }`
 - 内部利用API: `hasHomeData()` / `getHomeLatestAttempt()` / `getHomeStudyInfo()`（いずれもHomeService）
 
+### `getHomeWeakness(studentId)`
+- 引数: `studentId: string`
+- 返り値: `{ weakDashboard }`
+- 内部利用API: `getWeakDashboard()`（WeaknessService）
+- 備考: Task19-1で追加。WeaknessServiceの基礎依存APIとして`getWeakDashboard()`のみを利用する（`getWeakSummary()`・`getWeakQuestions()`・`hasWeakQuestions()`は直接呼ばない）。`weakDashboard`は`getWeakDashboard(studentId)`の返り値（`{ summary, weakFields, dormantQuestions }`）をそのまま格納。
+
 ---
 
 ## 現在のHomeServiceで取得できる情報
 
-- **画面トップ全部入り**: `getHomeData` / `getHomeDashboard` / `getHomeInitialData` / `getAvailableHomeSections`（粒度・呼び出し窓口が異なるバリエーション）
+- **画面トップ全部入り**: `getHomeData` / `getHomeDashboard` / `getHomeInitialData` / `getAvailableHomeSections`（粒度・呼び出し窓口が異なるバリエーション。`getHomeDashboard`/`getAvailableHomeSections`は`weakness`キー経由で苦手問題情報も含む）
 - **上部概要表示**: `getHomeOverview` / `hasHomeData` / `getHomeLatestAttempt` / `getHomeOverviewData`
 - **学習日数情報**: `getHomeStudyInfo`
 - **科目情報**: `getHomeFields` / `getHomeFieldList` / `getHomeFieldDashboards`
+- **苦手問題情報**: `getHomeWeakness`
 
-公開API 12件（Task17-1〜17-12で追加）。
+公開API 13件（Task17-1〜17-12で12件、Task19-1で`getHomeWeakness`を追加し13件）。

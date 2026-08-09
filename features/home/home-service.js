@@ -22,6 +22,7 @@ import {
   getStudiedFields,
   getFieldDashboards
 } from "../history/history-service.js";
+import { getWeakDashboard } from "../weakness/weakness-service.js";
 
 /**
  * 【取得】ホーム画面が必要とする情報をまとめて取得する。
@@ -116,12 +117,16 @@ export function getHomeFields(studentId) {
  * （HomeServiceは画面用Facadeであり、HistoryServiceを組み合わせるだけ・独自集計は
  * 禁止、という設計方針のとおり）。Repository・Storageへは一切直接アクセスしない。
  *
+ * Task19-2でWeaknessService由来のweaknessキーを追加した。既存のoverview/studyInfo/
+ * fields/historyDashboardキーの意味・構造は変更していない。
+ *
  * @param {string} studentId
  * @returns {{
  *   overview: ReturnType<typeof getHomeOverview>,
  *   studyInfo: ReturnType<typeof getHomeStudyInfo>,
  *   fields: ReturnType<typeof getHomeFields>,
- *   historyDashboard: ReturnType<typeof getHomeData>["historyDashboard"]
+ *   historyDashboard: ReturnType<typeof getHomeData>["historyDashboard"],
+ *   weakness: ReturnType<typeof getHomeWeakness>
  * }}
  */
 export function getHomeDashboard(studentId) {
@@ -129,7 +134,8 @@ export function getHomeDashboard(studentId) {
     overview: getHomeOverview(studentId),
     studyInfo: getHomeStudyInfo(studentId),
     fields: getHomeFields(studentId),
-    historyDashboard: getHomeData(studentId).historyDashboard
+    historyDashboard: getHomeData(studentId).historyDashboard,
+    weakness: getHomeWeakness(studentId)
   };
 }
 
@@ -153,16 +159,20 @@ export function getHomeInitialData(studentId) {
  * 【取得】HomeServiceが提供する画面向けセクション一覧をまとめて取得する。
  * 将来app.jsやUI側は、このAPIだけを見ればHomeServiceが提供する入口を把握できる状態にする。
  *
- * getHomeOverview()・getHomeStudyInfo()・getHomeFields()・getHomeDashboard()のみを
- * 利用する。HistoryServiceは直接importせず、新しい集計処理も一切書かない。
- * Repository・Storageへは一切直接アクセスしない。
+ * getHomeOverview()・getHomeStudyInfo()・getHomeFields()・getHomeDashboard()・
+ * getHomeWeakness()のみを利用する。HistoryServiceは直接importせず、新しい集計処理も
+ * 一切書かない。Repository・Storageへは一切直接アクセスしない。
+ *
+ * Task19-3でWeaknessService由来のweaknessキーを追加した。既存のoverview/studyInfo/
+ * fields/dashboardキーの意味・構造は変更していない。
  *
  * @param {string} studentId
  * @returns {{
  *   overview: ReturnType<typeof getHomeOverview>,
  *   studyInfo: ReturnType<typeof getHomeStudyInfo>,
  *   fields: ReturnType<typeof getHomeFields>,
- *   dashboard: ReturnType<typeof getHomeDashboard>
+ *   dashboard: ReturnType<typeof getHomeDashboard>,
+ *   weakness: ReturnType<typeof getHomeWeakness>
  * }}
  */
 export function getAvailableHomeSections(studentId) {
@@ -170,7 +180,8 @@ export function getAvailableHomeSections(studentId) {
     overview: getHomeOverview(studentId),
     studyInfo: getHomeStudyInfo(studentId),
     fields: getHomeFields(studentId),
-    dashboard: getHomeDashboard(studentId)
+    dashboard: getHomeDashboard(studentId),
+    weakness: getHomeWeakness(studentId)
   };
 }
 
@@ -246,5 +257,21 @@ export function getHomeOverviewData(studentId) {
     hasHomeData: hasHomeData(studentId),
     latestAttempt: getHomeLatestAttempt(studentId),
     studyInfo: getHomeStudyInfo(studentId)
+  };
+}
+
+/**
+ * 【取得】ホーム画面で使う苦手問題情報をまとめて取得する。
+ *
+ * WeaknessServiceのgetWeakDashboard()のみを利用する（getWeakSummary()・
+ * getWeakQuestions()・hasWeakQuestions()は直接呼ばない）。新しい集計処理は書かない。
+ * Repository・Storageへは一切直接アクセスしない。HistoryServiceへの新規直接依存も追加しない。
+ *
+ * @param {string} studentId
+ * @returns {{ weakDashboard: ReturnType<typeof getWeakDashboard> }}
+ */
+export function getHomeWeakness(studentId) {
+  return {
+    weakDashboard: getWeakDashboard(studentId)
   };
 }
