@@ -20,7 +20,8 @@ import {
   showHomeScreen,
   showQuizScreen,
   showResultScreen,
-  showStartScreen
+  showStartScreen,
+  showHistoryScreen
 } from "./core/screen-controller.js";
 import { renderTextQuestion } from "./renderers/text-renderer.js";
 import { renderChoiceQuestion, lockChoiceButtons } from "./renderers/choice-renderer.js";
@@ -48,12 +49,14 @@ import { recordAnswerForAttempt } from "./features/history/answer-record-integra
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
+import { renderHistoryForStudent } from "./features/history/history-renderer.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
 const quizScreen = document.getElementById("quiz-screen");
 const resultScreen = document.getElementById("result-screen");
-const allScreens = [homeScreen, startScreen, quizScreen, resultScreen];
+const historyScreen = document.getElementById("history-screen");
+const allScreens = [homeScreen, startScreen, quizScreen, resultScreen, historyScreen];
 
 // Phase2 Task20-A: ホーム画面の生徒選択欄。既存start-screenの生徒選択（下記
 // studentNameInput等）とはDOM要素が別だが、選択処理はservices/student-service.jsの
@@ -75,6 +78,7 @@ const homeDetail = document.getElementById("home-detail");
 const homeFieldList = document.getElementById("home-field-list");
 const homeDormantList = document.getElementById("home-dormant-list");
 const homeStartButton = document.getElementById("home-start-button");
+const homeHistoryButton = document.getElementById("home-history-button");
 
 const homeElements = {
   infoContainer: homeInfo,
@@ -89,6 +93,32 @@ const homeElements = {
   fieldList: homeFieldList,
   dormantList: homeDormantList,
   startButton: homeStartButton
+};
+
+// Phase2 Task23-1: 学習履歴詳細画面（history-screen）のDOM要素。
+// history-renderer.jsはHistoryServiceのみを見て描画し、Repository/Storage/
+// WeaknessService/HomeServiceへは一切アクセスしない（features/history/history-renderer.js参照）。
+const historyEmptyMessage = document.getElementById("history-empty-message");
+const historyError = document.getElementById("history-error");
+const historyInfo = document.getElementById("history-info");
+const historyTotalAnswered = document.getElementById("history-total-answered");
+const historyCorrectRate = document.getElementById("history-correct-rate");
+const historyTotalStudyDays = document.getElementById("history-total-study-days");
+const historyCurrentStreak = document.getElementById("history-current-streak");
+const historySubjectList = document.getElementById("history-subject-list");
+const historyRecentList = document.getElementById("history-recent-list");
+const historyBackButton = document.getElementById("history-back-button");
+
+const historyElements = {
+  infoContainer: historyInfo,
+  emptyMessage: historyEmptyMessage,
+  errorMessage: historyError,
+  totalAnswered: historyTotalAnswered,
+  correctRate: historyCorrectRate,
+  totalStudyDays: historyTotalStudyDays,
+  currentStreak: historyCurrentStreak,
+  subjectList: historySubjectList,
+  recentList: historyRecentList
 };
 
 // Phase2 Task21-3: 「苦手を復習」「復習する」ボタン押下時に呼ばれるコールバック。
@@ -167,6 +197,8 @@ const filterManager = createFilterManager({
 
 homeStartButton.addEventListener("click", goToStartScreenFromHome);
 homeDetailToggle.addEventListener("click", () => toggleHomeDetail(homeElements));
+homeHistoryButton.addEventListener("click", goToHistoryScreen);
+historyBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
@@ -711,4 +743,15 @@ function goToStartScreenFromHome() {
 
   syncStartScreenStudentDisplay();
   showStartScreen(startScreen, allScreens);
+}
+
+// Phase2 Task23-4: ホーム画面の「学習履歴を見る」から、history-screenへ遷移する。
+// state.session.studentId をそのまま使う（新しいstudentId用のstate・localStorage・
+// sessionStorageは作らない）。描画自体はhistory-renderer.jsに委ねる（app.jsは
+// 呼び出すだけで、履歴集計・DOM生成は一切行わない）。
+function goToHistoryScreen() {
+  if (!state.session.studentId) return;
+
+  renderHistoryForStudent(state.session.studentId, historyElements);
+  showHistoryScreen(historyScreen, allScreens);
 }

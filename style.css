@@ -721,6 +721,103 @@ select {
   flex-shrink: 0;
 }
 
+/* =========================
+   history
+========================= */
+
+.history-empty-message {
+  color: #667;
+  margin: 4px 0 16px;
+  line-height: 1.6;
+}
+
+.history-info {
+  margin-top: 8px;
+  margin-bottom: 18px;
+}
+
+.history-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.history-stat-card {
+  background: #f3f6fc;
+  border: 1px solid #d8e0ef;
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+
+.history-stat-label {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: #556;
+  font-weight: bold;
+}
+
+.history-stat-value {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: bold;
+  color: #2f4d8f;
+  word-break: break-word;
+}
+
+.history-section-title {
+  margin: 14px 0 8px;
+  font-size: 0.9rem;
+  color: #445;
+  font-weight: bold;
+}
+
+.history-subject-list,
+.history-recent-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-subject-item,
+.history-recent-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  font-size: 0.92rem;
+}
+
+.history-subject-item-name,
+.history-recent-item-date {
+  word-break: break-word;
+}
+
+.history-subject-item-detail {
+  color: #2f4d8f;
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+  text-align: right;
+}
+
+.history-recent-item-subject {
+  flex: 1;
+  text-align: center;
+  color: #445;
+}
+
+.history-recent-item-count {
+  color: #2f4d8f;
+  font-weight: bold;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 @media (max-width: 600px) {
   .card {
     padding: 18px;

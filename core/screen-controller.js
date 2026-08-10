@@ -21,3 +21,7 @@ export function showResultScreen(resultScreen, allScreens) {
 export function showStartScreen(startScreen, allScreens) {
   showScreen(startScreen, allScreens);
 }
+
+export function showHistoryScreen(historyScreen, allScreens) {
+  showScreen(historyScreen, allScreens);
+}
