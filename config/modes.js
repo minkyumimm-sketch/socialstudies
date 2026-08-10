@@ -29,5 +29,6 @@ export const MODE_FILTER_OPTIONS = {
     { value: "era", label: "時代当て" },
     { value: "sort", label: "並び替え" }
   ],
-  biology: TEXT_CHOICE_MODE_FILTER_OPTIONS
+  biology: TEXT_CHOICE_MODE_FILTER_OPTIONS,
+  chemistry: TEXT_CHOICE_MODE_FILTER_OPTIONS
 };

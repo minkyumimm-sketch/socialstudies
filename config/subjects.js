@@ -17,5 +17,10 @@ export const SUBJECT_CONFIG = {
   biology: {
     label: "生物",
     csvPath: "./data/biology_questions.csv"
+  },
+
+  chemistry: {
+    label: "化学",
+    csvPath: "./data/chemistry_questions.csv"
   }
 };
