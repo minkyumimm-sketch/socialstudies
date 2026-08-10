@@ -47,7 +47,7 @@ import { startAttemptForQuiz } from "./features/history/quiz-start-integration.j
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
-import { buildWeakQuestionQuiz, buildDormantQuestionQuiz } from "./features/weakness/weakness-quiz-bridge.js";
+import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -293,24 +293,26 @@ async function beginAttemptAndShowQuiz() {
   showQuizScreen(quizScreen, allScreens);
 }
 
-// Phase2 Task21-3: ホーム画面の「苦手を復習」「復習する」から、既存start-screenの
+// Phase2 Task21-3/Task22-2: ホーム画面の「苦手を復習」「復習する」から、既存start-screenの
 // 科目/単元/分野/出題形式選択を経由せず直接quiz-screenへ入るための共通処理。
-// buildQuizFn（features/weakness/weakness-quiz-bridge.jsのbuildWeakQuestionQuiz/
-// buildDormantQuestionQuiz）が返す「現在の問題データと一致した問題」だけを対象にし、
-// 0件の場合はクイズを開始しない（存在する問題だけ出題する、というご指示のとおり）。
-async function startPracticeSession(fieldId, buildQuizFn) {
+// どのBridge（苦手/復習推奨）を使うか・questionId突き合わせ自体は
+// features/home/home-practice-controller.js（buildHomePracticeQuiz）に委譲し、
+// ここでは「controllerを呼ぶ→0件なら中断→stateへ反映→既存クイズ開始処理を呼ぶ」という
+// 画面固有の配線のみを行う（0件の場合はクイズを開始しない、というご指示のとおり）。
+async function startPracticeSession(fieldId, practiceType) {
   if (!state.session.studentId || !fieldId) return;
 
   homeError.textContent = "";
 
   const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
-  const bridgeResult = buildQuizFn({
+  const practiceResult = buildHomePracticeQuiz({
     studentId: state.session.studentId,
     fieldId,
+    practiceType,
     availableQuestions
   });
 
-  if (bridgeResult.questions.length === 0) {
+  if (practiceResult.questions.length === 0) {
     homeError.textContent = "現在解ける問題がありません。時間をおいて再度お試しください。";
     return;
   }
@@ -319,23 +321,23 @@ async function startPracticeSession(fieldId, buildQuizFn) {
   state.session.unitFilter = "all";
   state.session.modeFilter = "all";
   state.session.subunitFilter = "all";
-  state.session.requestedQuestionCount = bridgeResult.questions.length;
+  state.session.requestedQuestionCount = practiceResult.questions.length;
 
   resetQuizState(state);
   resetUiState(state);
 
-  state.quiz.allQuestions = bridgeResult.questions;
-  state.quiz.quizQuestions = pickQuestions(bridgeResult.questions, bridgeResult.questions.length);
+  state.quiz.allQuestions = practiceResult.questions;
+  state.quiz.quizQuestions = pickQuestions(practiceResult.questions, practiceResult.questions.length);
 
   await beginAttemptAndShowQuiz();
 }
 
 function startWeaknessReview(fieldId) {
-  return startPracticeSession(fieldId, buildWeakQuestionQuiz);
+  return startPracticeSession(fieldId, "weak");
 }
 
 function startDormantReview(fieldId) {
-  return startPracticeSession(fieldId, buildDormantQuestionQuiz);
+  return startPracticeSession(fieldId, "dormant");
 }
 
 function getQuestionId(question) {
