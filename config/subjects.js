@@ -12,5 +12,10 @@ export const SUBJECT_CONFIG = {
   history: {
     label: "歴史",
     csvPath: "./data/history_questions.csv"
+  },
+
+  biology: {
+    label: "生物",
+    csvPath: "./data/biology_questions.csv"
   }
 };
