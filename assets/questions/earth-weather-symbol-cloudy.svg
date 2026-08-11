@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" role="img" aria-label="白い円ア・中央に黒い点があるイ・全体が黒いウの3つの天気記号">
+  <rect x="1" y="1" width="298" height="158" fill="#ffffff" stroke="none" />
+
+  <circle cx="70" cy="65" r="32" fill="#ffffff" stroke="#334155" stroke-width="4" />
+  <text x="70" y="120" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+
+  <circle cx="150" cy="65" r="32" fill="#ffffff" stroke="#334155" stroke-width="4" />
+  <circle cx="150" cy="65" r="9" fill="#334155" />
+  <text x="150" y="120" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+
+  <circle cx="230" cy="65" r="32" fill="#334155" stroke="#334155" stroke-width="4" />
+  <text x="230" y="120" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ウ</text>
+</svg>

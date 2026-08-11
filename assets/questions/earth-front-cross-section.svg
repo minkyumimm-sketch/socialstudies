@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 210" role="img" aria-label="ゆるやかな境界のアと、急な境界のイ、2つの前線の断面を比べる図">
+  <rect x="1" y="1" width="318" height="208" fill="#ffffff" stroke="none" />
+
+  <!-- ア: ゆるやかな境界 -->
+  <text x="80" y="20" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+  <line x1="20" y1="180" x2="140" y2="180" stroke="#334155" stroke-width="4" />
+  <line x1="30" y1="178" x2="130" y2="90" stroke="#b45309" stroke-width="4" />
+  <text x="105" y="55" font-size="13" fill="#334155" text-anchor="middle">暖気</text>
+  <text x="45" y="165" font-size="13" fill="#334155" text-anchor="middle">寒気</text>
+  <text x="80" y="200" font-size="12" fill="#334155" text-anchor="middle">境界がゆるやか</text>
+
+  <!-- イ: 急な境界 -->
+  <text x="240" y="20" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+  <line x1="180" y1="180" x2="300" y2="180" stroke="#334155" stroke-width="4" />
+  <line x1="285" y1="178" x2="225" y2="90" stroke="#0f766e" stroke-width="4" />
+  <text x="260" y="55" font-size="13" fill="#334155" text-anchor="middle">暖気</text>
+  <text x="205" y="165" font-size="13" fill="#334155" text-anchor="middle">寒気</text>
+  <text x="240" y="200" font-size="12" fill="#334155" text-anchor="middle">境界が急</text>
+</svg>

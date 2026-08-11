@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 170" role="img" aria-label="三角の記号がついたアの前線と、半円の記号がついたイの前線を比べる図">
+  <rect x="1" y="1" width="298" height="168" fill="#ffffff" stroke="none" />
+
+  <!-- ア: 三角記号(寒冷前線) -->
+  <line x1="30" y1="45" x2="270" y2="45" stroke="#334155" stroke-width="4" />
+  <path d="M 65 45 L 80 20 L 95 45 Z" fill="#334155" />
+  <path d="M 135 45 L 150 20 L 165 45 Z" fill="#334155" />
+  <path d="M 205 45 L 220 20 L 235 45 Z" fill="#334155" />
+  <text x="20" y="50" font-size="16" fill="#334155" text-anchor="end" font-weight="bold">ア</text>
+
+  <!-- イ: 半円記号(温暖前線) -->
+  <line x1="30" y1="120" x2="270" y2="120" stroke="#334155" stroke-width="4" />
+  <path d="M 65 120 A 15 15 0 0 1 95 120 Z" fill="#334155" />
+  <path d="M 135 120 A 15 15 0 0 1 165 120 Z" fill="#334155" />
+  <path d="M 205 120 A 15 15 0 0 1 235 120 Z" fill="#334155" />
+  <text x="20" y="125" font-size="16" fill="#334155" text-anchor="end" font-weight="bold">イ</text>
+</svg>

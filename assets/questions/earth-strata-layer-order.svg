@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 220" role="img" aria-label="4つの地層ア・イ・ウ・エが上から順に積み重なっている断面図">
+  <rect x="1" y="1" width="258" height="218" fill="#ffffff" stroke="none" />
+
+  <text x="130" y="16" font-size="13" fill="#334155" text-anchor="middle">地表</text>
+
+  <rect x="60" y="20" width="140" height="40" fill="#fef3c7" stroke="#334155" stroke-width="3" />
+  <text x="215" y="45" font-size="16" fill="#334155" text-anchor="start" font-weight="bold">ア</text>
+
+  <rect x="60" y="60" width="140" height="40" fill="#dbeafe" stroke="#334155" stroke-width="3" />
+  <text x="215" y="85" font-size="16" fill="#334155" text-anchor="start" font-weight="bold">イ</text>
+
+  <rect x="60" y="100" width="140" height="40" fill="#fde2e2" stroke="#334155" stroke-width="3" />
+  <text x="215" y="125" font-size="16" fill="#334155" text-anchor="start" font-weight="bold">ウ</text>
+
+  <rect x="60" y="140" width="140" height="40" fill="#dcfce7" stroke="#334155" stroke-width="3" />
+  <text x="215" y="165" font-size="16" fill="#334155" text-anchor="start" font-weight="bold">エ</text>
+
+  <text x="130" y="205" font-size="13" fill="#334155" text-anchor="middle">地層は大きく乱されていない</text>
+</svg>

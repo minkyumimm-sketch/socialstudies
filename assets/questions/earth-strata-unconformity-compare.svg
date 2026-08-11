@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 230" role="img" aria-label="連続して重なるア(整合)と、侵食面をはさんで重なるイ(不整合)を比べる図">
+  <rect x="1" y="1" width="318" height="228" fill="#ffffff" stroke="none" />
+
+  <!-- ア: 整合(平行に連続) -->
+  <text x="80" y="20" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+  <rect x="20" y="30" width="120" height="150" fill="#ffffff" stroke="#334155" stroke-width="3" />
+  <line x1="20" y1="67" x2="140" y2="67" stroke="#334155" stroke-width="2" />
+  <line x1="20" y1="104" x2="140" y2="104" stroke="#334155" stroke-width="2" />
+  <line x1="20" y1="141" x2="140" y2="141" stroke="#334155" stroke-width="2" />
+  <text x="80" y="200" font-size="12" fill="#334155" text-anchor="middle">層が平行に連続</text>
+
+  <!-- イ: 不整合(侵食面をはさむ) -->
+  <text x="240" y="20" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+  <rect x="180" y="30" width="120" height="150" fill="#ffffff" stroke="#334155" stroke-width="3" />
+
+  <clipPath id="lowerClip">
+    <rect x="180" y="100" width="120" height="80" />
+  </clipPath>
+  <g clip-path="url(#lowerClip)" stroke="#94a3b8" stroke-width="2">
+    <line x1="170" y1="90" x2="230" y2="200" />
+    <line x1="195" y1="90" x2="255" y2="200" />
+    <line x1="220" y1="90" x2="280" y2="200" />
+    <line x1="245" y1="90" x2="305" y2="200" />
+    <line x1="270" y1="90" x2="330" y2="200" />
+  </g>
+
+  <line x1="180" y1="100" x2="300" y2="100" stroke="#b45309" stroke-width="4" />
+  <text x="240" y="95" font-size="12" fill="#b45309" text-anchor="middle">侵食面</text>
+
+  <line x1="180" y1="65" x2="300" y2="65" stroke="#334155" stroke-width="2" />
+  <text x="240" y="200" font-size="12" fill="#334155" text-anchor="middle">傾いた層の上に新しい層</text>
+</svg>

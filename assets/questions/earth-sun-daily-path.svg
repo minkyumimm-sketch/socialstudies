@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 210" role="img" aria-label="太陽が東からのぼり南の空を通って西へしずむ道すじを表す図">
+  <rect x="1" y="1" width="298" height="208" fill="#ffffff" stroke="none" />
+
+  <!-- 地平線 -->
+  <line x1="20" y1="170" x2="280" y2="170" stroke="#334155" stroke-width="4" />
+  <text x="30" y="192" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">東</text>
+  <text x="270" y="192" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">西</text>
+  <text x="150" y="20" font-size="15" fill="#334155" text-anchor="middle" font-weight="bold">南</text>
+
+  <!-- 太陽の通り道(点線の弧) -->
+  <path d="M 50 160 Q 150 -70 250 160" fill="none" stroke="#b45309" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#sunArrow)" />
+
+  <!-- 太陽の位置(朝・正午・夕方) -->
+  <circle cx="50" cy="160" r="8" fill="#f59e0b" stroke="#b45309" stroke-width="2" />
+  <circle cx="150" cy="45" r="10" fill="#f59e0b" stroke="#b45309" stroke-width="2" />
+
+  <defs>
+    <marker id="sunArrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#b45309" />
+    </marker>
+  </defs>
+</svg>
