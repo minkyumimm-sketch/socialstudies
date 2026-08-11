@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 190" role="img" aria-label="鏡の反射面に35度で入射する光の反射角を問う図">
+  <rect x="1" y="1" width="298" height="188" fill="#ffffff" stroke="none" />
+
+  <!-- 反射面 -->
+  <line x1="40" y1="140" x2="260" y2="140" stroke="#334155" stroke-width="4" />
+  <text x="150" y="160" font-size="14" fill="#334155" text-anchor="middle">反射面(鏡)</text>
+
+  <!-- 法線(点線) -->
+  <line x1="150" y1="40" x2="150" y2="140" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5" />
+  <text x="150" y="30" font-size="13" fill="#64748b" text-anchor="middle">法線</text>
+
+  <!-- 入射光 -->
+  <line x1="78" y1="55" x2="150" y2="140" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrow1)" />
+  <text x="72" y="75" font-size="14" fill="#1d4ed8" text-anchor="end">入射光</text>
+
+  <!-- 反射光(方向のみ、角度は問題文で問う) -->
+  <line x1="150" y1="140" x2="222" y2="55" stroke="#b91c1c" stroke-width="4" marker-end="url(#arrow2)" />
+  <text x="228" y="75" font-size="14" fill="#b91c1c" text-anchor="start">反射光</text>
+
+  <!-- 入射角の弧と数値 -->
+  <path d="M 150 100 A 40 40 0 0 0 121 62" fill="none" stroke="#1d4ed8" stroke-width="2" />
+  <text x="118" y="105" font-size="15" fill="#1d4ed8" text-anchor="middle">35°</text>
+
+  <defs>
+    <marker id="arrow1" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#1d4ed8" />
+    </marker>
+    <marker id="arrow2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#b91c1c" />
+    </marker>
+  </defs>
+</svg>

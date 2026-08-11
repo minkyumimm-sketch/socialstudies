@@ -317,6 +317,115 @@ function checkSvgAreaIdsExist(subject, q) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// ⑨.5 imagePath検証（Task33: choiceモード等に任意で付与する補足画像パス）
+//    imagePathが空の場合はOK（画像なし問題として許容）。
+//    値がある場合のみ、外部URL・パス脱出・拡張子・実在・(SVGなら)簡易安全性を検査する。
+//    「自作教材SVGの単純な事故防止」を目的とし、本格的なSVGセキュリティパーサーは作らない。
+// ---------------------------------------------------------------------------
+
+// 将来、写真・スクリーンショット等の教材画像運用も見込み、SVG限定にせず拡張子を許可リスト化する。
+const IMAGE_PATH_ALLOWED_EXTENSIONS = [".svg", ".png", ".jpg", ".jpeg", ".webp"];
+
+function checkImagePathExists(subject, q) {
+  const imagePath = String(q.imagePath ?? "").trim();
+  if (!imagePath) return;
+
+  if (/^https?:\/\//i.test(imagePath)) {
+    addResult(
+      "Critical",
+      subject,
+      q.questionId,
+      "imagepath-external-url",
+      `imagePath="${imagePath}"は外部URL(http/https)です。リポジトリ内の相対パスのみ許可されます。`
+    );
+    return;
+  }
+
+  if (imagePath.startsWith("//")) {
+    addResult(
+      "Critical",
+      subject,
+      q.questionId,
+      "imagepath-external-url",
+      `imagePath="${imagePath}"はプロトコル相対URLです。リポジトリ内の相対パスのみ許可されます。`
+    );
+    return;
+  }
+
+  if (/^[a-zA-Z]:[\\/]/.test(imagePath) || imagePath.startsWith("/") || imagePath.startsWith("\\")) {
+    addResult(
+      "Critical",
+      subject,
+      q.questionId,
+      "imagepath-absolute-path",
+      `imagePath="${imagePath}"は絶対パスです。リポジトリ内の相対パスのみ許可されます。`
+    );
+    return;
+  }
+
+  if (imagePath.split(/[\\/]/).includes("..")) {
+    addResult(
+      "Critical",
+      subject,
+      q.questionId,
+      "imagepath-traversal",
+      `imagePath="${imagePath}"に".."によるディレクトリ脱出が含まれています。`
+    );
+    return;
+  }
+
+  const ext = path.extname(imagePath).toLowerCase();
+  if (!IMAGE_PATH_ALLOWED_EXTENSIONS.includes(ext)) {
+    addResult(
+      "Error",
+      subject,
+      q.questionId,
+      "imagepath-extension",
+      `imagePath="${imagePath}"の拡張子"${ext}"は許可されていません（許可: ${IMAGE_PATH_ALLOWED_EXTENSIONS.join("/")}）。`
+    );
+    return;
+  }
+
+  const absolutePath = toAbsolutePath(imagePath);
+  const relativeToRoot = path.relative(REPO_ROOT, absolutePath);
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    addResult("Critical", subject, q.questionId, "imagepath-traversal", `imagePath="${imagePath}"がリポジトリ外を指しています。`);
+    return;
+  }
+
+  if (!existsSync(absolutePath)) {
+    addResult("Error", subject, q.questionId, "imagepath-file-exists", `imagePathが指すファイルが存在しません: ${imagePath}`);
+    return;
+  }
+
+  if (ext === ".svg") {
+    checkSvgContentSafety(subject, q, absolutePath, imagePath);
+  }
+}
+
+function checkSvgContentSafety(subject, q, absolutePath, imagePath) {
+  const svgText = readFileSync(absolutePath, "utf8");
+
+  if (/<script[\s>]/i.test(svgText)) {
+    addResult("Critical", subject, q.questionId, "imagepath-svg-script", `SVG内に<script>が含まれています: ${imagePath}`);
+  }
+
+  if (/javascript:/i.test(svgText)) {
+    addResult("Critical", subject, q.questionId, "imagepath-svg-script", `SVG内にjavascript:スキームが含まれています: ${imagePath}`);
+  }
+
+  if (/(?:href|xlink:href|src)\s*=\s*["'](?:https?:)?\/\//i.test(svgText)) {
+    addResult(
+      "Critical",
+      subject,
+      q.questionId,
+      "imagepath-svg-external-ref",
+      `SVG内に外部リソース参照(http/https)が含まれています: ${imagePath}`
+    );
+  }
+}
+
 // ⑨ SVGファイル存在確認（設定ファイル全体の健全性チェック。CSVの使用有無に関わらず全件確認する）
 function checkAllSvgSourcesExist() {
   Object.entries(SVG_SOURCES).forEach(([sourceKey, entry]) => {
@@ -373,6 +482,7 @@ function validateSubjectCsv(subject, csvPath) {
     checkRequiredFieldsByMode(subject, q);
     checkMapIdExists(subject, q);
     checkSvgAreaIdsExist(subject, q);
+    checkImagePathExists(subject, q);
   });
 
   return normalizedRows.length;

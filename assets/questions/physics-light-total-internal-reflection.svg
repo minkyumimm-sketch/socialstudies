@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220" role="img" aria-label="水中から空気中へ進もうとした光が境界面ですべて反射する全反射の図">
+  <rect x="1" y="1" width="298" height="218" fill="#ffffff" stroke="none" />
+
+  <!-- 水の領域 -->
+  <rect x="30" y="100" width="240" height="90" fill="#e6f1fb" stroke="none" />
+
+  <!-- 境界面 -->
+  <line x1="30" y1="100" x2="270" y2="100" stroke="#334155" stroke-width="4" />
+  <text x="245" y="30" font-size="14" fill="#334155" text-anchor="middle">空気</text>
+  <text x="245" y="185" font-size="14" fill="#334155" text-anchor="middle">水</text>
+
+  <!-- 法線(点線) -->
+  <line x1="150" y1="55" x2="150" y2="190" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5" />
+
+  <!-- 入射光(水中) -->
+  <line x1="110" y1="175" x2="150" y2="100" stroke="#0f766e" stroke-width="4" marker-end="url(#arrowC1)" />
+  <text x="100" y="185" font-size="14" fill="#0f766e" text-anchor="middle">入射光</text>
+
+  <!-- 反射光(水中に戻る、空気中へは進まない) -->
+  <line x1="150" y1="100" x2="190" y2="175" stroke="#b91c1c" stroke-width="4" marker-end="url(#arrowC2)" />
+  <text x="200" y="185" font-size="14" fill="#b91c1c" text-anchor="middle">反射光</text>
+
+  <text x="150" y="20" font-size="13" fill="#334155" text-anchor="middle">境界面で光がすべて反射し、空気中へは進まない</text>
+
+  <defs>
+    <marker id="arrowC1" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#0f766e" />
+    </marker>
+    <marker id="arrowC2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#b91c1c" />
+    </marker>
+  </defs>
+</svg>

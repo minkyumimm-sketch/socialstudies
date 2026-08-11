@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 210" role="img" aria-label="光が空気中から水中へ進むときに法線に近づいて屈折する図">
+  <rect x="1" y="1" width="298" height="208" fill="#ffffff" stroke="none" />
+
+  <!-- 水の領域 -->
+  <rect x="30" y="100" width="240" height="90" fill="#e6f1fb" stroke="none" />
+
+  <!-- 境界面 -->
+  <line x1="30" y1="100" x2="270" y2="100" stroke="#334155" stroke-width="4" />
+  <text x="245" y="30" font-size="14" fill="#334155" text-anchor="middle">空気</text>
+  <text x="245" y="185" font-size="14" fill="#334155" text-anchor="middle">水</text>
+
+  <!-- 法線(点線) -->
+  <line x1="150" y1="30" x2="150" y2="190" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5" />
+  <text x="158" y="42" font-size="13" fill="#64748b">法線</text>
+
+  <!-- 入射光(空気中、角度大) -->
+  <line x1="90" y1="40" x2="150" y2="100" stroke="#1d4ed8" stroke-width="4" marker-end="url(#arrowA1)" />
+  <text x="80" y="55" font-size="14" fill="#1d4ed8" text-anchor="end">入射光</text>
+
+  <!-- 屈折光(水中、法線に近づく=角度小) -->
+  <line x1="150" y1="100" x2="170" y2="175" stroke="#0f766e" stroke-width="4" marker-end="url(#arrowA2)" />
+  <text x="178" y="160" font-size="14" fill="#0f766e" text-anchor="start">屈折光</text>
+
+  <defs>
+    <marker id="arrowA1" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#1d4ed8" />
+    </marker>
+    <marker id="arrowA2" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#0f766e" />
+    </marker>
+  </defs>
+</svg>

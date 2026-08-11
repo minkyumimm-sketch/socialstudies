@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 180" role="img" aria-label="静止した物体に大きさが等しく向きが反対の2つの力がはたらいている図">
+  <rect x="1" y="1" width="298" height="178" fill="#ffffff" stroke="none" />
+
+  <!-- 物体 -->
+  <rect x="120" y="70" width="60" height="60" fill="#f3f6fc" stroke="#334155" stroke-width="4" />
+  <text x="150" y="105" font-size="14" fill="#334155" text-anchor="middle">物体</text>
+
+  <!-- 左向きの力 -->
+  <line x1="120" y1="100" x2="60" y2="100" stroke="#b91c1c" stroke-width="5" marker-end="url(#arrowFL)" />
+  <text x="90" y="85" font-size="15" fill="#b91c1c" text-anchor="middle" font-weight="bold">F</text>
+
+  <!-- 右向きの力 -->
+  <line x1="180" y1="100" x2="240" y2="100" stroke="#1d4ed8" stroke-width="5" marker-end="url(#arrowFR)" />
+  <text x="210" y="85" font-size="15" fill="#1d4ed8" text-anchor="middle" font-weight="bold">F</text>
+
+  <text x="150" y="160" font-size="14" fill="#334155" text-anchor="middle">2つの力の大きさは等しい(F=F)。この物体は静止している</text>
+
+  <defs>
+    <marker id="arrowFL" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#b91c1c" />
+    </marker>
+    <marker id="arrowFR" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto">
+      <path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8" />
+    </marker>
+  </defs>
+</svg>

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200" role="img" aria-label="凸レンズによって物体の実像が上下逆向きにできる図">
+  <rect x="1" y="1" width="298" height="198" fill="#ffffff" stroke="none" />
+
+  <!-- 光軸 -->
+  <line x1="20" y1="100" x2="280" y2="100" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 5" />
+
+  <!-- 凸レンズ(両凸形) -->
+  <path d="M 150 50 Q 165 100 150 150 Q 135 100 150 50 Z" fill="#dbeafe" stroke="#1d4ed8" stroke-width="3" />
+  <text x="150" y="35" font-size="14" fill="#1d4ed8" text-anchor="middle">凸レンズ</text>
+
+  <!-- 焦点F -->
+  <line x1="110" y1="95" x2="110" y2="105" stroke="#334155" stroke-width="3" />
+  <text x="110" y="120" font-size="13" fill="#334155" text-anchor="middle">F</text>
+  <line x1="190" y1="95" x2="190" y2="105" stroke="#334155" stroke-width="3" />
+  <text x="190" y="120" font-size="13" fill="#334155" text-anchor="middle">F</text>
+
+  <!-- 物体(上向き矢印、焦点の外側) -->
+  <line x1="55" y1="100" x2="55" y2="50" stroke="#b91c1c" stroke-width="4" marker-end="url(#arrowObj)" />
+  <text x="55" y="40" font-size="14" fill="#b91c1c" text-anchor="middle">物体</text>
+
+  <!-- 実像(下向き矢印、反対側で上下逆) -->
+  <line x1="235" y1="100" x2="235" y2="145" stroke="#0f766e" stroke-width="4" marker-end="url(#arrowImg)" />
+  <text x="235" y="163" font-size="14" fill="#0f766e" text-anchor="middle">実像</text>
+
+  <defs>
+    <marker id="arrowObj" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#b91c1c" />
+    </marker>
+    <marker id="arrowImg" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,0 L8,4 L0,8 Z" fill="#0f766e" />
+    </marker>
+  </defs>
+</svg>
