@@ -27,5 +27,10 @@ export const SUBJECT_CONFIG = {
   physics: {
     label: "物理",
     csvPath: "./data/physics_questions.csv"
+  },
+
+  earth_science: {
+    label: "地学",
+    csvPath: "./data/earth_science_questions.csv"
   }
 };
