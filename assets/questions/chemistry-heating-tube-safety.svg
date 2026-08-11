@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 210" role="img" aria-label="ガスバーナーで試験管を加熱するとき、試験管の口を人がいない方向へ向けているようすの図">
+  <rect x="1" y="1" width="298" height="208" fill="#ffffff" stroke="none" />
+
+  <!-- 人(棒人間) -->
+  <circle cx="40" cy="90" r="12" fill="#fde68a" stroke="#334155" stroke-width="2.5" />
+  <line x1="40" y1="102" x2="40" y2="150" stroke="#334155" stroke-width="3" />
+  <line x1="40" y1="115" x2="22" y2="135" stroke="#334155" stroke-width="3" />
+  <line x1="40" y1="115" x2="58" y2="135" stroke="#334155" stroke-width="3" />
+  <line x1="40" y1="150" x2="25" y2="185" stroke="#334155" stroke-width="3" />
+  <line x1="40" y1="150" x2="55" y2="185" stroke="#334155" stroke-width="3" />
+  <text x="40" y="70" font-size="12" fill="#334155" text-anchor="middle">人</text>
+
+  <!-- ガスバーナー -->
+  <rect x="130" y="165" width="16" height="30" fill="#94a3b8" stroke="#334155" stroke-width="2" />
+  <path d="M 138 165 C 130 150 146 145 138 130 C 150 145 148 155 138 165 Z" fill="#fb923c" stroke="#b45309" stroke-width="2" />
+
+  <!-- 試験管(口を人と反対の右向きに) -->
+  <path d="M 132 155 L 250 90" stroke="#334155" stroke-width="10" stroke-linecap="round" fill="none" />
+  <path d="M 132 155 L 250 90" stroke="#f0f9ff" stroke-width="6" stroke-linecap="round" fill="none" />
+  <circle cx="252" cy="88" r="4" fill="#334155" />
+
+  <text x="150" y="30" font-size="13" fill="#334155" text-anchor="middle">試験管の口を人がいない方向へ向けている</text>
+</svg>

@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 170" role="img" aria-label="同じ種類の粒子だけが結びついているアと、異なる種類の粒子が結びついているイの2つの粒子モデルを比べる図">
+  <rect x="1" y="1" width="358" height="168" fill="#ffffff" stroke="none" />
+
+  <rect x="15" y="20" width="150" height="100" fill="#f8fafc" stroke="#334155" stroke-width="3" />
+  <rect x="195" y="20" width="150" height="100" fill="#f8fafc" stroke="#334155" stroke-width="3" />
+
+  <!-- ア: 同じ種類の粒子どうしのペア(単体) -->
+  <g stroke="#334155" stroke-width="2">
+    <line x1="45" y1="50" x2="70" y2="50" />
+    <line x1="100" y1="50" x2="125" y2="50" />
+    <line x1="45" y1="95" x2="70" y2="95" />
+    <line x1="100" y1="95" x2="125" y2="95" />
+  </g>
+  <g fill="#dc2626" stroke="#334155" stroke-width="1.5">
+    <circle cx="45" cy="50" r="12" /><circle cx="70" cy="50" r="12" />
+    <circle cx="100" cy="50" r="12" /><circle cx="125" cy="50" r="12" />
+    <circle cx="45" cy="95" r="12" /><circle cx="70" cy="95" r="12" />
+    <circle cx="100" cy="95" r="12" /><circle cx="125" cy="95" r="12" />
+  </g>
+  <text x="90" y="140" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+
+  <!-- イ: 異なる種類の粒子が結びついたペア(化合物) -->
+  <g stroke="#334155" stroke-width="2">
+    <line x1="225" y1="50" x2="250" y2="50" />
+    <line x1="280" y1="50" x2="305" y2="50" />
+    <line x1="225" y1="95" x2="250" y2="95" />
+    <line x1="280" y1="95" x2="305" y2="95" />
+  </g>
+  <circle cx="225" cy="50" r="12" fill="#dc2626" stroke="#334155" stroke-width="1.5" />
+  <circle cx="250" cy="50" r="12" fill="#1d4ed8" stroke="#334155" stroke-width="1.5" />
+  <circle cx="280" cy="50" r="12" fill="#dc2626" stroke="#334155" stroke-width="1.5" />
+  <circle cx="305" cy="50" r="12" fill="#1d4ed8" stroke="#334155" stroke-width="1.5" />
+  <circle cx="225" cy="95" r="12" fill="#dc2626" stroke="#334155" stroke-width="1.5" />
+  <circle cx="250" cy="95" r="12" fill="#1d4ed8" stroke="#334155" stroke-width="1.5" />
+  <circle cx="280" cy="95" r="12" fill="#dc2626" stroke="#334155" stroke-width="1.5" />
+  <circle cx="305" cy="95" r="12" fill="#1d4ed8" stroke="#334155" stroke-width="1.5" />
+  <text x="270" y="140" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+</svg>

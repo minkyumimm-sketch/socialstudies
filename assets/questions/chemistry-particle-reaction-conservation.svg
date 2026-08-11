@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 190" role="img" aria-label="化学変化の前と後で原子の組み合わせは変わるが、原子の種類と数の合計は変わらないことを表すモデル図">
+  <rect x="1" y="1" width="358" height="188" fill="#ffffff" stroke="none" />
+
+  <text x="90" y="20" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">反応前</text>
+  <text x="270" y="20" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">反応後</text>
+
+  <!-- 反応前: 赤原子どうし・青原子どうしのペア -->
+  <g stroke="#334155" stroke-width="2">
+    <line x1="45" y1="55" x2="70" y2="55" />
+    <line x1="45" y1="105" x2="70" y2="105" />
+    <line x1="110" y1="55" x2="135" y2="55" />
+    <line x1="110" y1="105" x2="135" y2="105" />
+  </g>
+  <g fill="#dc2626" stroke="#334155" stroke-width="1.5">
+    <circle cx="45" cy="55" r="12" /><circle cx="70" cy="55" r="12" />
+    <circle cx="45" cy="105" r="12" /><circle cx="70" cy="105" r="12" />
+  </g>
+  <g fill="#1d4ed8" stroke="#334155" stroke-width="1.5">
+    <circle cx="110" cy="55" r="12" /><circle cx="135" cy="55" r="12" />
+    <circle cx="110" cy="105" r="12" /><circle cx="135" cy="105" r="12" />
+  </g>
+
+  <!-- 矢印 -->
+  <line x1="160" y1="80" x2="195" y2="80" stroke="#334155" stroke-width="4" marker-end="url(#cArrow)" />
+
+  <!-- 反応後: 赤・青が組み合わさったペア -->
+  <g stroke="#334155" stroke-width="2">
+    <line x1="220" y1="45" x2="245" y2="45" />
+    <line x1="280" y1="45" x2="305" y2="45" />
+    <line x1="220" y1="105" x2="245" y2="105" />
+    <line x1="280" y1="105" x2="305" y2="105" />
+  </g>
+  <g stroke="#334155" stroke-width="1.5">
+    <circle cx="220" cy="45" r="12" fill="#dc2626" /><circle cx="245" cy="45" r="12" fill="#1d4ed8" />
+    <circle cx="280" cy="45" r="12" fill="#dc2626" /><circle cx="305" cy="45" r="12" fill="#1d4ed8" />
+    <circle cx="220" cy="105" r="12" fill="#dc2626" /><circle cx="245" cy="105" r="12" fill="#1d4ed8" />
+    <circle cx="280" cy="105" r="12" fill="#dc2626" /><circle cx="305" cy="105" r="12" fill="#1d4ed8" />
+  </g>
+
+  <text x="180" y="165" font-size="12" fill="#334155" text-anchor="middle">赤い粒子4個・青い粒子4個は反応の前後で数が変わらない</text>
+
+  <defs>
+    <marker id="cArrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#334155" />
+    </marker>
+  </defs>
+</svg>

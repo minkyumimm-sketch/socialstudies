@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 190" role="img" aria-label="粒子の並び方が異なる3つの状態ア・イ・ウを表した図。アは規則正しく密に並び、イはやや不規則に集まり、ウは大きく広がって散らばっている">
+  <rect x="1" y="1" width="358" height="188" fill="#ffffff" stroke="none" />
+
+  <!-- ア: 規則正しく密に並ぶ -->
+  <rect x="10" y="20" width="100" height="100" fill="#f8fafc" stroke="#334155" stroke-width="3" />
+  <g fill="#1d4ed8">
+    <circle cx="30" cy="40" r="9" /><circle cx="52" cy="40" r="9" /><circle cx="74" cy="40" r="9" /><circle cx="96" cy="40" r="9" />
+    <circle cx="30" cy="62" r="9" /><circle cx="52" cy="62" r="9" /><circle cx="74" cy="62" r="9" /><circle cx="96" cy="62" r="9" />
+    <circle cx="30" cy="84" r="9" /><circle cx="52" cy="84" r="9" /><circle cx="74" cy="84" r="9" /><circle cx="96" cy="84" r="9" />
+    <circle cx="30" cy="106" r="9" /><circle cx="52" cy="106" r="9" /><circle cx="74" cy="106" r="9" /><circle cx="96" cy="106" r="9" />
+  </g>
+  <text x="60" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+
+  <!-- イ: ややばらけて集まる -->
+  <rect x="130" y="20" width="100" height="100" fill="#f8fafc" stroke="#334155" stroke-width="3" />
+  <g fill="#0f766e">
+    <circle cx="150" cy="45" r="9" /><circle cx="172" cy="38" r="9" /><circle cx="195" cy="50" r="9" />
+    <circle cx="145" cy="70" r="9" /><circle cx="168" cy="66" r="9" /><circle cx="210" cy="70" r="9" />
+    <circle cx="155" cy="95" r="9" /><circle cx="188" cy="90" r="9" /><circle cx="205" cy="105" r="9" />
+    <circle cx="175" cy="110" r="9" />
+  </g>
+  <text x="180" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+
+  <!-- ウ: 大きく広がって散らばる -->
+  <rect x="250" y="20" width="100" height="100" fill="#f8fafc" stroke="#334155" stroke-width="3" />
+  <g fill="#b45309">
+    <circle cx="265" cy="35" r="8" /><circle cx="330" cy="45" r="8" /><circle cx="295" cy="70" r="8" />
+    <circle cx="260" cy="100" r="8" /><circle cx="335" cy="105" r="8" /><circle cx="300" cy="115" r="8" />
+  </g>
+  <text x="300" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ウ</text>
+
+  <text x="180" y="175" font-size="12" fill="#334155" text-anchor="middle">ア→イ→ウの順に粒子の間隔が広くなっている</text>
+</svg>

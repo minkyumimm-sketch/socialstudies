@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 210" role="img" aria-label="気体を集める3つの方法ア・イ・ウを表した図。アは水そうの中で集める方法、イは口を下に向けた集気びんに集める方法、ウは口を上に向けた集気びんに集める方法">
+  <rect x="1" y="1" width="338" height="208" fill="#ffffff" stroke="none" />
+
+  <!-- ア: 水上置換法 -->
+  <rect x="15" y="140" width="90" height="45" fill="#dbeafe" stroke="#334155" stroke-width="3" />
+  <rect x="45" y="80" width="35" height="65" fill="#f0f9ff" stroke="#334155" stroke-width="3" />
+  <line x1="10" y1="165" x2="45" y2="165" stroke="#334155" stroke-width="3" />
+  <text x="62" y="115" font-size="12" fill="#334155" text-anchor="middle">気体</text>
+  <text x="60" y="175" font-size="12" fill="#334155" text-anchor="middle">水</text>
+  <text x="60" y="200" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+
+  <!-- イ: 集気びんの口が下向き -->
+  <rect x="145" y="70" width="40" height="60" fill="#f0f9ff" stroke="#334155" stroke-width="3" />
+  <line x1="135" y1="130" x2="225" y2="130" stroke="#334155" stroke-width="2" />
+  <line x1="150" y1="150" x2="165" y2="130" stroke="#334155" stroke-width="3" />
+  <text x="165" y="105" font-size="12" fill="#334155" text-anchor="middle">気体</text>
+  <text x="165" y="200" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+
+  <!-- ウ: 集気びんの口が上向き -->
+  <rect x="255" y="80" width="40" height="60" fill="#f0f9ff" stroke="#334155" stroke-width="3" />
+  <line x1="245" y1="140" x2="335" y2="140" stroke="#334155" stroke-width="2" />
+  <line x1="275" y1="60" x2="275" y2="80" stroke="#334155" stroke-width="3" />
+  <text x="275" y="120" font-size="12" fill="#334155" text-anchor="middle">気体</text>
+  <text x="275" y="200" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ウ</text>
+</svg>
