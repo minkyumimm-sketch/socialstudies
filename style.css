@@ -138,6 +138,15 @@ select {
   line-height: 1.7;
 }
 
+.question-image {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  margin: 0 0 20px;
+  object-fit: contain;
+}
+
 .choices {
   display: grid;
   grid-template-columns: 1fr;

@@ -177,6 +177,9 @@ const questionElements = {
   get answerResult() {
     return document.getElementById("answer-result");
   },
+  get questionImage() {
+    return document.getElementById("question-image");
+  },
   get mapClickContainer() {
     return document.getElementById("map-click-container");
   },
@@ -421,6 +424,10 @@ function resetQuestionArea() {
 
   answerResult.classList.remove("correct", "incorrect");
   answerResult.style.color = "";
+
+  questionElements.questionImage.classList.add("hidden");
+  questionElements.questionImage.src = "";
+  questionElements.questionImage.alt = "";
 
   resetMapClickArea(questionElements);
 }

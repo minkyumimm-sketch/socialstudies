@@ -47,6 +47,7 @@ export function normalizeQuestion(question, fallbackSubject = "") {
   normalized.svgAreaId = String(question.svgAreaId ?? "").trim();
   normalized.mapId = String(question.mapId ?? "").trim();
   normalized.answerAlias = String(question.answerAlias ?? "").trim();
+  normalized.imagePath = String(question.imagePath ?? "").trim();
 
   if (!normalized.questionId) {
     normalized.questionId = buildFallbackQuestionId(normalized, fallbackSubject);

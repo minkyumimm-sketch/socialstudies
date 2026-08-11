@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 160" role="img" aria-label="乾電池2個の電球2個が1本の輪になっている回路図">
+  <rect x="1" y="1" width="298" height="158" fill="#ffffff" stroke="none" />
+
+  <!-- 外周の導線(1本の輪) -->
+  <path d="M 40 30 H 260 V 130 H 40 Z" fill="none" stroke="#334155" stroke-width="4" stroke-linejoin="round" />
+
+  <!-- 電池記号(左辺中央) -->
+  <g stroke="#334155" stroke-width="4" stroke-linecap="round">
+    <line x1="20" y1="65" x2="20" y2="95" />
+    <line x1="30" y1="72" x2="30" y2="88" />
+  </g>
+  <line x1="40" y1="80" x2="20" y2="80" stroke="#334155" stroke-width="4" />
+  <line x1="20" y1="80" x2="8" y2="80" stroke="#334155" stroke-width="4" stroke-linecap="round" />
+  <line x1="30" y1="80" x2="42" y2="80" stroke="#334155" stroke-width="4" stroke-linecap="round" />
+
+  <!-- 電球1(上辺、左寄り) -->
+  <circle cx="110" cy="30" r="16" fill="#ffffff" stroke="#334155" stroke-width="4" />
+  <line x1="99" y1="19" x2="121" y2="41" stroke="#334155" stroke-width="3" />
+  <line x1="121" y1="19" x2="99" y2="41" stroke="#334155" stroke-width="3" />
+
+  <!-- 電球2(上辺、右寄り) -->
+  <circle cx="190" cy="30" r="16" fill="#ffffff" stroke="#334155" stroke-width="4" />
+  <line x1="179" y1="19" x2="201" y2="41" stroke="#334155" stroke-width="3" />
+  <line x1="201" y1="19" x2="179" y2="41" stroke="#334155" stroke-width="3" />
+
+  <text x="150" y="150" font-size="14" fill="#334155" text-anchor="middle">かん電池1こ・豆電球2こを1本の輪でつないだ回路</text>
+</svg>

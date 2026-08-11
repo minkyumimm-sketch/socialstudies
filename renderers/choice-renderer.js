@@ -4,10 +4,21 @@ export function renderChoiceQuestion(question, elements, onSelectChoice) {
     choicesContainer,
     answerInput,
     submitButton,
-    answerResult
+    answerResult,
+    questionImage
   } = elements;
 
   questionText.textContent = question.question || "問題文";
+
+  if (question.imagePath) {
+    questionImage.src = question.imagePath;
+    questionImage.alt = question.question || "";
+    questionImage.classList.remove("hidden");
+  } else {
+    questionImage.classList.add("hidden");
+    questionImage.src = "";
+    questionImage.alt = "";
+  }
 
   choicesContainer.className = "choices";
   choicesContainer.innerHTML = "";
