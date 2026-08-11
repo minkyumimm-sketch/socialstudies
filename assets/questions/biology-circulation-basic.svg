@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 230" role="img" aria-label="心臓・肺・からだをめぐる血液の経路を表す簡略図。心臓と肺を結ぶ経路をアとする">
+  <rect x="1" y="1" width="318" height="228" fill="#ffffff" stroke="none" />
+
+  <!-- 心臓 -->
+  <rect x="30" y="90" width="80" height="50" rx="10" fill="#fecaca" stroke="#334155" stroke-width="3" />
+  <text x="70" y="120" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">心臓</text>
+
+  <!-- 肺 -->
+  <ellipse cx="245" cy="55" rx="55" ry="32" fill="#dbeafe" stroke="#334155" stroke-width="3" />
+  <text x="245" y="60" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">肺</text>
+
+  <!-- からだ -->
+  <rect x="190" y="160" width="110" height="55" rx="10" fill="#fef3c7" stroke="#334155" stroke-width="3" />
+  <text x="245" y="192" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">からだ</text>
+
+  <!-- 心臓→肺→心臓(ア) -->
+  <line x1="105" y1="98" x2="205" y2="55" stroke="#1d4ed8" stroke-width="3" marker-end="url(#arrB1)" />
+  <line x1="200" y1="75" x2="112" y2="112" stroke="#1d4ed8" stroke-width="3" marker-end="url(#arrB2)" />
+  <text x="150" y="70" font-size="15" fill="#1d4ed8" text-anchor="middle" font-weight="bold">ア</text>
+
+  <!-- 心臓→からだ→心臓(イ) -->
+  <line x1="108" y1="128" x2="195" y2="170" stroke="#0f766e" stroke-width="3" marker-end="url(#arrB3)" />
+  <line x1="192" y1="188" x2="112" y2="138" stroke="#0f766e" stroke-width="3" marker-end="url(#arrB4)" />
+  <text x="150" y="175" font-size="15" fill="#0f766e" text-anchor="middle" font-weight="bold">イ</text>
+
+  <defs>
+    <marker id="arrB1" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8" /></marker>
+    <marker id="arrB2" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8" /></marker>
+    <marker id="arrB3" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e" /></marker>
+    <marker id="arrB4" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0f766e" /></marker>
+  </defs>
+</svg>

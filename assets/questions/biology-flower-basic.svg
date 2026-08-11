@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 250" role="img" aria-label="花のつくりをA〜Eのラベルで示した断面模式図">
+  <rect x="1" y="1" width="298" height="248" fill="#ffffff" stroke="none" />
+
+  <!-- 花弁(左右) -->
+  <ellipse cx="95" cy="175" rx="38" ry="20" fill="#fbcfe8" stroke="#334155" stroke-width="2" transform="rotate(-25 95 175)" />
+  <ellipse cx="205" cy="175" rx="38" ry="20" fill="#fbcfe8" stroke="#334155" stroke-width="2" transform="rotate(25 205 175)" />
+  <text x="65" y="150" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">B</text>
+
+  <!-- がく(基部) -->
+  <path d="M 125 205 L 110 225 L 135 212 Z" fill="#86efac" stroke="#334155" stroke-width="2" />
+  <path d="M 175 205 L 190 225 L 165 212 Z" fill="#86efac" stroke="#334155" stroke-width="2" />
+  <text x="150" y="238" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">A</text>
+
+  <!-- おしべ(左右) -->
+  <line x1="125" y1="180" x2="112" y2="95" stroke="#334155" stroke-width="2" />
+  <ellipse cx="112" cy="88" rx="10" ry="8" fill="#fde68a" stroke="#334155" stroke-width="2" />
+  <line x1="175" y1="180" x2="188" y2="95" stroke="#334155" stroke-width="2" />
+  <ellipse cx="188" cy="88" rx="10" ry="8" fill="#fde68a" stroke="#334155" stroke-width="2" />
+  <text x="112" y="70" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">C</text>
+
+  <!-- めしべ(柱頭・花柱・子房) -->
+  <circle cx="150" cy="42" r="12" fill="#fca5a5" stroke="#334155" stroke-width="2" />
+  <text x="150" y="25" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">D</text>
+  <rect x="145" y="54" width="10" height="65" fill="#d1fae5" stroke="#334155" stroke-width="2" />
+  <ellipse cx="150" cy="150" rx="24" ry="20" fill="#bbf7d0" stroke="#334155" stroke-width="2" />
+  <circle cx="143" cy="150" r="4" fill="#334155" />
+  <circle cx="157" cy="150" r="4" fill="#334155" />
+  <circle cx="150" cy="158" r="4" fill="#334155" />
+  <text x="150" y="185" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">E</text>
+</svg>

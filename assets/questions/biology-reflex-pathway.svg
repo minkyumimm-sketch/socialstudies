@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 150" role="img" aria-label="刺激からせきずいを経て反応が起こるまでの、脳を通らない神経の経路を表す図">
+  <rect x="1" y="1" width="318" height="148" fill="#ffffff" stroke="none" />
+
+  <!-- 刺激 -->
+  <rect x="10" y="60" width="70" height="40" rx="8" fill="#fecaca" stroke="#334155" stroke-width="3" />
+  <text x="45" y="84" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">刺激</text>
+
+  <!-- せきずい -->
+  <rect x="125" y="60" width="80" height="40" rx="8" fill="#dbeafe" stroke="#334155" stroke-width="3" />
+  <text x="165" y="84" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">せきずい</text>
+
+  <!-- 反応(筋肉) -->
+  <rect x="245" y="60" width="70" height="40" rx="8" fill="#fef3c7" stroke="#334155" stroke-width="3" />
+  <text x="280" y="78" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">反応</text>
+  <text x="280" y="94" font-size="11" fill="#334155" text-anchor="middle">(筋肉)</text>
+
+  <!-- 刺激→せきずい(感覚神経) -->
+  <line x1="80" y1="80" x2="120" y2="80" stroke="#1d4ed8" stroke-width="3" marker-end="url(#refArrow1)" />
+  <text x="100" y="45" font-size="13" fill="#1d4ed8" text-anchor="middle">感覚神経</text>
+  <line x1="100" y1="50" x2="100" y2="65" stroke="#1d4ed8" stroke-width="1" />
+
+  <!-- せきずい→反応(運動神経) -->
+  <line x1="205" y1="80" x2="240" y2="80" stroke="#b91c1c" stroke-width="3" marker-end="url(#refArrow2)" />
+  <text x="222" y="45" font-size="13" fill="#b91c1c" text-anchor="middle">運動神経</text>
+  <line x1="222" y1="50" x2="222" y2="65" stroke="#b91c1c" stroke-width="1" />
+
+  <defs>
+    <marker id="refArrow1" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#1d4ed8" /></marker>
+    <marker id="refArrow2" markerWidth="9" markerHeight="9" refX="4.5" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#b91c1c" /></marker>
+  </defs>
+</svg>

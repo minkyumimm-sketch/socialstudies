@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 170" role="img" aria-label="体細胞分裂の3つの段階ア・イ・ウを順不同に示した図">
+  <rect x="1" y="1" width="338" height="168" fill="#ffffff" stroke="none" />
+
+  <!-- ア: 染色体が散らばっている -->
+  <circle cx="60" cy="80" r="50" fill="#f0fdf4" stroke="#334155" stroke-width="3" />
+  <line x1="40" y1="60" x2="55" y2="68" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="75" y1="55" x2="85" y2="70" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="35" y1="95" x2="50" y2="100" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="70" y1="100" x2="85" y2="105" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <text x="60" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ア</text>
+
+  <!-- イ: 染色体が中央に集まる -->
+  <circle cx="170" cy="80" r="50" fill="#f0fdf4" stroke="#334155" stroke-width="3" />
+  <line x1="150" y1="75" x2="150" y2="85" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="160" y1="75" x2="160" y2="85" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="180" y1="75" x2="180" y2="85" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <line x1="190" y1="75" x2="190" y2="85" stroke="#b45309" stroke-width="5" stroke-linecap="round" />
+  <text x="170" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">イ</text>
+
+  <!-- ウ: 2つの細胞に分かれた -->
+  <circle cx="255" cy="80" r="32" fill="#f0fdf4" stroke="#334155" stroke-width="3" />
+  <circle cx="325" cy="80" r="32" fill="#f0fdf4" stroke="#334155" stroke-width="3" />
+  <line x1="248" y1="75" x2="248" y2="85" stroke="#b45309" stroke-width="4" stroke-linecap="round" />
+  <line x1="262" y1="75" x2="262" y2="85" stroke="#b45309" stroke-width="4" stroke-linecap="round" />
+  <line x1="318" y1="75" x2="318" y2="85" stroke="#b45309" stroke-width="4" stroke-linecap="round" />
+  <line x1="332" y1="75" x2="332" y2="85" stroke="#b45309" stroke-width="4" stroke-linecap="round" />
+  <text x="290" y="150" font-size="16" fill="#334155" text-anchor="middle" font-weight="bold">ウ</text>
+</svg>

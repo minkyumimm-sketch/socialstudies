@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 270" role="img" aria-label="口から大腸までの消化管と肝臓・すい臓の位置をA〜Gのラベルで示した模式図">
+  <rect x="1" y="1" width="278" height="268" fill="#ffffff" stroke="none" />
+
+  <!-- 口 A -->
+  <circle cx="100" cy="25" r="14" fill="#fde68a" stroke="#334155" stroke-width="3" />
+  <text x="100" y="30" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">A</text>
+
+  <!-- 食道 B -->
+  <rect x="93" y="42" width="14" height="42" fill="#fef3c7" stroke="#334155" stroke-width="3" />
+  <text x="120" y="68" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">B</text>
+
+  <!-- 胃 C -->
+  <ellipse cx="100" cy="118" rx="34" ry="28" fill="#fecaca" stroke="#334155" stroke-width="3" />
+  <text x="100" y="123" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">C</text>
+
+  <!-- 小腸 D(コイル状の管) -->
+  <path d="M 100 148 C 60 162 140 176 60 190 C 140 204 60 212 95 222" fill="none" stroke="#334155" stroke-width="4" />
+  <path d="M 100 148 C 60 162 140 176 60 190 C 140 204 60 212 95 222" fill="none" stroke="#fdba74" stroke-width="2.5" />
+  <text x="30" y="185" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">D</text>
+
+  <!-- 大腸 E(太い管) -->
+  <rect x="55" y="228" width="90" height="22" rx="11" fill="#ddd6fe" stroke="#334155" stroke-width="3" />
+  <text x="100" y="243" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">E</text>
+
+  <!-- 肝臓 F -->
+  <rect x="175" y="90" width="60" height="34" rx="6" fill="#fee2e2" stroke="#334155" stroke-width="3" />
+  <text x="205" y="111" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">F</text>
+  <line x1="175" y1="112" x2="132" y2="112" stroke="#334155" stroke-width="2" />
+
+  <!-- すい臓 G -->
+  <rect x="175" y="140" width="60" height="30" rx="6" fill="#fef9c3" stroke="#334155" stroke-width="3" />
+  <text x="205" y="159" font-size="13" fill="#334155" text-anchor="middle" font-weight="bold">G</text>
+  <line x1="175" y1="155" x2="100" y2="170" stroke="#334155" stroke-width="2" />
+</svg>

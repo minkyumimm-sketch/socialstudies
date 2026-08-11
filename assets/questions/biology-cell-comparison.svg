@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 230" role="img" aria-label="動物細胞と植物細胞のつくりをA〜Fのラベルで示して比較する図">
+  <rect x="1" y="1" width="338" height="228" fill="#ffffff" stroke="none" />
+
+  <text x="85" y="20" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">動物細胞</text>
+  <text x="260" y="20" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">植物細胞</text>
+
+  <!-- 動物細胞(輪郭は丸みのある楕円) -->
+  <ellipse cx="85" cy="125" rx="65" ry="75" fill="#fef7ed" stroke="#334155" stroke-width="3" />
+  <circle cx="85" cy="115" r="18" fill="#fde68a" stroke="#334155" stroke-width="2" />
+  <text x="85" y="120" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">A</text>
+  <text x="150" y="60" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">B</text>
+  <line x1="146" y1="63" x2="128" y2="80" stroke="#334155" stroke-width="1.5" />
+
+  <!-- 植物細胞(輪郭は四角い細胞壁) -->
+  <rect x="195" y="50" width="130" height="150" fill="#f0fdf4" stroke="#334155" stroke-width="3" />
+  <text x="330" y="55" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">C</text>
+  <line x1="326" y1="58" x2="315" y2="65" stroke="#334155" stroke-width="1.5" />
+
+  <ellipse cx="270" cy="120" rx="34" ry="24" fill="#dbeafe" stroke="#334155" stroke-width="2" />
+  <text x="270" y="125" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">E</text>
+
+  <circle cx="225" cy="160" r="15" fill="#fde68a" stroke="#334155" stroke-width="2" />
+  <text x="225" y="165" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">F</text>
+
+  <ellipse cx="220" cy="80" rx="10" ry="7" fill="#86efac" stroke="#334155" stroke-width="1.5" />
+  <text x="220" y="70" font-size="14" fill="#334155" text-anchor="middle" font-weight="bold">D</text>
+</svg>
