@@ -30,5 +30,6 @@ export const MODE_FILTER_OPTIONS = {
     { value: "sort", label: "並び替え" }
   ],
   biology: TEXT_CHOICE_MODE_FILTER_OPTIONS,
-  chemistry: TEXT_CHOICE_MODE_FILTER_OPTIONS
+  chemistry: TEXT_CHOICE_MODE_FILTER_OPTIONS,
+  physics: TEXT_CHOICE_MODE_FILTER_OPTIONS
 };
