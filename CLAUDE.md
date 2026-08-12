@@ -51,7 +51,7 @@
 | `docs/analysis/` | Phase0現状分析（`current-system-analysis.md`）・Phase0レビュー（`phase0-review.md`）。確定バグの根拠・優先順位・採点結果など | 現状把握、過去の判断の根拠確認 |
 | `docs/architecture/` | 全体設計書Ver.1（`ls-total-test-system-design-v1.md`）、Phase単位の実装計画（`phase1.5b-implementation-plan-v1.md`等） | 設計判断の全体像、フェーズ実装前の確認 |
 | `docs/specification/` | ドメインモデル・データスキーマ・GAS API契約・ランキング仕様の詳細 | 個別領域（データ構造・API・ランキング計算等）の詳細設計を確認するとき |
-| `docs/operations/` | Git/GitHub運用の詳細（`git-github-operations-v1.md`） | ブランチ・コミット・タグ・複数PC運用の具体手順を確認するとき（⑥は要約） |
+| `docs/operations/` | Git/GitHub運用の詳細（`git-github-operations-v1.md`）、問題管理運用の詳細（`question-management-v1.md`） | ブランチ・コミット・タグ・複数PC運用の具体手順を確認するとき（⑥は要約）／問題の追加・修正・Sheets↔CSV同期の具体手順を確認するとき |
 
 ---
 
@@ -63,6 +63,12 @@
 - 既存3ファイル（`japan_geo_questions.csv`/`world_geo_questions.csv`/`history_questions.csv`）の既存列は変更しない。新しい列は末尾に追加する形で後方互換を保つ（`docs/specification/data-schema-v1.md`）。
 - 科目キー（`japan_geo`/`world_geo`/`history`）は不変。書き換えない。
 - `status`列は`active`/`hidden`/`draft`/`archived`の4値のみを使用する。`inactive`は不採用（`docs/architecture/ls-total-test-system-design-v1.md` 5章、Phase1.5Bで対応済み）。
+
+### 問題管理（Google Sheets正本）
+- 問題内容の編集は、Google Sheets「LS総合テスト対策_問題マスター」（1科目1タブ）を正本とする。`data/*.csv`はGitHub Pages配信用の生成物であり、直接の編集対象ではない。本番アプリはGoogle Sheetsへ直接依存しない。
+- Claude Codeが新規問題を作成する場合も、CSVを直接編集して完了とせず、Google Sheetsへ反映して人間が確認する運用に乗せる。
+- Sheets編集後は、`scripts/compare-question-csv.mjs`でround-trip差分を確認し、`scripts/validate-questions.mjs`を通してから`data/*.csv`へ反映・commitする。
+- 詳細な運用フロー・シート構成・入力規則・Sheets↔CSV同期ルールは`docs/operations/question-management-v1.md`を参照。
 
 ### SVG
 - `assets/*.svg`のid・class・data-name・構造は、`renderers/map-click-prefecture.js`/`map-click-line.js`/`map-click-area.js`の描画ロジックと密結合している。編集する場合は、対応するCSV・`MAP_CONFIGS`との整合性を必ず確認し、同一SVGを使う全問題の回帰確認を行う。
