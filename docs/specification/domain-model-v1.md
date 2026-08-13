@@ -235,16 +235,29 @@ erDiagram
 | 管理場所 | 導出データ（都度計算を基本とする） |
 | 更新主体 | 学習アプリ（`features/weak-questions/`のロジック） |
 
-### 3.15 TestRange（学校別テスト範囲）
+### 3.15 TestSet（学校テスト対策セット）
+
+**Task47（2026-08-13）でTestRangeから置き換え。旧TestRange（unit/subunit条件からの動的抽出）は不採用とし、講師が確認・選定したquestionIdの固定集合を保存する方式に変更した。**
 
 | 項目 | 内容 |
 |---|---|
-| 役割 | 学校×学年×学年度×定期テスト回×教科に対応する出題範囲の定義 |
-| 一意なID | `schoolId` + `gradeId` + `academicYearId` + `examRoundLabel` + `fieldId`の複合キー |
-| 主な属性 | 対象単元リストまたは対象`questionSetId` |
-| 他概念との関係 | School・Grade・AcademicYearに紐づく、QuestionSetを推奨する |
-| 管理場所 | 学習アプリ用Sheets（新設） |
-| 更新主体 | 塾スタッフ（将来的な簡易管理画面を想定。今回は設計のみ） |
+| 役割 | 学校×学年×学年度×定期テスト回に対応する、講師が選定した固定問題集合の定義 |
+| 一意なID | `testSetId`（形式: `^TS\d{3}$`） |
+| 主な属性 | `schoolId`, `gradeId`, `academicYearId`, `examRoundLabel`, `label`（表示名）, `status`（active/archived） |
+| 他概念との関係 | School・Gradeに紐づく。TestSetQuestionを介してQuestionを参照する。QuestionSetとは別概念（3.9節参照。TestSetのquestionIdsをもとにQuestionSetを生成する想定） |
+| 管理場所 | 未確定（後続Task）。Sheetsを編集正本とする点は他マスタと同様だが、更新頻度・即時性の要件からCSV+Git+Push配信は不適合と判断しており、取得方式（GAS Web App新設等）は別途確定する |
+| 更新主体 | 塾スタッフ（講師用問題選定UIを想定。詳細は後続Task） |
+
+### 3.15.1 TestSetQuestion（TestSet構成問題）
+
+| 項目 | 内容 |
+|---|---|
+| 役割 | TestSetと問題マスター上のQuestionを紐付ける |
+| 一意なID | `testSetId` + `fieldId` + `questionId`の複合キー |
+| 主な属性 | なし（出題順は保存しない。既存の出題ロジックが毎回シャッフルするため） |
+| 他概念との関係 | TestSetに属する。同一TestSetが複数`fieldId`のQuestionIdを保持できる（例:「理科」として物理・化学・地学を横断） |
+| 管理場所 | TestSetと同じ（未確定、後続Task） |
+| 更新主体 | 塾スタッフ |
 
 ### 3.16 RankingRecord（ランキング記録）
 

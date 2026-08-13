@@ -88,7 +88,7 @@
 | データ | 管理場所 | 理由 |
 |---|---|---|
 | `QuestionSet` / `QuestionSetVersion` | Google Sheets（新設） | 塾スタッフによる更新頻度が高く、GitHub Pages再デプロイを都度要求するCSV方式は運用負荷が高い（domain-model-v1.md 4章参照） |
-| `TestRange`（学校別テスト範囲） | Google Sheets（新設） | 学校ごとに異なる範囲を塾スタッフが随時更新する運用を想定 |
+| `TestSet` / `TestSetQuestion`（学校テスト対策セット、Task47でTestRangeから改称） | Sheets等（新設、取得方式は未確定） | 学校ごとに異なる問題選定を塾スタッフが随時更新する運用を想定 |
 | `Attempt` / `AnswerRecord` | Google Sheets（既存の解答保存シートを拡張） | 生徒の行動ログであり、そもそも配信物ではない |
 | `RankingRecord` | Google Sheets（新設） | 同上 |
 

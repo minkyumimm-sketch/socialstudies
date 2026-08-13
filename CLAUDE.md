@@ -162,3 +162,5 @@
 ## Current Phase
 
 Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済みだが、実験手順並び替え・地図問題拡張は未着手のためPhase8全体は未完了。次に着手すべき本来の実装対象はPhase4（学校別テスト範囲）。
+
+Phase4はTask47（2026-08-13）でTestSet方式へ再設計済み。studentIdから学校・学年を自動判定せず、講師が問題マスターから問題を選定してTestSet（questionId固定集合）として保存し、生徒が学校・学年・TestSetを自ら選択して実行する。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9章を参照。

@@ -64,18 +64,15 @@
 
 ---
 
-## 4. 生徒プロフィール取得（新規・仮称 `getStudentProfile`）
+## 4. 生徒プロフィール取得（Task47で不採用）
 
-| 項目 | 内容 |
+**Task47（2026-08-13）で不採用と判定。** 学校別テスト範囲（Phase4）はTestSet方式へ再設計され、`studentId`から`schoolId`/`gradeId`を自動判定する必要がなくなったため、本APIは現時点で導入しない。学校・学年は生徒自身がアプリ上で選択する。歴史的記録として本項は残すが、実装対象ではない。
+
+| 項目 | 内容（不採用時点の設計） |
 |---|---|
-| 目的 | `studentId`から`schoolId`・`gradeId`を取得し、学校別テスト範囲の絞り込みに使う |
-| リクエスト（仮） | `GET ?action=getStudentProfile&studentId=...` |
-| レスポンス（仮） | `{ ok: true, studentId, schoolId, gradeId }` |
-| 必須項目 | `studentId` |
-| エラー | 該当生徒なし |
-| 冪等性 | 冪等（GET・副作用なし） |
-| 認証・本人確認 | 他生徒のプロフィールを取得できないよう、認可チェックの追加を推奨（**要確認**: 必要性は運用実態次第） |
-| 既存APIからの移行方法 | `getActiveStudents`のレスポンス拡張で代替できる可能性がある（**要確認**、別APIにするか既存API拡張にするかは実装時判断） |
+| 目的（旧） | `studentId`から`schoolId`・`gradeId`を取得し、学校別テスト範囲の絞り込みに使う |
+| リクエスト（旧・仮） | `GET ?action=getStudentProfile&studentId=...` |
+| レスポンス（旧・仮） | `{ ok: true, studentId, schoolId, gradeId }` |
 
 ---
 
@@ -139,18 +136,22 @@
 
 ---
 
-## 9. 学校別テスト範囲取得（新規・仮称 `getTestRange`）
+## 9. 学校別TestSet取得（新規・仮称 `getTestSets`、Task47で再設計）
 
-| 項目 | 内容 |
+**Task47（2026-08-13）で`getTestRange`から名称・形状を変更。** 学校別テスト範囲はunit/subunit条件からの動的抽出ではなく、講師が選定したquestionId固定集合（TestSet）の取得に変わったため、レスポンス形状を変更した。**本APIの導入可否・具体的なアクション名・認証方式は未確定（後続Taskでユーザーと合意のうえ確定する）。** 以下は暫定案。
+
+| 項目 | 内容（暫定） |
 |---|---|
-| 目的 | 生徒の学校・学年・現在の学年度に対応するテスト範囲を取得する |
-| リクエスト（仮） | `GET ?action=getTestRange&schoolId=...&gradeId=...&academicYearId=...&fieldId=...` |
-| レスポンス（仮） | `{ ok: true, testRanges: [{ examRoundLabel, targetUnits: [...], questionSetId }] }` |
+| 目的 | 学校・学年・現在の学年度に対応する、講師が作成したTestSet一覧を取得する |
+| リクエスト（仮） | `GET ?action=getTestSets&schoolId=...&gradeId=...&academicYearId=...` |
+| レスポンス（仮） | `{ ok: true, testSets: [{ testSetId, examRoundLabel, label, questions: [{ fieldId, questionId }] }] }` |
 | 必須項目 | `schoolId`, `gradeId` |
-| エラー | 該当範囲なし（この場合エラーではなく空配列を返し、クライアント側で全単元表示にフォールバックする。メイン設計書9.4参照） |
+| エラー | 該当TestSetなし（この場合エラーではなく空配列を返し、クライアント側で通常学習にフォールバックする。メイン設計書9.4参照） |
 | 冪等性 | 冪等（GET・副作用なし） |
-| 認証・本人確認 | 特定生徒に紐づく情報ではないため不要（学校単位の公開情報） |
-| 既存APIからの移行方法 | 新規。Phase4で導入 |
+| 認証・本人確認 | 特定生徒に紐づく情報ではないため不要（学校単位の公開情報。Task47での再評価でもTestSetの内容自体に個人情報は含まれないと判定済み） |
+| 既存APIからの移行方法 | 新規。Phase4で導入予定だが、GAS新設の要否を含め着手前にユーザーとの事前合意が必要（CLAUDE.md⑤） |
+
+**関連（未確定）**: 講師用問題選定UIからTestSetを保存するための書き込みAPI（仮称`saveTestSet`）も別途必要になる見込みだが、本Taskでは設計しない。
 
 ---
 
