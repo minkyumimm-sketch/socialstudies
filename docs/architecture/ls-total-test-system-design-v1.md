@@ -59,8 +59,17 @@ graph TB
         S1[(Attempt)]
         S2[(AnswerRecord)]
         S3[(RankingRecord)]
-        S4[(TestRange)]
         S5[(QuestionSet)]
+    end
+
+    subgraph TestSetGAS["TestSet専用 GAS Web App<br/>（Task50新設・学習記録用GASとは分離）"]
+        TestSetAPI["API群<br/>getSchools / getTestSets / getTestSet<br/>saveTestSet / archiveTestSet（PIN保護）"]
+    end
+
+    subgraph TestSetSheets["TestSet専用 Google Spreadsheet<br/>「LS総合テスト対策_学校・テストセットマスター」"]
+        T1[(school_master)]
+        T2[(test_set)]
+        T3[(test_set_questions)]
     end
 
     subgraph StudentGAS["生徒管理システム（既存・外部GAS）<br/>Single Source of Truth"]
@@ -74,6 +83,7 @@ graph TB
     end
 
     Browser -->|fetch GET/POST| LearningAPI
+    Browser -->|fetch GET/POST| TestSetAPI
     Browser -->|fetch| CSV
     Browser -->|fetch| SVG
     HTML --> JS
@@ -82,8 +92,11 @@ graph TB
     LearningAPI --> S1
     LearningAPI --> S2
     LearningAPI --> S3
-    LearningAPI --> S4
     LearningAPI --> S5
+
+    TestSetAPI --> T1
+    TestSetAPI --> T2
+    TestSetAPI --> T3
 
     LearningAPI -.->|生徒名簿参照<br/>要確認: 現状は同一GASの可能性が高い| StudentAPI
     StudentAPI --> SS1
@@ -94,6 +107,8 @@ graph TB
     style StudentSheets fill:#2d3748,color:#fff
     style LearningGAS fill:#1a365d,color:#fff
     style LearningSheets fill:#1a365d,color:#fff
+    style TestSetGAS fill:#22543d,color:#fff
+    style TestSetSheets fill:#22543d,color:#fff
 ```
 
 ### 1.2 責務と境界
@@ -102,7 +117,8 @@ graph TB
 |---|---|---|
 | GitHub Pages | 静的ファイル（HTML/JS/CSS/CSV/SVG）の配信のみ | サーバーサイド処理・秘密情報の保持はしない |
 | 学習アプリJS（`config/core/data/features/filters/judges/renderers/services`） | 出題・採点・UI制御・GAS呼び出し | 生徒マスタの正本を持たない、認証ロジックの正本を持たない |
-| 学習記録用GAS | 学習アプリ固有データ（Attempt/AnswerRecord/RankingRecord/TestRange/QuestionSet）の永続化・集計 | 生徒マスタ（氏名・学校・学年・在籍）の正本を持たない |
+| 学習記録用GAS | 学習アプリ固有データ（Attempt/AnswerRecord/RankingRecord/QuestionSet）の永続化・集計 | 生徒マスタ（氏名・学校・学年・在籍）の正本を持たない、TestSetは持たない（Task50で分離） |
+| TestSet専用GAS（Task50新設） | 学校マスタ（`school_master`）・TestSet（`test_set`/`test_set_questions`）の永続化 | 生徒マスタ・学習記録・ランキングは持たない。学習記録用GASとは別プロジェクト |
 | 生徒管理システム（外部GAS・既存） | 生徒ID・氏名・学校・学年・在籍状態・ログイン情報のSingle Source of Truth | 学習履歴・問題別成績・ランキングは持たない（学習アプリ側の責務） |
 
 **重要な観察（事実・要確認）**: 現行コード（`services/gas-service.js`, `services/student-service.js`）を読むと、`loadActiveStudents`（生徒一覧取得）と`saveAnswerRecord`（解答保存）は**同一の`GAS_WEB_APP_URL`定数**に対して呼ばれています。つまり現状は「生徒管理」と「学習記録の保存」が物理的に同一のGAS Web Appを共有している可能性が高いという事実がコードから読み取れます。一方でユーザー要件では「生徒管理システムは別のGASで既に運用している」とあり、これは以下のいずれかを意味します。
@@ -244,7 +260,7 @@ FIELDS = {
 |---|---|
 | 初期段階で必須（既存のまま） | `questionId`, `subject`(=fieldId), `unit`, `mode`, `question`, `answer`, `status` |
 | 後から追加（CSV列を増やす） | `questionSetId`（所属問題セット）, `timerSeconds`（問題単位の制限時間） |
-| CSVではなく別マスタで管理 | `QuestionSet`定義、`TestRange`、`RankingRecord` |
+| CSVではなく別マスタで管理 | `QuestionSet`定義、`TestSet`/`TestSetQuestion`（TestSet専用GAS/Spreadsheet、Task50確定）、`RankingRecord` |
 | GASまたはSheetsで管理 | `Attempt`, `AnswerRecord`, `LearningSummary`, `WeakQuestion` |
 
 ---
@@ -357,12 +373,12 @@ Phase0で発見した確定バグ4件のうち3件（#1中東mapId, #3 hidden除
 | 1 | `getActiveStudents`（既存） | 生徒一覧取得 | 現行 | 維持 |
 | 2 | `saveRecord`（既存） | 解答保存 | 現行 | 維持しつつ段階拡張 |
 | 3 | 生徒認証/本人確認 | ログイン強化 | 要検討（**要確認**: 現状の認証相当機能の有無） | 新規 |
-| 4 | 生徒プロフィール取得（学校・学年） | 学校別テスト範囲の解決に必要 | Phase4 | 新規（または既存API拡張） |
+| 4 | 生徒プロフィール取得（学校・学年） | ~~学校別テスト範囲の解決に必要~~ **Task47で不採用**（studentIdから学校・学年を自動判定しない方式へ変更したため不要） | Phase4 | 不採用 |
 | 5 | `startAttempt` | 挑戦開始の記録・attemptId発行 | Phase2 | 新規 |
 | 6 | `completeAttempt` | 挑戦完了・ランキング反映 | Phase2/Phase6 | 新規 |
 | 7 | `getWeakQuestions` | 苦手問題取得 | Phase5 | 新規 |
 | 8 | `getLearningSummary` | 学習サマリー取得 | Phase5 | 新規 |
-| 9 | `getTestRange` | 学校別テスト範囲取得 | Phase4 | 新規 |
+| 9 | `getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet` | 学校別TestSetの取得・作成・更新（詳細は`gas-api-contract-v1.md` 9章） | Phase4 | 新規。**Task50確定：上記1-8・10-12とは別のTestSet専用GAS Web Appに実装する（既存/学習記録用GASへは追加しない）** |
 | 10 | `getAnnualRanking` | 年度ランキング取得 | Phase6 | 新規 |
 | 11 | `getAllTimeRanking` | 歴代ランキング取得 | Phase6 | 新規 |
 | 12 | `upsertBestRecord` | ベスト記録更新（冪等） | Phase6 | 新規 |
@@ -428,16 +444,52 @@ Phase0で発見した確定バグ4件のうち3件（#1中東mapId, #3 hidden除
 
 ### 9.3 学校マスタ（確定）
 
-学校名の表記ゆれ対策として、学校名の文字列をキーに使わず、LS総合テスト対策が独自に発行する`schoolId`（`school_master`、Google Sheets新設）を使う。生徒管理システムへの接続・API拡張は行わない。
+学校名の表記ゆれ対策として、学校名の文字列をキーに使わず、LS総合テスト対策が独自に発行する`schoolId`を使う。生徒管理システムへの接続・API拡張は行わない。`school_master`（schoolId/schoolName/active）は9.6節のTestSet専用Google Spreadsheetへ置く。
 
 ### 9.4 未設定時のフォールバック（確定）
 
-該当する学校・学年に対応するTestSetが存在しない場合は、通常学習（TestSetを使わない従来の科目・単元選択フロー）を継続利用できる。TestSet取得に失敗した場合も同様に、通常学習には一切影響しない。
+該当する学校・学年に対応するTestSetが存在しない場合は、通常学習（TestSetを使わない従来の科目・単元選択フロー）を継続利用できる。TestSet取得に失敗した場合も同様に、通常学習には一切影響しない（9.7節参照）。
 
-### 9.5 未確定事項（Task48時点）
+### 9.5 保存・取得方式（確定、Task50）
 
-- **TestSetの保存・取得方式**：更新頻度・即時性の要件（当日中の反映が必要）から、Task42〜46で確立したCSV+Git+Push方式は不適合と判断したが、代替方式（GAS Web App新設等）は`services/gas-service.js`のGAS関連仕様変更に該当するため、ユーザーとの事前合意が必要（CLAUDE.md⑤）。後続Taskで確定する。
-- **複数教科（fieldId）を横断するTestSetの実行方式**：データモデル上は1つのTestSetが複数fieldIdのquestionIdを保持できる設計とするが、既存の出題実行フロー（`core/quiz-controller.js`の`state.session.subject`等）は現状1セッション=1fieldId前提であり、対応方式は後続の実装Taskで確定する。
+**問題マスターとTestSetは異なるデータフローを持つ。両者を混同しない。**
+
+```
+【問題マスター（既存運用を維持）】
+Google Sheets → CSV → GitHub → GitHub Pages → LSアプリ
+
+【TestSet（Task50で新規確定）】
+講師用UI → TestSet専用GAS Web App → TestSet専用Google Spreadsheet
+生徒用UI ← TestSet専用GAS Web App ← TestSet専用Google Spreadsheet
+```
+
+TestSetはGitへのcommit/pushを介さず、講師の保存操作がGAS経由で即座にGoogle Sheetsへ反映され、生徒側もその場で取得できる。理由は、問題マスターのCSV+Git+Push方式では「今日聞いたテスト範囲を今日中に生徒へ提示したい」という現場の即時性要件を満たせないため（Task49比較評価）。
+
+問題本文（`question`/`answer`/`choices`/`explanation`等）はTestSet GASからは一切返さない。TestSetが保持・返却するのは`fieldId`と`questionId`の組のみであり、問題本文の正本は引き続き既存GitHub Pages側の問題CSVとする。
+
+### 9.6 責務分離（確定、Task50）
+
+既存GAS（`services/gas-service.js`の`GAS_WEB_APP_URL`）と、TestSet専用GASは**完全に分離する**。既存GASへTestSet関連のactionを追加しない。
+
+| | 既存GAS | TestSet専用GAS（新設） |
+|---|---|---|
+| 責務 | active生徒一覧取得、解答履歴保存 | 学校一覧、TestSet一覧・詳細取得、TestSet作成・更新・archive |
+| Spreadsheet | 既存（構造未確認、1.2節） | 新設「LS総合テスト対策_学校・テストセットマスター」（`school_master`/`test_set`/`test_set_questions`の3タブ） |
+| 変更方針 | 変更しない | Task52以降で新規構築 |
+
+理由：既存GASの実体（同一プロジェクトか、管理者は誰か）が未確認のまま（1.2節）本番稼働中のスクリプトへ手を加えることは、「①既存機能を壊さない」という最優先原則に対するリスクを不必要に増やす。新設により責務分離・障害分離の両方を得られる（詳細はTask50報告）。
+
+### 9.7 GAS障害時のフォールバック（確定、Task50）
+
+TestSet専用GASが応答しない場合でも、通常学習（従来の科目・単元選択フロー）・苦手復習等の既存機能には一切影響させない。「学校のテスト対策」機能のみが利用不可になる。
+
+### 9.8 複数教科（fieldId）を横断するTestSetの実行方式（確定、Task50）
+
+1つのTestSetは複数`fieldId`のquestionIdを保持できる（例:「前期期末 理科」が`physics`/`chemistry`/`earth_science`を横断）。ただし実行時は、既存の出題実行フロー（`core/quiz-controller.js`の`state.session.subject`、`features/question-set/question-set-model.js`の単一`fieldId`必須制約）を変更しない。TestSetを`fieldId`単位に分割し、既存のQuestionSet/Attempt生成の仕組みをそのまま複数回呼び出して連続実行する方式を採用する（生徒からは1つのTestSetとして見える）。この方式を選んだ理由は、Attempt/History/Ranking等が依存する既存QuestionSetモデルへ手を入れずに実現できるため（案の比較はTask50報告参照）。
+
+### 9.9 講師書き込みAPIの保護（確定、Task50）
+
+TestSet作成・更新・archiveの各APIは共有PIN（合言葉）を要求する。PINは公開されるGitHub Pages側のJavaScriptには一切含めず、GAS側の`PropertiesService`（Script Properties）にのみ保存する。読み取り系API（学校一覧・TestSet一覧・詳細）は個人情報を含まないため認証不要とする。詳細仕様は`docs/specification/gas-api-contract-v1.md`を参照。
 
 ---
 
@@ -523,7 +575,7 @@ Phase0で発見した確定バグ4件のうち3件（#1中東mapId, #3 hidden除
 | 出題画面（`quiz-screen`） | 高（ほぼそのまま） | タイマー表示のみ追加（Phase7） |
 | 結果画面（`result-screen`） | 中〜高 | ランキング・苦手問題への導線を追加する程度の拡張 |
 | ホーム／目的選択／教科選択 | 新規 | 開始画面の手前に新設する階層 |
-| 学校別おすすめ | 新規 | TestRange参照結果の表示 |
+| 学校のテスト対策（学校・学年・TestSet選択） | 新規 | Task47-50でTestRange方式からTestSet方式へ変更。TestSet専用GASから取得した学校一覧・TestSet一覧を生徒が自ら選択する（9章参照。studentIdからの自動判定はしない） |
 | 苦手問題／学習履歴／ランキング／自分の順位 | 新規 | 分析系の新規画面 |
 
 ### 13.2 画面遷移図
@@ -535,10 +587,10 @@ stateDiagram-v2
 
     ホーム --> 目的選択: 定期テスト対策 or 都立入試対策
     目的選択 --> 教科選択: 理科・社会選択
-    教科選択 --> 学校別おすすめ: 学校別テスト範囲がある場合
-    教科選択 --> 単元問題セット選択: 直接選ぶ場合
+    教科選択 --> 単元問題セット選択
 
-    学校別おすすめ --> 単元問題セット選択
+    ホーム --> 学校のテスト対策: 学校のテスト対策を選ぶ場合
+    学校のテスト対策 --> 出題: 学校→学年→TestSet選択→開始（TestSet専用GAS経由、9章参照）
 
     単元問題セット選択 --> 出題: 開始（既存start-screen相当）
 
@@ -633,13 +685,13 @@ stateDiagram-v2
 
 ### Phase4: 学校別テスト範囲
 
-**Task47（2026-08-13）でTestSet方式へ再設計。以下は再設計後の内容（詳細は9章参照）。**
+**Task47（2026-08-13）でTestSet方式へ再設計、Task50（2026-08-13）でTestSet専用GAS方式として保存・取得方式を確定。以下は確定後の内容（詳細は9章参照）。**
 
 | 項目 | 内容 |
 |---|---|
 | 目的 | 学校別のテスト範囲に合わせて、講師が問題マスターから必要な問題を選定してTestSetを作成し、生徒が学校・学年・指定されたTestSetを選択して、選定済み問題のみを学習できるようにする |
 | 前提条件 | Phase3完了。生徒プロフィールAPI（`schoolId`/`gradeId`自動取得）は不要（studentIdから学校・学年を自動判定しない方式のため） |
-| 主な変更対象 | `features/test-set/`新設（想定）、TestSet保存・取得方式（後続Taskで確定）、`school_master`/`test_set`/`test_set_questions`用Sheets新設、講師用問題選定UI、生徒用TestSet選択UI |
+| 主な変更対象 | `features/test-set/`新設（想定）、TestSet専用GAS Web App新設（既存GASとは分離）、TestSet専用Google Spreadsheet新設（`school_master`/`test_set`/`test_set_questions`）、講師用問題選定UI（共有PIN保護）、生徒用TestSet選択UI |
 | 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること |
 | 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと |
 | ロールバック方法 | TestSetが空でも通常学習が動作するフォールバック設計のため、機能フラグ的に無効化可能 |

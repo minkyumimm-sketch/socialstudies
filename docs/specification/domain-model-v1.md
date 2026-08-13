@@ -94,14 +94,16 @@ erDiagram
 
 ### 3.2 School（学校）
 
+**Task47（2026-08-13）で管理場所を変更。旧方針（生徒管理システムが発行するschoolIdを使う）は不採用とし、LS総合テスト対策が独自にschoolIdを発行する方式へ変更した（理由は`docs/architecture/ls-total-test-system-design-v1.md` 9.1節）。**
+
 | 項目 | 内容 |
 |---|---|
-| 役割 | 生徒の在籍校。学校別テスト範囲の絞り込みキー |
-| 一意なID | `schoolId`（要確認: 採番方式） |
-| 主な属性 | 学校名（表示用。テスト範囲マスタのキーには使わない） |
-| 他概念との関係 | TestRangeが`schoolId`で参照する |
-| 管理場所 | **生徒管理システム（外部）** |
-| 更新主体 | 生徒管理システムの運用者 |
+| 役割 | TestSetの絞り込みキーとなる学校 |
+| 一意なID | `schoolId`（形式: `^SC\d{3}$`、LS総合テスト対策が独自採番） |
+| 主な属性 | 学校名（表示用。TestSetマスタのキーには使わない） |
+| 他概念との関係 | TestSetが`schoolId`で参照する |
+| 管理場所 | TestSet専用Google Spreadsheet「LS総合テスト対策_学校・テストセットマスター」の`school_master`タブ（本番正本）。`data/school_master.csv`はschema基準・validator・backup用途 |
+| 更新主体 | 塾スタッフ（学校追加は低頻度のためSheetsへの直接追記を想定） |
 
 ### 3.3 Grade（学年）
 
@@ -110,7 +112,7 @@ erDiagram
 | 役割 | 生徒の学年。テスト範囲・年度の絞り込みキー |
 | 一意なID | `gradeId`（要確認: 現状`grade`が自由文字列かコード化済みか未確認） |
 | 主な属性 | 学年表示名（例: 中2） |
-| 他概念との関係 | TestRangeが`gradeId`で参照する |
+| 他概念との関係 | TestSetが`gradeId`で参照する。ただしTestSet利用時のgradeIdは生徒がその場で自己選択する値であり、本エンティティ（生徒管理システム側の在籍学年）から自動取得するわけではない（Task47確定、`docs/architecture/ls-total-test-system-design-v1.md` 9.1節参照） |
 | 管理場所 | **生徒管理システム（外部）** |
 | 更新主体 | 生徒管理システムの運用者 |
 
@@ -176,7 +178,7 @@ erDiagram
 | 役割 | 「単元×分野×学習目的」または教師配信などにより束ねられた出題プールの定義。現行にはこの概念自体が存在しない（新規） |
 | 一意なID | `questionSetId` |
 | 主な属性 | 表示名、対象`fieldId`、対象`coursePurposeId`、選定条件（単元リスト等） |
-| 他概念との関係 | QuestionSetVersionを複数持つ、TestRangeから参照される |
+| 他概念との関係 | QuestionSetVersionを複数持つ。TestSetはQuestionSetを直接参照しない（TestSetのquestionIdsをもとに、実行時に既存の`loadQuestionSet`等でQuestionSetを生成する。Task47/50確定） |
 | 管理場所 | 学習アプリ用Sheets（新設、詳細は下記4章の設計判断参照） |
 | 更新主体 | 開発者または問題管理担当者（塾スタッフを想定） |
 
@@ -245,18 +247,18 @@ erDiagram
 | 一意なID | `testSetId`（形式: `^TS\d{3}$`） |
 | 主な属性 | `schoolId`, `gradeId`, `academicYearId`, `examRoundLabel`, `label`（表示名）, `status`（active/archived） |
 | 他概念との関係 | School・Gradeに紐づく。TestSetQuestionを介してQuestionを参照する。QuestionSetとは別概念（3.9節参照。TestSetのquestionIdsをもとにQuestionSetを生成する想定） |
-| 管理場所 | 未確定（後続Task）。Sheetsを編集正本とする点は他マスタと同様だが、更新頻度・即時性の要件からCSV+Git+Push配信は不適合と判断しており、取得方式（GAS Web App新設等）は別途確定する |
-| 更新主体 | 塾スタッフ（講師用問題選定UIを想定。詳細は後続Task） |
+| 管理場所 | **本番正本：TestSet専用Google Spreadsheet「LS総合テスト対策_学校・テストセットマスター」の`test_set`タブ（Task50確定）。アクセスはTestSet専用GAS Web App経由（既存GASとは分離、`docs/architecture/ls-total-test-system-design-v1.md` 9.5-9.6節参照）。`data/test_set.csv`はschema基準・`scripts/validate-test-set.mjs`によるvalidator・定期バックアップ用途であり、本番正本ではない** |
+| 更新主体 | 塾スタッフ（講師用問題選定UI、共有PIN保護。詳細はTask52以降） |
 
 ### 3.15.1 TestSetQuestion（TestSet構成問題）
 
 | 項目 | 内容 |
 |---|---|
 | 役割 | TestSetと問題マスター上のQuestionを紐付ける |
-| 一意なID | `testSetId` + `fieldId` + `questionId`の複合キー |
-| 主な属性 | なし（出題順は保存しない。既存の出題ロジックが毎回シャッフルするため） |
-| 他概念との関係 | TestSetに属する。同一TestSetが複数`fieldId`のQuestionIdを保持できる（例:「理科」として物理・化学・地学を横断） |
-| 管理場所 | TestSetと同じ（未確定、後続Task） |
+| 一意なID | `testSetId` + `questionId`の複合キー（`fieldId`はquestionIdの由来教科を示す表示用属性。questionIdは全7科目CSVを横断してグローバルに一意なため、重複検出キーには含めない。`scripts/validate-test-set.mjs`・`scripts/compare-master-csv.mjs`の実装と一致） |
+| 主な属性 | `fieldId`（出題順は保存しない。既存の出題ロジックが毎回シャッフルするため） |
+| 他概念との関係 | TestSetに属する。同一TestSetが複数`fieldId`のQuestionIdを保持できる（例:「理科」として物理・化学・地学を横断。実行時は`fieldId`単位に分割し、既存QuestionSet/Attemptを連続実行する。9.8節参照） |
+| 管理場所 | TestSetと同じ（本番正本：TestSet専用Spreadsheet／`data/test_set_questions.csv`はschema基準・backup用途） |
 | 更新主体 | 塾スタッフ |
 
 ### 3.16 RankingRecord（ランキング記録）
@@ -279,7 +281,7 @@ erDiagram
 | 役割 | 4月始まりの学年度区分。年度ランキング・テスト範囲の期間キー |
 | 一意なID | `academicYearId`（`AY<開始暦年>`） |
 | 主な属性 | 開始日・終了日（4月1日〜翌3月31日、算出可能） |
-| 他概念との関係 | TestRange・RankingRecordから参照される |
+| 他概念との関係 | TestSet・RankingRecordから参照される |
 | 管理場所 | 学習アプリ側config（実体マスタを持たず、日付からの算出ロジックのみで足りる可能性が高い） |
 | 更新主体 | 開発者（算出ロジックのみのため、通常は更新不要） |
 
@@ -308,7 +310,9 @@ erDiagram
 
 **B（Google Sheetsで管理する）を推奨する（仮決定）。**
 
-**推奨理由**: QuestionSet・TestRangeは「塾スタッフが問題を見ずに範囲だけ調整したい」という運用が想定され、CSVのように毎回GitHub Pagesへ再デプロイする方式は現場の手間が大きい。GASとの親和性も高く、将来の先生配信問題（Phase9）とも管理方式を統一できる。
+**推奨理由**: QuestionSetは「塾スタッフが問題を見ずに範囲だけ調整したい」という運用が想定され、CSVのように毎回GitHub Pagesへ再デプロイする方式は現場の手間が大きい。GASとの親和性も高く、将来の先生配信問題（Phase9）とも管理方式を統一できる。
+
+**TestSetとの関係（Task50追記）**: 同じ理由（塾スタッフによる高頻度・即時の更新）から、TestSetもCSV配信ではなくSheets＋GASでの管理を採用した。ただしTestSetは学習アプリ用GAS（本節のQuestionSet等が使う既存/将来のGAS）とは別の、TestSet専用GAS Web App・専用Spreadsheetを新設して管理する（既存GASへの影響を避けるため。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9.6節、Task50比較評価）。「Sheetsで管理する」という結論は共通だが、「どのGAS/Spreadsheetで管理するか」はQuestionSetとTestSetで異なる。
 
 **デメリット**: 既存の「CSVを静的配信する」という一貫したパターンから外れ、初めて「Sheetsをマスタとして直接読む」ケースになるため、キャッシュ戦略（毎回GASを叩くか、一定時間キャッシュするか）を別途設計する必要がある。
 

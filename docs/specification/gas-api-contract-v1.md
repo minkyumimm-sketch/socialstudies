@@ -136,22 +136,79 @@
 
 ---
 
-## 9. 学校別TestSet取得（新規・仮称 `getTestSets`、Task47で再設計）
+## 9. TestSet API（Task50で確定・専用GAS Web App新設）
 
-**Task47（2026-08-13）で`getTestRange`から名称・形状を変更。** 学校別テスト範囲はunit/subunit条件からの動的抽出ではなく、講師が選定したquestionId固定集合（TestSet）の取得に変わったため、レスポンス形状を変更した。**本APIの導入可否・具体的なアクション名・認証方式は未確定（後続Taskでユーザーと合意のうえ確定する）。** 以下は暫定案。
+**本章の対象は、1〜8章・10章が前提とする既存/将来の「学習アプリ用GAS」とは別の、TestSet専用に新設するGAS Web Appである（Task50で確定、`docs/architecture/ls-total-test-system-design-v1.md` 9.6節参照）。既存GAS（`services/gas-service.js`の`GAS_WEB_APP_URL`、`getActiveStudents`/`saveRecord`）へは一切のaction追加を行わない。** 具体的な構築手順は`docs/operations/test-set-gas-setup-v1.md`を参照。実装（GASコード作成・デプロイ）はTask52以降で行う。本章はAPI契約のみを定義する。
 
-| 項目 | 内容（暫定） |
+TestSet専用GASの正本データはTestSet専用Google Spreadsheet「LS総合テスト対策_学校・テストセットマスター」（`school_master`/`test_set`/`test_set_questions`の3タブ、schemaは`docs/specification/data-schema-v1.md`参照）。
+
+### 9.1 `getSchools`（読み取り・認証不要）
+
+| 項目 | 内容 |
 |---|---|
-| 目的 | 学校・学年・現在の学年度に対応する、講師が作成したTestSet一覧を取得する |
-| リクエスト（仮） | `GET ?action=getTestSets&schoolId=...&gradeId=...&academicYearId=...` |
-| レスポンス（仮） | `{ ok: true, testSets: [{ testSetId, examRoundLabel, label, questions: [{ fieldId, questionId }] }] }` |
-| 必須項目 | `schoolId`, `gradeId` |
-| エラー | 該当TestSetなし（この場合エラーではなく空配列を返し、クライアント側で通常学習にフォールバックする。メイン設計書9.4参照） |
+| 目的 | active状態の学校一覧を取得する |
+| リクエスト | `GET ?action=getSchools` |
+| レスポンス | `{ ok: true, schools: [{ schoolId, schoolName }] }`（例: `{schoolId:"SC001", schoolName:"○○中学校"}`。※`○○`は例示のプレースホルダー） |
+| 必須項目 | なし |
+| エラー | なし（0件でも空配列） |
 | 冪等性 | 冪等（GET・副作用なし） |
-| 認証・本人確認 | 特定生徒に紐づく情報ではないため不要（学校単位の公開情報。Task47での再評価でもTestSetの内容自体に個人情報は含まれないと判定済み） |
-| 既存APIからの移行方法 | 新規。Phase4で導入予定だが、GAS新設の要否を含め着手前にユーザーとの事前合意が必要（CLAUDE.md⑤） |
+| 認証 | 不要（学校名は個人情報を含まない公開情報） |
 
-**関連（未確定）**: 講師用問題選定UIからTestSetを保存するための書き込みAPI（仮称`saveTestSet`）も別途必要になる見込みだが、本Taskでは設計しない。
+### 9.2 `getTestSets`（読み取り・認証不要）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 指定した学校・学年・学年度に対応する、status=activeのTestSet一覧を取得する |
+| リクエスト | `GET ?action=getTestSets&schoolId=...&gradeId=...&academicYearId=...` |
+| レスポンス | `{ ok: true, testSets: [{ testSetId, examRoundLabel, label, questionCount }] }` |
+| 必須項目 | `schoolId`, `gradeId`, `academicYearId` |
+| エラー | 該当TestSetなしの場合はエラーではなく空配列を返す。クライアント側は通常学習へフォールバックする（設計書9.4節） |
+| 冪等性 | 冪等（GET・副作用なし） |
+| 認証 | 不要 |
+
+### 9.3 `getTestSet`（読み取り・認証不要）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 指定したTestSetの詳細（構成問題のfieldId/questionId一覧）を取得する |
+| リクエスト | `GET ?action=getTestSet&testSetId=...` |
+| レスポンス | `{ ok: true, testSet: { testSetId, schoolId, gradeId, academicYearId, examRoundLabel, label, status }, questions: [{ fieldId, questionId }] }` |
+| 必須項目 | `testSetId` |
+| エラー | 該当testSetIdなし |
+| 冪等性 | 冪等（GET・副作用なし） |
+| 認証 | 不要 |
+| 備考 | 問題本文（`question`/`answer`/`choices`/`explanation`等）は返さない。問題本文の正本は既存GitHub Pages側の問題CSVであり、クライアント側で`fieldId`+`questionId`から該当CSVを参照する |
+
+### 9.4 `saveTestSet`（書き込み・PIN必須）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | TestSetを新規作成、または既存TestSetを更新する |
+| リクエスト | `POST { action:"saveTestSet", pin, testSet:{ testSetId, schoolId, gradeId, academicYearId, examRoundLabel, label, status }, questions:[{ fieldId, questionId }] }`（`testSetId`が空文字列またはnullなら新規、指定されていれば更新） |
+| レスポンス | `{ ok: true, testSetId }` または `{ ok: false, error }` |
+| 必須項目 | `pin`, `testSet.schoolId`, `testSet.gradeId`, `testSet.academicYearId`, `testSet.examRoundLabel`, `testSet.label`, `questions`（1件以上） |
+| エラー | PIN不一致、必須項目欠落、`schoolId`が`school_master`に存在しない、`questions`が0件、`questionId`重複 |
+| 冪等性 | 冪等にはしない（呼び出しごとに更新が反映される。新規作成の重複防止はUI側の操作フローに委ねる） |
+| 認証 | 共有PIN必須（GASの`PropertiesService`に保存。値そのものはdocsに記載しない。9.6節参照） |
+| 通信方式 | 既存`services/gas-service.js`の`postToGas`と同じ`Content-Type: text/plain;charset=utf-8`でのPOST（CORSプリフライト回避、Task50確定） |
+| 原子性 | GASに本格的なトランザクション機構はないため、`LockService.getScriptLock()`による排他制御を行い、`test_set`行→`test_set_questions`行の順で書き込む。失敗時のロールバック（既存行のsnapshot→restore等）の具体設計はTask52実装時に確定する（設計書9.5節、以下「完全なDBトランザクション」ではない点に留意） |
+| questionId実在確認 | GAS側では行わない（GitHub Pages CSVへの外部フェッチ・CSVパーサ二重実装を避けるため）。講師UIが既存問題CSVから読み込んだ候補のみ選択可能にすることで担保し、事後監査は`scripts/validate-test-set.mjs`による定期バックアップ検証に委ねる |
+
+### 9.5 `archiveTestSet`（書き込み・PIN必須）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | TestSetを物理削除せず`status=archived`へ変更する |
+| リクエスト | `POST { action:"archiveTestSet", pin, testSetId }` |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `pin`, `testSetId` |
+| エラー | PIN不一致、該当testSetIdなし |
+| 冪等性 | 冪等にする（既にarchived済みへの再リクエストも成功として扱う） |
+| 認証 | 共有PIN必須 |
+
+### 9.6 認証方式（共通、Task50確定）
+
+書き込み系（`saveTestSet`/`archiveTestSet`）のみ共有PIN（合言葉）を要求する。PINはGASの`PropertiesService.getScriptProperties()`にのみ保存し、公開されるGitHub Pages側のJavaScriptには一切含めない。リクエストごとに平文PINをHTTPS POSTで送信する方式とし（GAS Web Appのステートレスな性質上、token方式は追加の状態管理コストに見合わないと判断、Task50比較評価）、読み取り系API（9.1-9.3）は個人情報を含まないため認証を要求しない。
 
 ---
 
@@ -207,12 +264,12 @@
 | 1 | `getActiveStudents` | 現行 | 維持 |
 | 2 | `saveRecord` | 現行→Phase2で拡張 | 維持しつつ段階拡張 |
 | 3 | `authenticateStudent` | 未定（優先度低） | 新規 |
-| 4 | `getStudentProfile` | Phase4 | 新規（または2番拡張） |
+| 4 | `getStudentProfile` | Phase4 | **Task47で不採用**（4章参照） |
 | 5 | `startAttempt` | Phase2 | 新規 |
 | 6 | `completeAttempt` | Phase2/Phase6 | 新規 |
 | 7 | `getWeakQuestions` | Phase5 | 新規 |
 | 8 | `getLearningSummary` | Phase5 | 新規 |
-| 9 | `getTestRange` | Phase4 | 新規 |
+| 9 | `getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet` | Phase4 | **Task50確定：TestSet専用GAS Web App（本表1-8・10-12とは別プロジェクト）に実装。詳細は9章** |
 | 10 | `getAnnualRanking` | Phase6 | 新規 |
 | 11 | `getAllTimeRanking` | Phase6 | 新規 |
 | 12 | `upsertBestRecord` | Phase6 | 新規 |

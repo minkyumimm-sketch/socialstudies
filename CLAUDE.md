@@ -51,7 +51,7 @@
 | `docs/analysis/` | Phase0現状分析（`current-system-analysis.md`）・Phase0レビュー（`phase0-review.md`）。確定バグの根拠・優先順位・採点結果など | 現状把握、過去の判断の根拠確認 |
 | `docs/architecture/` | 全体設計書Ver.1（`ls-total-test-system-design-v1.md`）、Phase単位の実装計画（`phase1.5b-implementation-plan-v1.md`等） | 設計判断の全体像、フェーズ実装前の確認 |
 | `docs/specification/` | ドメインモデル・データスキーマ・GAS API契約・ランキング仕様の詳細 | 個別領域（データ構造・API・ランキング計算等）の詳細設計を確認するとき |
-| `docs/operations/` | Git/GitHub運用の詳細（`git-github-operations-v1.md`）、問題管理運用の詳細（`question-management-v1.md`） | ブランチ・コミット・タグ・複数PC運用の具体手順を確認するとき（⑥は要約）／問題の追加・修正・Sheets↔CSV同期の具体手順を確認するとき |
+| `docs/operations/` | Git/GitHub運用の詳細（`git-github-operations-v1.md`）、問題管理運用の詳細（`question-management-v1.md`）、TestSet専用GAS/Spreadsheet構築手順（`test-set-gas-setup-v1.md`） | ブランチ・コミット・タグ・複数PC運用の具体手順を確認するとき（⑥は要約）／問題の追加・修正・Sheets↔CSV同期の具体手順を確認するとき／Phase4 TestSetのGAS・Spreadsheetを新規構築するとき |
 
 ---
 
@@ -164,3 +164,5 @@
 Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済みだが、実験手順並び替え・地図問題拡張は未着手のためPhase8全体は未完了。次に着手すべき本来の実装対象はPhase4（学校別テスト範囲）。
 
 Phase4はTask47（2026-08-13）でTestSet方式へ再設計済み。studentIdから学校・学年を自動判定せず、講師が問題マスターから問題を選定してTestSet（questionId固定集合）として保存し、生徒が学校・学年・TestSetを自ら選択して実行する。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9章を参照。
+
+Task50（2026-08-13）でTestSetの保存・取得方式を確定：TestSet専用GAS Web App＋専用Google Spreadsheetを新設し、既存GAS（生徒一覧・解答保存用）とは完全に分離する。問題マスターは引き続きGitHub Pages CSV方式を維持する。TestSetに個人情報（studentId・氏名等）は保存しない。詳細なAPI仕様は`docs/specification/gas-api-contract-v1.md` 9章、構築手順は`docs/operations/test-set-gas-setup-v1.md`を参照。
