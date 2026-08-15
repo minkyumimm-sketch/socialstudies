@@ -745,7 +745,7 @@ stateDiagram-v2
 |---|---|
 | 目的 | 学校別のテスト範囲に合わせて、講師が問題マスターから必要な問題を選定してTestSetを作成し、生徒が学校・学年・指定されたTestSetを選択して、選定済み問題のみを学習できるようにする |
 | 前提条件 | Phase3完了。生徒プロフィールAPI（`schoolId`/`gradeId`自動取得）は不要（studentIdから学校・学年を自動判定しない方式のため） |
-| 主な変更対象 | `features/test-set/`新設（想定）、TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（共有PIN保護）、生徒用TestSet選択UI —**未着手（Task53以降）** |
+| 主な変更対象 | TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（`features/teacher/`、共有PIN保護）—**Task53実装完了**、生徒用TestSet選択UI（`features/test-set-student/`、学校→学年→TestSet一覧→開始前確認）—**Task54実装完了**、TestSet→既存QuestionSet/Attempt接続—**未着手（Task55）** |
 | 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること |
 | 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと |
 | ロールバック方法 | TestSetが空でも通常学習が動作するフォールバック設計のため、機能フラグ的に無効化可能 |

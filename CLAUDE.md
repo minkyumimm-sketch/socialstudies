@@ -172,4 +172,6 @@ Task51.5（2026-08-15、方針確定のみ・実装は未着手）で、Phase4�
 
 Task52（2026-08-15完了）でTestSet専用Google Spreadsheet・GAS Web Appを実際に構築し、`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet`の5APIすべてを実環境で単体疎通確認済み（`school_master`に`SC001`登録済み、疎通確認用`TS001`は`archived`のまま記録として保持）。既存GASは無変更。詳細は`docs/operations/test-set-gas-setup-v1.md`を参照。
 
-Task53（2026-08-15完了）で講師用問題選定UI（`teacher-screen`、`features/teacher/`）をLSアプリへ実装。学校選択→学年→学年度(自動算出)→テスト回→セット名→教科ごとのunit/subunit絞り込み→checkbox選定（教科横断で選択保持）→`saveTestSet`保存、のフローが動作する。**TestSet専用GAS Web App URLは秘密情報ではないため`config/test-set-gas-config.js`へ実値をrepository保持する方針へ確定**（既存`GAS_WEB_APP_URL`と同じ扱い）。講師PINは引き続きrepository・コードのどこにも保持せず、teacher-screenでのその場入力のみ。既存の生徒学習フロー・画面は無変更。次はTask54（生徒用「学校→学年→TestSet選択」UI）。
+Task53（2026-08-15完了）で講師用問題選定UI（`teacher-screen`、`features/teacher/`）をLSアプリへ実装。学校選択→学年→学年度(自動算出)→テスト回→セット名→教科ごとのunit/subunit絞り込み→checkbox選定（教科横断で選択保持）→`saveTestSet`保存、のフローが動作する。**TestSet専用GAS Web App URLは秘密情報ではないため`config/test-set-gas-config.js`へ実値をrepository保持する方針へ確定**（既存`GAS_WEB_APP_URL`と同じ扱い）。講師PINは引き続きrepository・コードのどこにも保持せず、teacher-screenでのその場入力のみ。既存の生徒学習フロー・画面は無変更。
+
+Task54（2026-08-15完了）で生徒用TestSet選択UI（`test-set-student-screen`、`features/test-set-student/`）を実装。学校選択→学年→TestSet一覧→開始前確認までの導線が動作する。studentIdからschoolId/gradeIdを自動判定しない（生徒がその都度自己選択）。「このテスト対策を始める」ボタンはTask55への接続点として明示的に分離されているが、Task54時点ではQuiz開始へは未接続（一時メッセージのみ）。次はTask55（TestSet→既存QuestionSet/Attempt接続）。
