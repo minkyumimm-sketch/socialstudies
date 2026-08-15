@@ -22,7 +22,8 @@ import {
   showResultScreen,
   showStartScreen,
   showHistoryScreen,
-  showTeacherScreen
+  showTeacherScreen,
+  showTestSetStudentScreen
 } from "./core/screen-controller.js";
 import { renderTextQuestion } from "./renderers/text-renderer.js";
 import { renderChoiceQuestion, lockChoiceButtons } from "./renderers/choice-renderer.js";
@@ -52,6 +53,7 @@ import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-ren
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
 import { initTeacherScreen } from "./features/teacher/teacher-controller.js";
+import { initTestSetStudentScreen } from "./features/test-set-student/test-set-student-controller.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -59,7 +61,16 @@ const quizScreen = document.getElementById("quiz-screen");
 const resultScreen = document.getElementById("result-screen");
 const historyScreen = document.getElementById("history-screen");
 const teacherScreen = document.getElementById("teacher-screen");
-const allScreens = [homeScreen, startScreen, quizScreen, resultScreen, historyScreen, teacherScreen];
+const testSetStudentScreen = document.getElementById("test-set-student-screen");
+const allScreens = [
+  homeScreen,
+  startScreen,
+  quizScreen,
+  resultScreen,
+  historyScreen,
+  teacherScreen,
+  testSetStudentScreen
+];
 
 // Phase2 Task20-A: ホーム画面の生徒選択欄。既存start-screenの生徒選択（下記
 // studentNameInput等）とはDOM要素が別だが、選択処理はservices/student-service.jsの
@@ -153,6 +164,29 @@ const teacherElements = {
   saveResult: document.getElementById("teacher-save-result")
 };
 
+// Task54: 生徒用「学校のテスト対策」選択画面（test-set-student-screen）のDOM要素。
+// test-set-student-controller.jsはこのelementsバッグを受け取るだけで、DOM取得は
+// 一切行わない（teacher-controller.jsと同じ方針）。studentId関連の状態には触れない。
+const homeTestSetButton = document.getElementById("home-test-set-button");
+const tssHomeBackButton = document.getElementById("tss-home-back-button");
+
+const tssElements = {
+  selectStep: document.getElementById("tss-select-step"),
+  listStep: document.getElementById("tss-list-step"),
+  confirmStep: document.getElementById("tss-confirm-step"),
+  schoolSelect: document.getElementById("tss-school-select"),
+  gradeSelect: document.getElementById("tss-grade-select"),
+  selectError: document.getElementById("tss-select-error"),
+  searchButton: document.getElementById("tss-search-button"),
+  listEmpty: document.getElementById("tss-list-empty"),
+  testSetList: document.getElementById("tss-test-set-list"),
+  listBackButton: document.getElementById("tss-list-back-button"),
+  confirmInfo: document.getElementById("tss-confirm-info"),
+  confirmMessage: document.getElementById("tss-confirm-message"),
+  startButton: document.getElementById("tss-start-button"),
+  confirmBackButton: document.getElementById("tss-confirm-back-button")
+};
+
 // Phase2 Task21-3: 「苦手を復習」「復習する」ボタン押下時に呼ばれるコールバック。
 // home-renderer.js はこれらの中身（Bridge呼び出し・クイズ開始）を一切知らない。
 const homePracticeCallbacks = {
@@ -237,6 +271,9 @@ historyBackButton.addEventListener("click", () => showHomeScreen(homeScreen, all
 
 homeTeacherModeButton.addEventListener("click", goToTeacherScreen);
 teacherBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+
+homeTestSetButton.addEventListener("click", goToTestSetStudentScreen);
+tssHomeBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
@@ -805,4 +842,16 @@ function goToHistoryScreen() {
 function goToTeacherScreen() {
   initTeacherScreen(teacherElements);
   showTeacherScreen(teacherScreen, allScreens);
+}
+
+// Task54: ホーム画面の「学校のテスト対策」から、生徒用TestSet選択画面へ遷移する。
+// studentId選択の要否はhome-history-button/goToHistoryScreenと同じ既存の無言ガード方式に
+// 揃える（生徒未選択時は何もしない。home-renderer.jsのdisabled切替ロジックには触れない）。
+// schoolId/gradeIdはstudentIdから自動判定しない（test-set-student-controller.js側で
+// 生徒が毎回自己選択する）。
+function goToTestSetStudentScreen() {
+  if (!state.session.studentId) return;
+
+  initTestSetStudentScreen(tssElements);
+  showTestSetStudentScreen(testSetStudentScreen, allScreens);
 }

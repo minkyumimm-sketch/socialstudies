@@ -29,3 +29,7 @@ export function showHistoryScreen(historyScreen, allScreens) {
 export function showTeacherScreen(teacherScreen, allScreens) {
   showScreen(teacherScreen, allScreens);
 }
+
+export function showTestSetStudentScreen(testSetStudentScreen, allScreens) {
+  showScreen(testSetStudentScreen, allScreens);
+}

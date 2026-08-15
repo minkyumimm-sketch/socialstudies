@@ -990,3 +990,92 @@ select {
   margin-top: 16px;
   width: 100%;
 }
+
+/* =========================
+   test-set-student (生徒用「学校のテスト対策」)
+========================= */
+
+.tss-step {
+  display: flex;
+  flex-direction: column;
+}
+
+.tss-list-empty {
+  color: #667;
+  margin: 4px 0 16px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.tss-test-set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.tss-test-set-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d8e0ef;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #f7f9fc;
+  cursor: pointer;
+  min-height: 44px;
+}
+
+.tss-test-set-card:hover {
+  background: #eef2fa;
+}
+
+.tss-test-set-card-label {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #223;
+  word-break: break-word;
+}
+
+.tss-test-set-card-meta {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #556;
+}
+
+.tss-confirm-info {
+  margin-bottom: 16px;
+}
+
+.tss-confirm-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.tss-confirm-row-label {
+  color: #556;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.tss-confirm-row-value {
+  text-align: right;
+  word-break: break-word;
+}
+
+.tss-confirm-message {
+  color: #2f4d8f;
+  margin: 0 0 14px;
+  min-height: 1.2em;
+}
+
+#tss-home-back-button {
+  margin-top: 16px;
+  width: 100%;
+}

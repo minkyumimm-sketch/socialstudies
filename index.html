@@ -67,6 +67,7 @@
 
         <button id="home-history-button" class="secondary-button">学習履歴を見る</button>
         <button id="home-start-button" class="primary-button" disabled>学習を始める</button>
+        <button id="home-test-set-button" class="secondary-button" type="button">学校のテスト対策</button>
 
         <button id="home-teacher-mode-button" class="teacher-mode-entry-button" type="button">講師用</button>
       </div>
@@ -333,6 +334,49 @@
         </div>
 
         <button id="teacher-back-button" class="secondary-button">ホームへ戻る</button>
+      </div>
+    </section>
+
+    <section id="test-set-student-screen" class="screen">
+      <div class="card">
+        <h2>学校のテスト対策</h2>
+
+        <div id="tss-select-step" class="tss-step">
+          <div class="form-group">
+            <label for="tss-school-select">学校</label>
+            <select id="tss-school-select">
+              <option value="">読込中...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="tss-grade-select">学年</label>
+            <select id="tss-grade-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <p id="tss-select-error" class="error-message"></p>
+
+          <button id="tss-search-button" class="primary-button" type="button">テスト対策を探す</button>
+        </div>
+
+        <div id="tss-list-step" class="tss-step hidden">
+          <p id="tss-list-empty" class="tss-list-empty hidden">
+            現在、この学校・学年で利用できるテスト対策はありません。
+          </p>
+          <div id="tss-test-set-list" class="tss-test-set-list"></div>
+          <button id="tss-list-back-button" class="secondary-button" type="button">学校・学年を選び直す</button>
+        </div>
+
+        <div id="tss-confirm-step" class="tss-step hidden">
+          <div id="tss-confirm-info" class="tss-confirm-info"></div>
+          <p id="tss-confirm-message" class="tss-confirm-message"></p>
+          <button id="tss-start-button" class="primary-button" type="button">このテスト対策を始める</button>
+          <button id="tss-confirm-back-button" class="secondary-button" type="button">一覧に戻る</button>
+        </div>
+
+        <button id="tss-home-back-button" class="secondary-button">ホームへ戻る</button>
       </div>
     </section>
   </main>
