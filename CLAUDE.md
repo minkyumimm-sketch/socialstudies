@@ -170,4 +170,6 @@ Task50（2026-08-13）でTestSetの保存・取得方式を確定：TestSet専�
 
 Task51.5（2026-08-15、方針確定のみ・実装は未着手）で、Phase4以降のロードマップを整理した。通常学習は今後「問題表示→思い出せた/わからない→選択肢表示→回答」という想起ファーストUXを基本とする（既存`text`問題・rendererは削除しない、変換もしない）。想起状態と正誤は別概念として扱い、復習対象は「不正解 OR わからない→選択肢表示後に正解」とする。画像は独立した出題modeにせず既存modeへの付加要素とする（`map_click`のみ既存どおり独立維持）。通常学習とスピードランは明確に分離し、スピードランはPhase7へ位置づける。Phase6として「問題マスター大規模拡充」を新設し、その後に「教室実機試用」という独立ゲートを置く。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 4.3節・10.3節・13.3節・16章を参照。
 
-Task52（2026-08-15完了）でTestSet専用Google Spreadsheet・GAS Web Appを実際に構築し、`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet`の5APIすべてを実環境で単体疎通確認済み（`school_master`に`SC001`登録済み、疎通確認用`TS001`は`archived`のまま記録として保持）。既存GASは無変更。GAS Web App URL・PIN実値はrepositoryに記載しない。LSアプリ本体（講師UI・生徒UI・QuestionSet/Attempt接続）は未着手、次はTask53（講師用問題選定UI）。詳細は`docs/operations/test-set-gas-setup-v1.md`を参照。
+Task52（2026-08-15完了）でTestSet専用Google Spreadsheet・GAS Web Appを実際に構築し、`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet`の5APIすべてを実環境で単体疎通確認済み（`school_master`に`SC001`登録済み、疎通確認用`TS001`は`archived`のまま記録として保持）。既存GASは無変更。詳細は`docs/operations/test-set-gas-setup-v1.md`を参照。
+
+Task53（2026-08-15完了）で講師用問題選定UI（`teacher-screen`、`features/teacher/`）をLSアプリへ実装。学校選択→学年→学年度(自動算出)→テスト回→セット名→教科ごとのunit/subunit絞り込み→checkbox選定（教科横断で選択保持）→`saveTestSet`保存、のフローが動作する。**TestSet専用GAS Web App URLは秘密情報ではないため`config/test-set-gas-config.js`へ実値をrepository保持する方針へ確定**（既存`GAS_WEB_APP_URL`と同じ扱い）。講師PINは引き続きrepository・コードのどこにも保持せず、teacher-screenでのその場入力のみ。既存の生徒学習フロー・画面は無変更。次はTask54（生徒用「学校→学年→TestSet選択」UI）。

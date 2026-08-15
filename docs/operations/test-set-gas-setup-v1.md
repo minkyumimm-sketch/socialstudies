@@ -104,11 +104,11 @@ GASコード（Task52で作成）が完成した後の手順。
 
 ---
 
-## 5. URL取得後の扱い
+## 5. URL取得後の扱い（Task53で確定）
 
 デプロイ後に発行されるWeb App URL（`https://script.google.com/macros/s/.../exec`形式）は、既存の`services/gas-service.js`の`GAS_WEB_APP_URL`とは**別の定数として**アプリ側へ組み込む（既存の値を上書きしない）。
 
-Task51時点では、この新しい定数を格納する専用ファイル（例：TestSet用の`services/test-set-gas-service.js`のような構成）はまだ作成していない。具体的な配置はTask53（講師用UI）・Task54（生徒用UI）の実装Taskで確定する。
+**Task53で`config/test-set-gas-config.js`（`TEST_SET_GAS_WEB_APP_URL`定数）として実装・確定した。** Web App URLはブラウザから常に見える公開情報であり秘密情報ではないため、既存`GAS_WEB_APP_URL`と同じ扱いでrepositoryへ実値を保持する。講師PIN（`TEACHER_PIN`）はこの定数とは全く別物であり、引き続きrepository・コード・docsのどこにも保持しない。
 
 ---
 

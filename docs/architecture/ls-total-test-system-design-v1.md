@@ -488,7 +488,9 @@ TestSetはGitへのcommit/pushを介さず、講師の保存操作がGAS経由�
 
 理由：既存GASの実体（同一プロジェクトか、管理者は誰か）が未確認のまま（1.2節）本番稼働中のスクリプトへ手を加えることは、「①既存機能を壊さない」という最優先原則に対するリスクを不必要に増やす。新設により責務分離・障害分離の両方を得られる（詳細はTask50報告）。
 
-**構築状況（Task52、2026-08-15完了）**: TestSet専用Spreadsheet・GAS Web App（container-bound、Execute as: Me、Who has access: Anyone）を実際に構築し、`school_master`へ実データ1校（`SC001`）を登録済み。`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`（新規・更新）/`archiveTestSet`の5APIすべてを実環境でAPI単体疎通確認済み（不正PINでの書き込み拒否、archived TestSetの一覧除外・直接取得可否も確認済み）。疎通確認用TestSet（`TS001`）は削除せず`archived`状態のまま記録として保持している。GAS Web App URL・講師PIN実値はいずれもrepositoryへ記載しない。LSアプリ本体からの接続（講師UI・生徒UI・QuestionSet/Attempt連携）はTask53以降で実施する。
+**構築状況（Task52、2026-08-15完了）**: TestSet専用Spreadsheet・GAS Web App（container-bound、Execute as: Me、Who has access: Anyone）を実際に構築し、`school_master`へ実データ1校（`SC001`）を登録済み。`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`（新規・更新）/`archiveTestSet`の5APIすべてを実環境でAPI単体疎通確認済み（不正PINでの書き込み拒否、archived TestSetの一覧除外・直接取得可否も確認済み）。疎通確認用TestSet（`TS001`）は削除せず`archived`状態のまま記録として保持している。講師PIN実値はrepositoryへ記載しない（Task52・53とも変更なし）。
+
+**LSアプリ本体接続状況（Task53、2026-08-15完了）**: 講師用問題選定UI（`teacher-screen`）をLSアプリへ実装し接続した。**GAS Web App URLの扱いをここで確定：URL自体はブラウザから常に見える公開情報であり秘密情報ではないため、既存`GAS_WEB_APP_URL`（`services/gas-service.js`）と同じ扱いで`config/test-set-gas-config.js`へ実値をrepositoryへ保持する方針へ変更した（Task50-52時点の「URL非記載」は暫定方針であり、Task53で正式に確定）。講師PINは引き続きrepository・コード・docsのどこにも保持せず、講師がteacher-screenでその場入力した値のみをメモリ上に保持してAPIへ送信する。** 生徒用UI・TestSet→QuestionSet/Attempt連携はTask54以降で実施する。
 
 ### 9.7 GAS障害時のフォールバック（確定、Task50）
 
