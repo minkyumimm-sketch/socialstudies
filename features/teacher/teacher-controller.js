@@ -131,19 +131,25 @@ async function handlePinSubmit(elements) {
   teacherState.pin = pin;
   teacherState.pinEntered = true;
 
-  elements.pinGate.classList.add("hidden");
-  elements.form.classList.remove("hidden");
-
-  elements.schoolSelect.innerHTML = "<option value=\"\">読込中...</option>";
+  // 学校取得が完了するまでformを表示しない（未完了中にfieldId/問題選択へ
+  // 進めてしまうと、後から遅れて失敗するloadSchools()のエラーが、既に
+  // 進んだ操作の下に取り残されたように見える競合が発生するため）。
+  elements.pinSubmitButton.disabled = true;
+  elements.pinSubmitButton.textContent = "学校情報を取得中...";
 
   try {
     const schools = await loadSchools();
     teacherState.schools = schools;
+
+    elements.pinGate.classList.add("hidden");
+    elements.form.classList.remove("hidden");
     renderSchoolOptions(elements.schoolSelect, schools);
   } catch (error) {
     console.error("loadSchools error:", error);
-    renderSchoolOptions(elements.schoolSelect, []);
-    showTeacherError(elements.questionError, "学校情報を取得できませんでした。通信環境を確認してください。");
+    showTeacherError(elements.pinError, "学校情報を取得できませんでした。通信環境を確認してください。");
+  } finally {
+    elements.pinSubmitButton.disabled = false;
+    elements.pinSubmitButton.textContent = "はじめる";
   }
 }
 
