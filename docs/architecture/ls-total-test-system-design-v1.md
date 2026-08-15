@@ -483,10 +483,12 @@ TestSetはGitへのcommit/pushを介さず、講師の保存操作がGAS経由�
 | | 既存GAS | TestSet専用GAS（新設） |
 |---|---|---|
 | 責務 | active生徒一覧取得、解答履歴保存 | 学校一覧、TestSet一覧・詳細取得、TestSet作成・更新・archive |
-| Spreadsheet | 既存（構造未確認、1.2節） | 新設「LS総合テスト対策_学校・テストセットマスター」（`school_master`/`test_set`/`test_set_questions`の3タブ） |
-| 変更方針 | 変更しない | Task52以降で新規構築 |
+| Spreadsheet | 既存（構造未確認、1.2節） | 「LS総合テスト対策_学校・テストセットマスター」（`school_master`/`test_set`/`test_set_questions`の3タブ） |
+| 変更方針 | 変更しない | **Task52で構築完了** |
 
 理由：既存GASの実体（同一プロジェクトか、管理者は誰か）が未確認のまま（1.2節）本番稼働中のスクリプトへ手を加えることは、「①既存機能を壊さない」という最優先原則に対するリスクを不必要に増やす。新設により責務分離・障害分離の両方を得られる（詳細はTask50報告）。
+
+**構築状況（Task52、2026-08-15完了）**: TestSet専用Spreadsheet・GAS Web App（container-bound、Execute as: Me、Who has access: Anyone）を実際に構築し、`school_master`へ実データ1校（`SC001`）を登録済み。`getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`（新規・更新）/`archiveTestSet`の5APIすべてを実環境でAPI単体疎通確認済み（不正PINでの書き込み拒否、archived TestSetの一覧除外・直接取得可否も確認済み）。疎通確認用TestSet（`TS001`）は削除せず`archived`状態のまま記録として保持している。GAS Web App URL・講師PIN実値はいずれもrepositoryへ記載しない。LSアプリ本体からの接続（講師UI・生徒UI・QuestionSet/Attempt連携）はTask53以降で実施する。
 
 ### 9.7 GAS障害時のフォールバック（確定、Task50）
 
@@ -741,7 +743,7 @@ stateDiagram-v2
 |---|---|
 | 目的 | 学校別のテスト範囲に合わせて、講師が問題マスターから必要な問題を選定してTestSetを作成し、生徒が学校・学年・指定されたTestSetを選択して、選定済み問題のみを学習できるようにする |
 | 前提条件 | Phase3完了。生徒プロフィールAPI（`schoolId`/`gradeId`自動取得）は不要（studentIdから学校・学年を自動判定しない方式のため） |
-| 主な変更対象 | `features/test-set/`新設（想定）、TestSet専用GAS Web App新設（既存GASとは分離）、TestSet専用Google Spreadsheet新設（`school_master`/`test_set`/`test_set_questions`）、講師用問題選定UI（共有PIN保護）、生徒用TestSet選択UI |
+| 主な変更対象 | `features/test-set/`新設（想定）、TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（共有PIN保護）、生徒用TestSet選択UI —**未着手（Task53以降）** |
 | 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること |
 | 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと |
 | ロールバック方法 | TestSetが空でも通常学習が動作するフォールバック設計のため、機能フラグ的に無効化可能 |

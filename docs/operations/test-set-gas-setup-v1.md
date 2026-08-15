@@ -1,9 +1,9 @@
 # TestSet専用GAS / Spreadsheet 構築手順書 Ver.1
 
 - 作成日: 2026-08-13（Task51）
-- 位置づけ: Phase4「学校別テスト範囲」のTestSet機能で使用する、TestSet専用Google Spreadsheet・GAS Web Appを新規構築するための手順書。ユーザー（またはユーザーの指示のもとClaude Code）がTask52で実施する作業の準備資料。
+- 位置づけ: Phase4「学校別テスト範囲」のTestSet機能で使用する、TestSet専用Google Spreadsheet・GAS Web Appを新規構築するための手順書。
 - 前提: `docs/architecture/ls-total-test-system-design-v1.md` 9章・`docs/specification/gas-api-contract-v1.md` 9章で確定した設計に基づく。
-- **注意**: 本書作成時点（Task51）では、実際のSpreadsheet・GASプロジェクトはまだ存在しない。GAS実装コード自体もTask52で作成する。Google Apps ScriptのUI（メニュー名・画面構成）は本リポジトリの情報だけでは実機確認できないため、記載と実際の画面表示が異なる場合はTask52実施時に実画面を確認して読み替えること。
+- **構築状況（Task52、2026-08-15完了）**: 本手順書に沿ってSpreadsheet・GASプロジェクト（container-bound）・Web Appデプロイ・Script Properties（`TEACHER_PIN`）を実際に構築し、5APIすべての単体疎通確認が完了している。以下の手順は完了済みの記録として、また将来同様の基盤を再構築する場合の参照として残す。GAS Web App URL・PIN実値はrepositoryのどこにも記載しない方針を維持している。
 
 ---
 
@@ -112,17 +112,18 @@ Task51時点では、この新しい定数を格納する専用ファイル（�
 
 ---
 
-## 6. 疎通確認の順序（Task52で実施）
+## 6. 疎通確認の順序（Task52で実施・完了済み）
 
-GASコード実装・デプロイ完了後、以下の順で疎通確認を行う。
+GASコード実装・デプロイ完了後、以下の順で疎通確認を行う。**Task52（2026-08-15）ですべて完了。**
 
 1. `getSchools`（学校0件の状態で空配列が返ることを確認）
-2. `school_master`タブへテスト用の学校を1件手動追加し、`getSchools`で反映されることを確認
-3. `saveTestSet`でテスト用TestSetを1件作成（PINあり）し、`test_set`/`test_set_questions`タブへ正しく書き込まれることを確認
-4. `saveTestSet`をPINなし・PIN誤りで呼び出し、拒否されることを確認
-5. `getTestSets`で該当TestSetが一覧取得できることを確認
-6. `getTestSet`で詳細（questions一覧）が取得できることを確認
-7. `archiveTestSet`でstatusが`archived`に変わることを確認、`getTestSets`（active限定）から除外されることを確認
-8. 確認が終わったテストデータは、本番運用に影響しないよう整理・削除する
+2. `school_master`タブへテスト用の学校を1件手動追加し、`getSchools`で反映されることを確認 → `SC001`登録・反映確認済み
+3. `saveTestSet`でテスト用TestSetを1件作成（PINあり）し、`test_set`/`test_set_questions`タブへ正しく書き込まれることを確認 → `TS001`作成・確認済み（`physics`/`phy_001`）
+4. `saveTestSet`を同一`testSetId`で再送し、更新できること・`test_set_questions`に重複行が残らないことを確認 → 確認済み
+5. `saveTestSet`をPIN誤りで呼び出し、拒否されることを確認 → 確認済み（Sheets側に変化なし）
+6. `getTestSets`で該当TestSetが一覧取得できることを確認 → 確認済み
+7. `getTestSet`で詳細（questions一覧）が取得できることを確認 → 確認済み
+8. `archiveTestSet`でstatusが`archived`に変わることを確認、`getTestSets`（active限定）から除外されるが`getTestSet`では引き続き取得できることを確認 → 確認済み
+9. 確認が終わったテストデータ（`TS001`）は、削除せず`archived`のまま疎通確認の記録として保持する（物理削除機能を設計上持たせていないため）
 
-この段階ではLSアプリ本体（`app.js`等）との接続はまだ行わない。GAS API単体の疎通確認までがTask52の範囲。
+この段階ではLSアプリ本体（`app.js`等）との接続はまだ行っていない。GAS API単体の疎通確認までがTask52の範囲であり、講師用UI・生徒用UI・QuestionSet/Attempt接続はTask53以降で実施する。

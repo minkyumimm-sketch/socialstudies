@@ -60,7 +60,7 @@ function main() {
   const keyColumns = KEY_COLUMNS_BY_TARGET[target];
 
   if (!keyColumns || !baselineArg || !candidateArg) {
-    console.error("使い方: node scripts/compare-master-csv.mjs <school_master|student_school_grade|test_range> <baseline.csv> <candidate.csv>");
+    console.error("使い方: node scripts/compare-master-csv.mjs <school_master|test_set|test_set_questions> <baseline.csv> <candidate.csv>");
     process.exit(2);
   }
 
