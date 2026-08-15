@@ -98,7 +98,7 @@ RankingRecordでは`studentId + questionSetId + questionSetVersion + academicYea
 
 ---
 
-## 3. ランキング反映のシーケンス（Phase6実装時のイメージ）
+## 3. ランキング反映のシーケンス（Phase7実装時のイメージ。Task51.5でPhase6から変更、スピードラン＋ランキング統合）
 
 ```mermaid
 sequenceDiagram

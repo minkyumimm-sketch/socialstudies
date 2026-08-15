@@ -153,16 +153,19 @@
 - Phase2 基盤整備（生徒ID・学校・学年・学習履歴）
 - Phase3 理科・社会統合（完了。理科4分野・計266問を追加済み）
 - Phase4 学校別テスト範囲
-- Phase5 学習分析（苦手問題・おすすめ問題・履歴）
-- Phase6 ランキング
-- Phase7 時間制限・タイムアタック
-- Phase8 画像・地図・並び替え強化
+- Phase5 学習分析（苦手問題・おすすめ問題・履歴）＋通常学習の想起ファーストUX実装
+- Phase6 問題マスター大規模拡充（Task51.5で新設）
+- （Phase6→Phase7ゲート）教室実機試用（Task51.5で新設）
+- Phase7 スピードラン＋ランキング（Task51.5で旧Phase6「ランキング」＋旧Phase7「時間制限・タイムアタック」を統合）
+- Phase8 （廃止、Task51.5。旧「画像・地図・並び替え強化」はPhase5/Phase6へ統合） ※番号は欠番とし、Phase9はそのまま維持
 - Phase9 先生配信問題
 
 ## Current Phase
 
-Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済みだが、実験手順並び替え・地図問題拡張は未着手のためPhase8全体は未完了。次に着手すべき本来の実装対象はPhase4（学校別テスト範囲）。
+Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済み（実装済みのままPhase5「画像要素の付加方針」へ位置づけを整理、Task51.5）。次に着手すべき本来の実装対象はPhase4（学校別テスト範囲）。
 
 Phase4はTask47（2026-08-13）でTestSet方式へ再設計済み。studentIdから学校・学年を自動判定せず、講師が問題マスターから問題を選定してTestSet（questionId固定集合）として保存し、生徒が学校・学年・TestSetを自ら選択して実行する。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9章を参照。
 
-Task50（2026-08-13）でTestSetの保存・取得方式を確定：TestSet専用GAS Web App＋専用Google Spreadsheetを新設し、既存GAS（生徒一覧・解答保存用）とは完全に分離する。問題マスターは引き続きGitHub Pages CSV方式を維持する。TestSetに個人情報（studentId・氏名等）は保存しない。詳細なAPI仕様は`docs/specification/gas-api-contract-v1.md` 9章、構築手順は`docs/operations/test-set-gas-setup-v1.md`を参照。
+Task50（2026-08-13）でTestSetの保存・取得方式を確定：TestSet専用GAS Web App＋専用Google Spreadsheetを新設し、既存GAS（生徒一覧・解答保存用）とは完全に分離する。問題マスターは引き続きGitHub Pages CSV方式を維持する。TestSetに個人情報（studentId・氏名等）は保存しない。詳細なAPI仕様は`docs/specification/gas-api-contract-v1.md` 9章、構築手順は`docs/operations/test-set-gas-setup-v1.md`を参照。次のTaskはTask52（TestSet専用Spreadsheet＋GAS API基盤構築）。
+
+Task51.5（2026-08-15、方針確定のみ・実装は未着手）で、Phase4以降のロードマップを整理した。通常学習は今後「問題表示→思い出せた/わからない→選択肢表示→回答」という想起ファーストUXを基本とする（既存`text`問題・rendererは削除しない、変換もしない）。想起状態と正誤は別概念として扱い、復習対象は「不正解 OR わからない→選択肢表示後に正解」とする。画像は独立した出題modeにせず既存modeへの付加要素とする（`map_click`のみ既存どおり独立維持）。通常学習とスピードランは明確に分離し、スピードランはPhase7へ位置づける。Phase6として「問題マスター大規模拡充」を新設し、その後に「教室実機試用」という独立ゲートを置く。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 4.3節・10.3節・13.3節・16章を参照。

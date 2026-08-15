@@ -102,7 +102,7 @@
 | エラー | 該当`attemptId`なし（`startAttempt`未実施）、既に完了済み |
 | 冪等性 | 冪等にする（同じ`attemptId`への2回目の完了リクエストは何もしない、または同じ結果を返す） |
 | 認証・本人確認 | `startAttempt`時の`studentId`と一致するかの確認が望ましい |
-| 既存APIからの移行方法 | 新規。Phase2で「完了」の概念を導入、Phase6で内部的に`upsertBestRecord`を呼び出す形に拡張 |
+| 既存APIからの移行方法 | 新規。Phase2で「完了」の概念を導入、Phase7（スピードラン＋ランキング、Task51.5でPhase6から変更）で内部的に`upsertBestRecord`を呼び出す形に拡張 |
 
 ---
 
@@ -223,7 +223,7 @@ TestSet専用GASの正本データはTestSet専用Google Spreadsheet「LS総合�
 | エラー | 該当データなし（空配列を返す） |
 | 冪等性 | 冪等（GET・副作用なし） |
 | 認証・本人確認 | ランキング自体は公開情報として扱う想定だが、`myRank`取得時は`studentId`の妥当性確認が必要 |
-| 既存APIからの移行方法 | 新規。Phase6で導入。詳細は`ranking-spec-v1.md`参照 |
+| 既存APIからの移行方法 | 新規。Phase7（スピードラン＋ランキング、Task51.5でPhase6から変更）で導入。詳細は`ranking-spec-v1.md`参照 |
 
 ---
 
@@ -238,7 +238,7 @@ TestSet専用GASの正本データはTestSet専用Google Spreadsheet「LS総合�
 | エラー | 該当データなし（空配列） |
 | 冪等性 | 冪等 |
 | 認証・本人確認 | 卒業生記録を含む場合、公開範囲の方針次第で認可が必要になる可能性（メイン設計書14章、**要確認**） |
-| 既存APIからの移行方法 | 新規。Phase6で導入 |
+| 既存APIからの移行方法 | 新規。Phase7（スピードラン＋ランキング、Task51.5でPhase6から変更）で導入 |
 
 ---
 
@@ -266,10 +266,10 @@ TestSet専用GASの正本データはTestSet専用Google Spreadsheet「LS総合�
 | 3 | `authenticateStudent` | 未定（優先度低） | 新規 |
 | 4 | `getStudentProfile` | Phase4 | **Task47で不採用**（4章参照） |
 | 5 | `startAttempt` | Phase2 | 新規 |
-| 6 | `completeAttempt` | Phase2/Phase6 | 新規 |
+| 6 | `completeAttempt` | Phase2/Phase7 | 新規 |
 | 7 | `getWeakQuestions` | Phase5 | 新規 |
 | 8 | `getLearningSummary` | Phase5 | 新規 |
 | 9 | `getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet` | Phase4 | **Task50確定：TestSet専用GAS Web App（本表1-8・10-12とは別プロジェクト）に実装。詳細は9章** |
-| 10 | `getAnnualRanking` | Phase6 | 新規 |
-| 11 | `getAllTimeRanking` | Phase6 | 新規 |
-| 12 | `upsertBestRecord` | Phase6 | 新規 |
+| 10 | `getAnnualRanking` | Phase7 | 新規（Task51.5でPhase6から変更、スピードラン＋ランキング統合） |
+| 11 | `getAllTimeRanking` | Phase7 | 新規（Task51.5でPhase6から変更） |
+| 12 | `upsertBestRecord` | Phase7 | 新規（Task51.5でPhase6から変更） |
