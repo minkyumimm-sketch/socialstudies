@@ -857,4 +857,136 @@ select {
   .map-click-container {
     padding: 4px;
   }
+
+  .teacher-question-row {
+    flex-direction: column;
+  }
+}
+
+/* =========================
+   teacher (講師用問題選定)
+========================= */
+
+.teacher-mode-entry-button {
+  display: block;
+  margin: 20px auto 0;
+  padding: 6px 14px;
+  border: 1px solid #d8e0ef;
+  border-radius: 8px;
+  background: transparent;
+  color: #889;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.teacher-mode-entry-button:hover {
+  opacity: 0.8;
+}
+
+.teacher-pin-gate {
+  margin-bottom: 8px;
+}
+
+.teacher-gate-message {
+  color: #445;
+  margin-bottom: 12px;
+}
+
+.teacher-form {
+  display: flex;
+  flex-direction: column;
+}
+
+.teacher-question-list-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.teacher-question-list-header .secondary-button {
+  flex: 1;
+}
+
+.teacher-question-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 420px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #e6ebf5;
+  border-radius: 10px;
+}
+
+.teacher-question-empty {
+  color: #667;
+  padding: 12px;
+  text-align: center;
+}
+
+.teacher-question-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.teacher-question-row input[type="checkbox"] {
+  margin-top: 4px;
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.teacher-question-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.teacher-question-meta {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  color: #667;
+}
+
+.teacher-question-text {
+  margin: 0 0 4px;
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+.teacher-question-answer {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #2f4d8f;
+  word-break: break-word;
+}
+
+.teacher-selection-summary {
+  font-weight: bold;
+  color: #2f4d8f;
+  margin-bottom: 14px;
+}
+
+.teacher-save-result {
+  margin-top: 12px;
+  min-height: 1.2em;
+  word-break: break-word;
+}
+
+.teacher-save-result-error {
+  color: #d93025;
+}
+
+.teacher-save-result-success {
+  color: #1a7f37;
+}
+
+#teacher-back-button {
+  margin-top: 16px;
+  width: 100%;
 }

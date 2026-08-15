@@ -21,7 +21,8 @@ import {
   showQuizScreen,
   showResultScreen,
   showStartScreen,
-  showHistoryScreen
+  showHistoryScreen,
+  showTeacherScreen
 } from "./core/screen-controller.js";
 import { renderTextQuestion } from "./renderers/text-renderer.js";
 import { renderChoiceQuestion, lockChoiceButtons } from "./renderers/choice-renderer.js";
@@ -50,13 +51,15 @@ import { completeAttempt } from "./features/history/attempt-complete-integration
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
+import { initTeacherScreen } from "./features/teacher/teacher-controller.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
 const quizScreen = document.getElementById("quiz-screen");
 const resultScreen = document.getElementById("result-screen");
 const historyScreen = document.getElementById("history-screen");
-const allScreens = [homeScreen, startScreen, quizScreen, resultScreen, historyScreen];
+const teacherScreen = document.getElementById("teacher-screen");
+const allScreens = [homeScreen, startScreen, quizScreen, resultScreen, historyScreen, teacherScreen];
 
 // Phase2 Task20-A: ホーム画面の生徒選択欄。既存start-screenの生徒選択（下記
 // studentNameInput等）とはDOM要素が別だが、選択処理はservices/student-service.jsの
@@ -119,6 +122,35 @@ const historyElements = {
   currentStreak: historyCurrentStreak,
   subjectList: historySubjectList,
   recentList: historyRecentList
+};
+
+// Task53: 講師用問題選定画面（teacher-screen）のDOM要素。
+// teacher-controller.jsはこのelementsバッグを受け取るだけで、DOM取得は一切行わない
+// （history-renderer.jsと同じ方針）。studentId関連の状態には一切触れない。
+const homeTeacherModeButton = document.getElementById("home-teacher-mode-button");
+const teacherBackButton = document.getElementById("teacher-back-button");
+
+const teacherElements = {
+  pinGate: document.getElementById("teacher-pin-gate"),
+  pinInput: document.getElementById("teacher-pin-input"),
+  pinSubmitButton: document.getElementById("teacher-pin-submit-button"),
+  pinError: document.getElementById("teacher-pin-error"),
+  form: document.getElementById("teacher-form"),
+  schoolSelect: document.getElementById("teacher-school-select"),
+  gradeSelect: document.getElementById("teacher-grade-select"),
+  academicYearInput: document.getElementById("teacher-academic-year-input"),
+  examRoundInput: document.getElementById("teacher-exam-round-input"),
+  labelInput: document.getElementById("teacher-label-input"),
+  fieldSelect: document.getElementById("teacher-field-select"),
+  unitSelect: document.getElementById("teacher-unit-select"),
+  subunitSelect: document.getElementById("teacher-subunit-select"),
+  questionError: document.getElementById("teacher-question-error"),
+  questionList: document.getElementById("teacher-question-list"),
+  selectAllButton: document.getElementById("teacher-select-all-button"),
+  deselectAllButton: document.getElementById("teacher-deselect-all-button"),
+  selectionSummary: document.getElementById("teacher-selection-summary"),
+  saveButton: document.getElementById("teacher-save-button"),
+  saveResult: document.getElementById("teacher-save-result")
 };
 
 // Phase2 Task21-3: 「苦手を復習」「復習する」ボタン押下時に呼ばれるコールバック。
@@ -202,6 +234,9 @@ homeStartButton.addEventListener("click", goToStartScreenFromHome);
 homeDetailToggle.addEventListener("click", () => toggleHomeDetail(homeElements));
 homeHistoryButton.addEventListener("click", goToHistoryScreen);
 historyBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+
+homeTeacherModeButton.addEventListener("click", goToTeacherScreen);
+teacherBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
@@ -761,4 +796,13 @@ function goToHistoryScreen() {
 
   renderHistoryForStudent(state.session.studentId, historyElements);
   showHistoryScreen(historyScreen, allScreens);
+}
+
+// Task53: ホーム画面の「講師用」から、講師用問題選定画面（teacher-screen）へ遷移する。
+// 生徒選択の有無に関わらずいつでも開ける（講師モードは生徒の学習フローと完全に別物のため、
+// state.session.studentIdを条件にしない）。表示のたびにteacher-controller.js側で
+// state・フォームをリセットする（PINも含め毎回再入力、誤操作防止のため）。
+function goToTeacherScreen() {
+  initTeacherScreen(teacherElements);
+  showTeacherScreen(teacherScreen, allScreens);
 }

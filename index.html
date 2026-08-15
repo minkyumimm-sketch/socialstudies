@@ -67,6 +67,8 @@
 
         <button id="home-history-button" class="secondary-button">学習履歴を見る</button>
         <button id="home-start-button" class="primary-button" disabled>学習を始める</button>
+
+        <button id="home-teacher-mode-button" class="teacher-mode-entry-button" type="button">講師用</button>
       </div>
     </section>
 
@@ -232,6 +234,105 @@
           <button id="wrong-retry-button" class="secondary-button">間違えた問題だけもう一度</button>
           <button id="back-button" class="secondary-button">開始画面へ戻る</button>
         </div>
+      </div>
+    </section>
+
+    <section id="teacher-screen" class="screen">
+      <div class="card">
+        <h2>講師用問題選定</h2>
+
+        <div id="teacher-pin-gate" class="teacher-pin-gate">
+          <p class="teacher-gate-message">講師用PINを入力してください。</p>
+          <div class="form-group">
+            <label for="teacher-pin-input">講師PIN</label>
+            <input type="password" id="teacher-pin-input" autocomplete="off" />
+          </div>
+          <button id="teacher-pin-submit-button" class="primary-button" type="button">はじめる</button>
+          <p id="teacher-pin-error" class="error-message"></p>
+        </div>
+
+        <div id="teacher-form" class="teacher-form hidden">
+          <div class="form-group">
+            <label for="teacher-school-select">学校</label>
+            <select id="teacher-school-select">
+              <option value="">読込中...</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="teacher-grade-select">学年</label>
+            <select id="teacher-grade-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="teacher-academic-year-input">学年度</label>
+            <input type="text" id="teacher-academic-year-input" placeholder="AY2026" />
+          </div>
+
+          <div class="form-group">
+            <label for="teacher-exam-round-input">テスト回</label>
+            <input
+              type="text"
+              id="teacher-exam-round-input"
+              list="teacher-exam-round-options"
+              placeholder="例: 前期期末"
+              autocomplete="off"
+            />
+            <datalist id="teacher-exam-round-options">
+              <option value="前期中間"></option>
+              <option value="前期期末"></option>
+              <option value="後期中間"></option>
+              <option value="後期期末"></option>
+              <option value="学年末"></option>
+            </datalist>
+          </div>
+
+          <div class="form-group">
+            <label for="teacher-label-input">セット名</label>
+            <input type="text" id="teacher-label-input" placeholder="例: 前期期末 理科" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="teacher-field-select">教科（候補の絞り込み対象）</label>
+            <select id="teacher-field-select">
+              <option value="">選択してください</option>
+            </select>
+          </div>
+
+          <div class="filter-grid">
+            <div class="form-group">
+              <label for="teacher-unit-select">単元</label>
+              <select id="teacher-unit-select">
+                <option value="all">すべて</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="teacher-subunit-select">小単元</label>
+              <select id="teacher-subunit-select">
+                <option value="all">すべて</option>
+              </select>
+            </div>
+          </div>
+
+          <p id="teacher-question-error" class="error-message"></p>
+
+          <div class="teacher-question-list-header">
+            <button id="teacher-select-all-button" type="button" class="secondary-button">表示中を全選択</button>
+            <button id="teacher-deselect-all-button" type="button" class="secondary-button">表示中を全解除</button>
+          </div>
+
+          <div id="teacher-question-list" class="teacher-question-list"></div>
+
+          <div id="teacher-selection-summary" class="teacher-selection-summary">選択中：0問</div>
+
+          <button id="teacher-save-button" class="primary-button" type="button">TestSetを保存</button>
+          <p id="teacher-save-result" class="teacher-save-result"></p>
+        </div>
+
+        <button id="teacher-back-button" class="secondary-button">ホームへ戻る</button>
       </div>
     </section>
   </main>
