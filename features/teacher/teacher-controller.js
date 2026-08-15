@@ -121,6 +121,7 @@ function wireEvents(elements) {
 async function handlePinSubmit(elements) {
   const pin = String(elements.pinInput.value || "").trim();
   showTeacherError(elements.pinError, "");
+  showTeacherError(elements.questionError, "");
 
   if (!pin) {
     showTeacherError(elements.pinError, "PINを入力してください。");
