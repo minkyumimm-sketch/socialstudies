@@ -83,6 +83,34 @@ export function renderConfirmInfo(containerEl, data) {
 }
 
 /**
+ * TestSet全体完了時のサマリー表示を組み立てる（Task55）。
+ * @param {HTMLElement} containerEl
+ * @param {{label:string, totalQuestions:number, totalCorrect:number, totalIncorrect:number}} summary
+ */
+export function renderCompletionSummary(containerEl, summary) {
+  containerEl.innerHTML = "";
+
+  const heading = document.createElement("p");
+  heading.className = "tss-complete-heading";
+  heading.textContent = `「${summary.label}」が終わりました`;
+  containerEl.appendChild(heading);
+
+  const rows = [
+    ["問題数", `${summary.totalQuestions}問`],
+    ["正解数", `${summary.totalCorrect}問`],
+    ["不正解数", `${summary.totalIncorrect}問`]
+  ];
+
+  rows.forEach(([label, value]) => {
+    const row = document.createElement("p");
+    row.className = "tss-confirm-row";
+    row.innerHTML = `<span class="tss-confirm-row-label">${label}</span><span class="tss-confirm-row-value"></span>`;
+    row.querySelector(".tss-confirm-row-value").textContent = value;
+    containerEl.appendChild(row);
+  });
+}
+
+/**
  * @param {HTMLElement} el
  * @param {string} message
  */

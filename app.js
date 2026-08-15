@@ -53,7 +53,17 @@ import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-ren
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
 import { initTeacherScreen } from "./features/teacher/teacher-controller.js";
-import { initTestSetStudentScreen } from "./features/test-set-student/test-set-student-controller.js";
+import { initTestSetStudentScreen, showTestSetCompletion } from "./features/test-set-student/test-set-student-controller.js";
+import {
+  startTestSetRun,
+  isRunnerActive,
+  getCurrentGroup,
+  recordCurrentGroupResult,
+  hasNextGroup,
+  advanceToNextGroup,
+  finishRun,
+  abortRun
+} from "./features/test-set-runner/test-set-runner.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -184,7 +194,9 @@ const tssElements = {
   confirmInfo: document.getElementById("tss-confirm-info"),
   confirmMessage: document.getElementById("tss-confirm-message"),
   startButton: document.getElementById("tss-start-button"),
-  confirmBackButton: document.getElementById("tss-confirm-back-button")
+  confirmBackButton: document.getElementById("tss-confirm-back-button"),
+  completeStep: document.getElementById("tss-complete-step"),
+  completeInfo: document.getElementById("tss-complete-info")
 };
 
 // Phase2 Task21-3: 「苦手を復習」「復習する」ボタン押下時に呼ばれるコールバック。
@@ -656,6 +668,15 @@ function goToNextQuestion() {
 }
 
 function showFinalResult() {
+  // Task55: TestSet実行中は、既存result-screenを表示せず次グループへ連続実行する
+  // （通常学習のresult-screen・retry/wrong-retryボタンはTestSet実行中は一切使わない、
+  // Task55確定方針）。既存Attempt完了処理（completeAttempt）は各グループとも通常学習と
+  // 全く同じ経路をそのまま通す。
+  if (isRunnerActive()) {
+    finishCurrentTestSetGroupAndAdvance();
+    return;
+  }
+
   renderFinalResult(state, {
     finalStudent,
     finalSubject,
@@ -672,6 +693,35 @@ function showFinalResult() {
   }
 }
 
+// Task55: TestSetの現在グループの結果を記録し、次グループがあれば続けてQuizを開始する。
+// 全グループ完了時のみTestSet全体完了として扱う（result-controller.jsのrenderFinalResultと
+// 同じ集計方式：間違い直しラウンドがあった場合はfirstRoundScore/firstRoundTotalを本来の
+// 結果として使う。これはAnswerRecord・History・Weaknessが元の解答を基準にしているのと
+// 一致させるため）。
+async function finishCurrentTestSetGroupAndAdvance() {
+  const groupCorrect = state.quiz.retryMode ? state.quiz.firstRoundScore : state.quiz.score;
+  const groupTotal = state.quiz.retryMode ? state.quiz.firstRoundTotal : state.quiz.quizQuestions.length;
+  recordCurrentGroupResult(groupCorrect, groupTotal);
+
+  // Phase2 Task14-3と同じ既存Attempt完了処理。TestSetの各グループも通常学習と同じ
+  // Attempt/AnswerRecord経路を通っているため、History/Weaknessは無改修で反映される。
+  try {
+    completeAttempt(currentDomainAttemptId);
+  } catch (domainError) {
+    console.error("completeAttempt error（TestSet実行フローには影響しません）:", domainError);
+  }
+
+  if (hasNextGroup()) {
+    const nextGroup = advanceToNextGroup();
+    await startTestSetGroupQuiz(nextGroup.fieldId, nextGroup.questionIds);
+    return;
+  }
+
+  const summary = finishRun();
+  showTestSetCompletion(tssElements, summary);
+  showTestSetStudentScreen(testSetStudentScreen, allScreens);
+}
+
 function retryQuiz() {
   restartQuiz(state);
   renderQuestion();
@@ -686,6 +736,12 @@ function retryWrongOnlyFromResult() {
 }
 
 function backToStart() {
+  // Task55: TestSet実行中にQuiz画面から離脱した場合、runner stateを安全に破棄する
+  // （次グループを勝手に再開しない。ブラウザリロード後の途中再開もTask55では実装しない）。
+  if (isRunnerActive()) {
+    abortRun();
+  }
+
   resetStartScreenMessages({
     startError,
     answerResult
@@ -852,6 +908,50 @@ function goToTeacherScreen() {
 function goToTestSetStudentScreen() {
   if (!state.session.studentId) return;
 
-  initTestSetStudentScreen(tssElements);
+  initTestSetStudentScreen(tssElements, startTestSetFromSelection);
   showTestSetStudentScreen(testSetStudentScreen, allScreens);
+}
+
+// Task55: 「このテスト対策を始める」から呼ばれるコールバック。
+// TestSetをfieldIdごとのグループへ分割・事前検証し（features/test-set-runner/
+// test-set-runner.js）、成功すれば最初のグループのQuizを開始する。
+// QuestionSet/Attemptモデル自体は一切変更せず、既存の単一fieldId実行フロー
+// （startTestSetGroupQuiz→beginAttemptAndShowQuiz、既存startPracticeSessionと同型）を
+// グループの数だけ順番に呼び出す（Task50確定方針）。
+async function startTestSetFromSelection(selectedTestSet) {
+  const result = await startTestSetRun(selectedTestSet, filterManager.getNormalizedQuestionsForSubject);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  const firstGroup = getCurrentGroup();
+  await startTestSetGroupQuiz(firstGroup.fieldId, firstGroup.questionIds);
+
+  return { ok: true };
+}
+
+// Task55: TestSetの1グループ（単一fieldId）分のQuizを開始する。
+// features/home/home-practice-controller.jsのbuildHomePracticeQuizを使うstartPracticeSession
+// と同じ構造（filterManagerで絞り込まず、既にactiveな問題一覧から対象questionIdだけを
+// 抽出してstateへ直接設定→beginAttemptAndShowQuiz）。既存のstartQuiz/prepareQuizStartの
+// 「単元・分野・N問ランダム抽出」ロジックは通常学習専用のままで、TestSetでは使わない
+// （TestSetの問題集合は講師が選定した固定集合であり、勝手に別問題へ置換しない）。
+async function startTestSetGroupQuiz(fieldId, questionIds) {
+  const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
+  const matched = availableQuestions.filter((q) => questionIds.includes(q.questionId));
+
+  state.session.subject = fieldId;
+  state.session.unitFilter = "all";
+  state.session.modeFilter = "all";
+  state.session.subunitFilter = "all";
+  state.session.requestedQuestionCount = matched.length;
+
+  resetQuizState(state);
+  resetUiState(state);
+
+  state.quiz.allQuestions = matched;
+  state.quiz.quizQuestions = pickQuestions(matched, matched.length);
+
+  await beginAttemptAndShowQuiz();
 }

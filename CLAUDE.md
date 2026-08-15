@@ -174,4 +174,6 @@ Task52（2026-08-15完了）でTestSet専用Google Spreadsheet・GAS Web Appを�
 
 Task53（2026-08-15完了）で講師用問題選定UI（`teacher-screen`、`features/teacher/`）をLSアプリへ実装。学校選択→学年→学年度(自動算出)→テスト回→セット名→教科ごとのunit/subunit絞り込み→checkbox選定（教科横断で選択保持）→`saveTestSet`保存、のフローが動作する。**TestSet専用GAS Web App URLは秘密情報ではないため`config/test-set-gas-config.js`へ実値をrepository保持する方針へ確定**（既存`GAS_WEB_APP_URL`と同じ扱い）。講師PINは引き続きrepository・コードのどこにも保持せず、teacher-screenでのその場入力のみ。既存の生徒学習フロー・画面は無変更。
 
-Task54（2026-08-15完了）で生徒用TestSet選択UI（`test-set-student-screen`、`features/test-set-student/`）を実装。学校選択→学年→TestSet一覧→開始前確認までの導線が動作する。studentIdからschoolId/gradeIdを自動判定しない（生徒がその都度自己選択）。「このテスト対策を始める」ボタンはTask55への接続点として明示的に分離されているが、Task54時点ではQuiz開始へは未接続（一時メッセージのみ）。次はTask55（TestSet→既存QuestionSet/Attempt接続）。
+Task54（2026-08-15完了）で生徒用TestSet選択UI（`test-set-student-screen`、`features/test-set-student/`）を実装。学校選択→学年→TestSet一覧→開始前確認までの導線が動作する。studentIdからschoolId/gradeIdを自動判定しない（生徒がその都度自己選択）。「このテスト対策を始める」ボタンはTask55への接続点として明示的に分離されているが、Task54時点ではQuiz開始へは未接続（一時メッセージのみ）。
+
+Task55（2026-08-15完了）でTestSet→既存QuestionSet/Attempt接続を実装。`features/test-set-runner/`がTestSetを`fieldId`ごとにグループ分割し、既存の単一fieldId Attempt実行フロー（`startAttemptForQuiz`/`completeAttempt`等、無改修）をグループ数だけ連続実行する（QuestionSetモデルの単一fieldId制約は維持）。生徒からは1つのTestSetとして連続実行に見える。最終グループ完了後は`test-set-student-screen`の完了ステップで問題数/正解数/不正解数を表示（既存`result-screen`はTestSet実行中は使わない）。History/Weaknessは既存のAttempt/AnswerRecord経路をそのまま通るため無改修で反映される（実地確認済み）。次はTask56（本番active TestSetでの最終E2E・375px総点検・Phase4最終レビュー）。

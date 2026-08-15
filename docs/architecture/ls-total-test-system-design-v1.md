@@ -496,9 +496,15 @@ TestSetはGitへのcommit/pushを介さず、講師の保存操作がGAS経由�
 
 TestSet専用GASが応答しない場合でも、通常学習（従来の科目・単元選択フロー）・苦手復習等の既存機能には一切影響させない。「学校のテスト対策」機能のみが利用不可になる。
 
-### 9.8 複数教科（fieldId）を横断するTestSetの実行方式（確定、Task50）
+### 9.8 複数教科（fieldId）を横断するTestSetの実行方式（確定・実装済み、Task55）
 
-1つのTestSetは複数`fieldId`のquestionIdを保持できる（例:「前期期末 理科」が`physics`/`chemistry`/`earth_science`を横断）。ただし実行時は、既存の出題実行フロー（`core/quiz-controller.js`の`state.session.subject`、`features/question-set/question-set-model.js`の単一`fieldId`必須制約）を変更しない。TestSetを`fieldId`単位に分割し、既存のQuestionSet/Attempt生成の仕組みをそのまま複数回呼び出して連続実行する方式を採用する（生徒からは1つのTestSetとして見える）。この方式を選んだ理由は、Attempt/History/Ranking等が依存する既存QuestionSetモデルへ手を入れずに実現できるため（案の比較はTask50報告参照）。
+1つのTestSetは複数`fieldId`のquestionIdを保持できる（例:「前期期末 理科」が`physics`/`chemistry`/`earth_science`を横断）。実行時は、既存の出題実行フロー（`core/quiz-controller.js`の`state.session.subject`、`features/question-set/question-set-model.js`の単一`fieldId`必須制約）を一切変更していない。
+
+**実装方式（Task55）**: `features/test-set-runner/`が、TestSetの`questions:[{fieldId,questionId}]`を「最初に現れた`fieldId`の順」でグループへ分割する（新しいdisplayOrder列は追加しない、Task49確定方針を踏襲）。各グループは、既存の苦手復習機能（`startPracticeSession`、`features/home/home-practice-controller.js`）と同じパターン——`filterManager.getNormalizedQuestionsForSubject(fieldId)`でstatus=active問題を取得し、対象questionIdだけへ絞り込んでstateへ直接設定し、既存の`beginAttemptAndShowQuiz()`（`startAttemptForQuiz`→`renderQuestion`→`showQuizScreen`、無改修）を呼ぶ——で実行する。1グループ完了時（`app.js`の`showFinalResult()`内で分岐）、既存の`completeAttempt()`は必ず呼ぶが、次グループが残っていれば`result-screen`を表示せず次グループのQuizを直接開始する（生徒操作なしで連続実行）。最終グループ完了後のみ、`test-set-student-screen`内に新設した完了ステップへ、各グループの結果（間違い直しラウンドがあった場合は元の解答基準——`firstRoundScore`/`firstRoundTotal`——を採用、`AnswerRecord`/History/Weaknessの判定基準と一致させるため）を集計して表示する。`result-screen`自体（retry/wrong-retryボタン等）はTestSet実行中は一切使わない。
+
+**実行時の整合性チェック**: TestSet作成後に問題マスター側のquestionIdが削除・非active化される可能性があるため、各グループ開始前に対象questionIdがすべて現在のactive問題一覧に含まれるか事前検証する。1件でも欠けていればTestSet全体の開始を拒否し（「テスト対策の問題データに不整合があります。先生に確認してください。」）、通常学習には一切影響させない。`fieldId`と`questionId`の組み合わせ誤り（他教科の問題IDを指定）も、対象`fieldId`のactive一覧に存在するかで同じ仕組みにより検出される。
+
+**中断時の扱い**: Quiz画面から「開始画面へ戻る」で離脱した場合、TestSet実行状態（`features/test-set-runner/`のrunner state）を破棄し、次グループを勝手に再開しない。ブラウザリロード後の途中再開は実装していない（runner stateはメモリ上のみで永続化しない）。
 
 ### 9.9 講師書き込みAPIの保護（確定、Task50）
 
@@ -745,8 +751,8 @@ stateDiagram-v2
 |---|---|
 | 目的 | 学校別のテスト範囲に合わせて、講師が問題マスターから必要な問題を選定してTestSetを作成し、生徒が学校・学年・指定されたTestSetを選択して、選定済み問題のみを学習できるようにする |
 | 前提条件 | Phase3完了。生徒プロフィールAPI（`schoolId`/`gradeId`自動取得）は不要（studentIdから学校・学年を自動判定しない方式のため） |
-| 主な変更対象 | TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（`features/teacher/`、共有PIN保護）—**Task53実装完了**、生徒用TestSet選択UI（`features/test-set-student/`、学校→学年→TestSet一覧→開始前確認）—**Task54実装完了**、TestSet→既存QuestionSet/Attempt接続—**未着手（Task55）** |
-| 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること |
+| 主な変更対象 | TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（`features/teacher/`、共有PIN保護）—**Task53実装完了**、生徒用TestSet選択UI（`features/test-set-student/`、学校→学年→TestSet一覧→開始前確認）—**Task54実装完了**、TestSet→既存QuestionSet/Attempt接続（`features/test-set-runner/`、fieldIdごとの分割連続実行）—**Task55実装完了** |
+| 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること —**Task55でモックTestSetによる9ケース（単一/複数/3教科以上/存在しないquestionId/fieldId不一致/空/連打/中断）とtext/choice/sort/era/map_click/画像choiceの全モードで動作確認済み。本番active TestSetを使った最終E2Eと375px総点検はTask56で実施** |
 | 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと |
 | ロールバック方法 | TestSetが空でも通常学習が動作するフォールバック設計のため、機能フラグ的に無効化可能 |
 | 次Phaseへ進む判定 | 実データでのTestSet作成・出題確認＋人間レビュー承認 |

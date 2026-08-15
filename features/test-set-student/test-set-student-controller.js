@@ -2,13 +2,13 @@
 //
 // test-set-student-screenの唯一のエントリポイント（initTestSetStudentScreen）。
 // features/teacher/teacher-controller.jsと同じ「単一エントリポイント＋内部でのみ
-// service/state操作」という設計を踏襲する。app.jsはinitTestSetStudentScreen(elements)を
+// service/state操作」という設計を踏襲する。app.jsはinitTestSetStudentScreen(elements, ...)を
 // 呼ぶだけで、GAS通信・step切替の詳細は一切知らない。
 //
-// Task54の責務は「学校→学年→TestSet一覧→開始前確認」の選択UIまでであり、
-// 実際のQuiz開始処理（QuestionSet/Attempt接続）は行わない（Task55で接続する）。
-// 「このテスト対策を始める」ボタン押下時の処理はhandleStartRequest()に集約しており、
-// Task55はこの関数の中身だけを差し替えれば接続できる。
+// Task55: 「このテスト対策を始める」ボタン押下時の実処理（handleStartRequest）を実装。
+// 実際のQuiz開始・複数fieldIdグループの連続実行はapp.js側（既存の単一fieldId
+// Attempt実行フローを保有している）に委ねる。このモジュールはコールバック
+// （onStartTestSet）を呼ぶだけで、QuestionSet/Attemptの詳細を一切知らない。
 //
 // studentIdはこのモジュール内で一切扱わない（schoolId/gradeIdは生徒がその都度自己選択する
 // 値であり、studentIdからの自動判定は行わない、Task54確定方針）。
@@ -20,20 +20,27 @@ import {
   renderGradeOptions,
   renderTestSetList,
   renderConfirmInfo,
+  renderCompletionSummary,
   showTssError
 } from "./test-set-student-renderer.js";
 
 let tssState = createTestSetStudentState();
 let wired = false;
+let startTestSetCallback = null;
 
 /**
  * test-set-student-screen表示時に呼ぶ唯一のエントリポイント。
  * 呼ばれるたびにstate・表示stepをリセットする（誤操作防止、teacher-screenと同じ方針）。
  *
  * @param {Object} elements - test-set-student-screen内の全DOM要素
+ * @param {(selectedTestSet:Object) => Promise<{ok:boolean, errorMessage?:string}>} onStartTestSet
+ *   「このテスト対策を始める」が押された時に呼ばれるコールバック（app.js側が提供）。
+ *   成功時（ok:true）は呼び出し側でQuiz画面への遷移まで行う想定で、このモジュールは
+ *   画面遷移を待つだけ。失敗時（ok:false）はerrorMessageをconfirm-step内へ表示する。
  */
-export function initTestSetStudentScreen(elements) {
+export function initTestSetStudentScreen(elements, onStartTestSet) {
   tssState = createTestSetStudentState();
+  startTestSetCallback = onStartTestSet;
 
   showStep(elements, "select");
   showTssError(elements.selectError, "");
@@ -44,6 +51,7 @@ export function initTestSetStudentScreen(elements) {
   elements.listEmpty.classList.add("hidden");
   elements.confirmInfo.innerHTML = "";
   elements.confirmMessage.textContent = "";
+  elements.completeInfo.innerHTML = "";
 
   loadSchools()
     .then((schools) => {
@@ -62,10 +70,21 @@ export function initTestSetStudentScreen(elements) {
   }
 }
 
+/**
+ * TestSet全体完了後の表示（Task55）。app.js側で全fieldIdグループが完了した際に呼ぶ。
+ * @param {Object} elements
+ * @param {{label:string, totalQuestions:number, totalCorrect:number, totalIncorrect:number}} summary
+ */
+export function showTestSetCompletion(elements, summary) {
+  renderCompletionSummary(elements.completeInfo, summary);
+  showStep(elements, "complete");
+}
+
 function showStep(elements, step) {
   elements.selectStep.classList.toggle("hidden", step !== "select");
   elements.listStep.classList.toggle("hidden", step !== "list");
   elements.confirmStep.classList.toggle("hidden", step !== "confirm");
+  elements.completeStep.classList.toggle("hidden", step !== "complete");
 }
 
 function wireEvents(elements) {
@@ -144,10 +163,25 @@ async function handleSelectTestSet(elements, testSetId) {
   }
 }
 
-// Task55接続点: 「このテスト対策を始める」が押された時の処理。
+// Task55: 「このテスト対策を始める」が押された時の処理。
 // tssState.selectedTestSet（{testSetId,schoolId,gradeId,academicYearId,examRoundLabel,
-// label,status,questions:[{fieldId,questionId}]}）を、既存QuestionSet/Attempt生成へ
-// 接続する処理をTask55でここへ実装する。Task54では接続せず、一時メッセージを表示するのみ。
-function handleStartRequest(elements) {
-  elements.confirmMessage.textContent = "テスト対策の出題機能は次の実装で接続します。";
+// label,status,questions:[{fieldId,questionId}]}）をapp.js側のコールバックへ渡す。
+// QuestionSet/Attempt生成・画面遷移の詳細はこのモジュールでは一切扱わない。
+async function handleStartRequest(elements) {
+  if (!tssState.selectedTestSet || typeof startTestSetCallback !== "function") return;
+
+  elements.confirmMessage.textContent = "";
+  elements.startButton.disabled = true;
+  elements.startButton.textContent = "開始中...";
+
+  try {
+    const result = await startTestSetCallback(tssState.selectedTestSet);
+    if (!result || !result.ok) {
+      elements.confirmMessage.textContent = result?.errorMessage || "テスト対策の開始に失敗しました。";
+    }
+    // 成功時はapp.js側で画面遷移まで行うため、ここでは何もしない。
+  } finally {
+    elements.startButton.disabled = false;
+    elements.startButton.textContent = "このテスト対策を始める";
+  }
 }
