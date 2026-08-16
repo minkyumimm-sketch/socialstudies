@@ -190,11 +190,9 @@ const tssElements = {
   searchButton: document.getElementById("tss-search-button"),
   listEmpty: document.getElementById("tss-list-empty"),
   testSetList: document.getElementById("tss-test-set-list"),
-  listBackButton: document.getElementById("tss-list-back-button"),
   confirmInfo: document.getElementById("tss-confirm-info"),
   confirmMessage: document.getElementById("tss-confirm-message"),
   startButton: document.getElementById("tss-start-button"),
-  confirmBackButton: document.getElementById("tss-confirm-back-button"),
   completeStep: document.getElementById("tss-complete-step"),
   completeInfo: document.getElementById("tss-complete-info")
 };
@@ -485,7 +483,8 @@ async function renderQuestion() {
     renderTextQuestion,
     ERA_CHOICES,
     handleAnswer,
-    swapSortItems
+    swapSortItems,
+    hideSubunit: isRunnerActive()
   });
 }
 

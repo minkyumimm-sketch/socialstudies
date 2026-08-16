@@ -1,7 +1,12 @@
-export function buildQuizUnitText(question) {
+// hideSubunitはTestSet（学校のテスト対策）実行中にのみtrueが渡される。
+// 小単元名が問題の答えを示唆してしまうケース（例："光の直進"）があるため、
+// TestSet実行中は問題表示前のUIから小単元を隠す。通常学習では従来どおり表示する。
+// 呼び出し元（app.js）がisRunnerActive()の結果をここへ渡すだけで、
+// coreはfeatures/test-set-runner/に依存しない。
+export function buildQuizUnitText(question, hideSubunit = false) {
   const parts = [];
   if (question?.unit) parts.push(question.unit);
-  if (question?.subunit) parts.push(question.subunit);
+  if (!hideSubunit && question?.subunit) parts.push(question.subunit);
   return parts.length ? `単元：${parts.join(" / ")}` : "";
 }
 
@@ -103,7 +108,8 @@ export async function renderCurrentQuestion(params) {
     renderTextQuestion,
     ERA_CHOICES,
     handleAnswer,
-    swapSortItems
+    swapSortItems,
+    hideSubunit
   } = params;
 
   state.ui.answered = false;
@@ -152,5 +158,5 @@ export async function renderCurrentQuestion(params) {
   quizScore.textContent = state.quiz.retryMode
     ? `復習正解数：${state.quiz.score}`
     : `正解数：${state.quiz.score}`;
-  quizUnit.textContent = buildQuizUnitText(question);
+  quizUnit.textContent = buildQuizUnitText(question, hideSubunit);
 }

@@ -89,8 +89,6 @@ function showStep(elements, step) {
 
 function wireEvents(elements) {
   elements.searchButton.addEventListener("click", () => handleSearch(elements));
-  elements.listBackButton.addEventListener("click", () => showStep(elements, "select"));
-  elements.confirmBackButton.addEventListener("click", () => showStep(elements, "list"));
   elements.startButton.addEventListener("click", () => handleStartRequest(elements));
 }
 
