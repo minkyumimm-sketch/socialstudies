@@ -216,6 +216,7 @@ const subunitFilterSelect = document.getElementById("subunit-filter-select");
 const questionCountSelect = document.getElementById("question-count");
 const retryWrongOnlyCheckbox = document.getElementById("retry-wrong-only");
 const startButton = document.getElementById("start-button");
+const startHomeBackButton = document.getElementById("start-home-back-button");
 const startError = document.getElementById("start-error");
 
 const quizStudent = document.getElementById("quiz-student");
@@ -284,6 +285,8 @@ teacherBackButton.addEventListener("click", () => showHomeScreen(homeScreen, all
 
 homeTestSetButton.addEventListener("click", goToTestSetStudentScreen);
 tssHomeBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+
+startHomeBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
@@ -407,6 +410,9 @@ async function beginAttemptAndShowQuiz() {
   }
 
   await renderQuestion();
+  // TestSet実行中は「開始画面へ戻る」が通常学習のstart-screenへ迷い込ませてしまうため、
+  // 文言を「テスト対策へ戻る」に変える（backToStart()側の遷移先切り替えと対）。
+  backToStartButton.textContent = isRunnerActive() ? "テスト対策へ戻る" : "開始画面へ戻る";
   showQuizScreen(quizScreen, allScreens);
 }
 
@@ -735,10 +741,22 @@ function retryWrongOnlyFromResult() {
 }
 
 function backToStart() {
-  // Task55: TestSet実行中にQuiz画面から離脱した場合、runner stateを安全に破棄する
-  // （次グループを勝手に再開しない。ブラウザリロード後の途中再開もTask55では実装しない）。
-  if (isRunnerActive()) {
+  // Task56: TestSet実行中にQuiz画面から離脱した場合、通常学習のstart-screenではなく
+  // 「学校のテスト対策」画面へ戻す。abortRun()を先に呼ぶとisRunnerActive()が
+  // falseになり判定できなくなるため、判定結果を先に保持しておく。
+  const wasTestSetRun = isRunnerActive();
+
+  if (wasTestSetRun) {
     abortRun();
+  }
+
+  if (wasTestSetRun) {
+    // 既存のgoToTestSetStudentScreen()をそのまま再利用する（studentIdガード込み）。
+    // initTestSetStudentScreen()が呼ばれるため、school/grade選択・currentIndex・
+    // 復習状態等のtssState/runner stateは残らず、次回開始時は必ずphy_001から
+    // 新規開始できる（誤操作防止のため毎回リセットする既存方針、Task54と同じ）。
+    goToTestSetStudentScreen();
+    return;
   }
 
   resetStartScreenMessages({
