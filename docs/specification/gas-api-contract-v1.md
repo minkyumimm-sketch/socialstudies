@@ -76,63 +76,86 @@
 
 ---
 
-## 5. 学習開始記録（新規・仮称 `startAttempt`）
+## 5. Attempt/AnswerRecord専用GAS API（確定、Phase5-0で専用GAS Web App新設）
+
+**本章の対象は、1〜2章・3〜4章が前提とする既存/将来の「学習アプリ用GAS」（＝既存`getActiveStudents`/`saveRecord`と同一プロジェクト）とは別の、Attempt/AnswerRecord専用に新設するGAS Web Appである（Phase5-0で確定。9章のTestSet専用GASとも別プロジェクト）。既存GAS・TestSet専用GASのどちらへも、本章のaction追加は一切行わない。実装（GASコード作成・デプロイ）はPhase5-2（`docs/architecture/ls-total-test-system-design-v1.md` Phase5 Task内訳参照）で行う。本章はAPI契約のみを定義する。**
+
+既存`saveRecord`（2章）は本章のAPIとは別物として当面維持し、新経路と並走させる（永久並走にはしない、停止時期は実機安定確認後に別途判断）。
+
+旧`5章 startAttempt`・`6章 completeAttempt`（いずれも仮称）はPhase5-0で本章へ統合・formalizeした。旧`7章 getWeakQuestions`・`8章 getLearningSummary`（いずれも仮称）はPhase5-0で不採用とし、5.4節`getStudentHistory`が返す生データをクライアント側の既存History/Weaknessロジック（`features/history/history-service.js`・`features/weakness/weakness-service.js`）で集計する方式へ統合した（5.5節・5.6節に不採用の記録を残す）。9章（TestSet API）以降の章番号への影響を避けるため、6〜8章は意図的に空番のまま残す。
+
+### 5.1 `startAttempt`（書き込み・確定）
 
 | 項目 | 内容 |
 |---|---|
 | 目的 | Attemptの開始をサーバに記録し、途中終了も検知できるようにする |
-| リクエスト（仮） | `POST { action:"startAttempt", attemptId, studentId, questionSetId, questionSetVersion, startedAt }` |
-| レスポンス（仮） | `{ ok: true }` |
-| 必須項目 | `attemptId`, `studentId`, `questionSetId`, `questionSetVersion` |
+| リクエスト | `POST { action:"startAttempt", attemptId, studentId, questionSetId, questionSetVersion, fieldId, sourceType, testSetId, startedAt }` |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `attemptId`, `studentId`, `questionSetId`, `questionSetVersion`, `fieldId` |
+| 任意項目 | `sourceType`（`normal`/`weak_review`/`dormant_review`/`testset`、未送信時はサーバ側で起点不明として扱う）, `testSetId`（`sourceType="testset"`のときのみ値を持つ、それ以外は`null`） |
 | エラー | 必須項目欠落 |
-| 冪等性 | 冪等にする（同じ`attemptId`で複数回送っても1レコードのまま上書き） |
-| 認証・本人確認 | `studentId`の自己申告に依存（3番の認証強化と連動） |
-| 既存APIからの移行方法 | 新規。Phase2で導入。導入前は「Attempt開始」という概念自体がサーバ側に記録されない（現行は解答保存のみ） |
+| 冪等性 | 冪等（同じ`attemptId`で複数回送っても1レコードのまま上書き） |
+| 認証・本人確認 | `studentId`の自己申告に依存（3章の認証強化と連動、未実装時は要確認のまま） |
+| 既存APIからの移行方法 | 新規。導入前は「Attempt開始」という概念自体がサーバ側に記録されない（現行は解答保存のみ） |
 
----
-
-## 6. 挑戦完了（新規・仮称 `completeAttempt`）
+### 5.2 `saveAnswerRecord`（書き込み・確定、Phase5-0で新設）
 
 | 項目 | 内容 |
 |---|---|
-| 目的 | Attemptを完了としてマークし、ランキング反映の起点にする（完了判定の要） |
-| リクエスト（仮） | `POST { action:"completeAttempt", attemptId, score, totalCount, rawTimeSeconds, missCount }` |
-| レスポンス（仮） | `{ ok: true, penalizedTimeSeconds, isNewBest }` |
-| 必須項目 | `attemptId`, `score`, `totalCount` |
-| エラー | 該当`attemptId`なし（`startAttempt`未実施）、既に完了済み |
-| 冪等性 | 冪等にする（同じ`attemptId`への2回目の完了リクエストは何もしない、または同じ結果を返す） |
+| 目的 | 1問ごとの解答結果を、Attempt/AnswerRecord専用GASへ保存する（既存`saveRecord`＝2章とは別経路、`action`名も別） |
+| リクエスト | `POST { action:"saveAnswerRecord", attemptId, questionId, studentId, fieldId, unit, selectedChoice, correctAnswer, isCorrect, answeredAt }` |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `attemptId`, `questionId`, `studentId`, `fieldId`, `isCorrect` |
+| エラー | 必須項目欠落、該当`attemptId`なし |
+| 冪等性 | **`attemptId::questionId`の複合キーでupsertする**（既存`answer-record-repository.js`と同じキー設計、`domain-model-v1.md` 3.12節）。同一Attempt内で同じ問題に複数回送信（本ラウンド→復習ラウンド）した場合、最新の送信で上書きする |
 | 認証・本人確認 | `startAttempt`時の`studentId`と一致するかの確認が望ましい |
-| 既存APIからの移行方法 | 新規。Phase2で「完了」の概念を導入、Phase7（スピードラン＋ランキング、Task51.5でPhase6から変更）で内部的に`upsertBestRecord`を呼び出す形に拡張 |
+| 既存APIからの移行方法 | 新規。既存`saveRecord`（2章）は無変更のまま維持し、本APIとは並走させる |
 
----
-
-## 7. 苦手問題取得（新規・仮称 `getWeakQuestions`）
+### 5.3 `completeAttempt`（書き込み・確定）
 
 | 項目 | 内容 |
 |---|---|
-| 目的 | 生徒ごとの苦手問題一覧を取得する |
-| リクエスト（仮） | `GET ?action=getWeakQuestions&studentId=...&fieldId=...` |
-| レスポンス（仮） | `{ ok: true, weakQuestions: [{ questionId, score, reasons: [...] }] }` |
-| 必須項目 | `studentId` |
-| エラー | 該当生徒なし |
-| 冪等性 | 冪等（GET・副作用なし） |
-| 認証・本人確認 | 本人以外の苦手問題を取得できないようにする認可チェックを推奨 |
-| 既存APIからの移行方法 | 新規。Phase5で導入 |
+| 目的 | Attemptを完了としてマークする |
+| リクエスト | `POST { action:"completeAttempt", attemptId, completedAt, score, totalCount }` |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `attemptId`, `completedAt`, `score`, `totalCount` |
+| エラー | 該当`attemptId`なし（`startAttempt`未実施）、既に完了済み |
+| 冪等性 | 冪等（同じ`attemptId`への2回目の完了リクエストは何もしない、または同じ結果を返す） |
+| 認証・本人確認 | `startAttempt`時の`studentId`と一致するかの確認が望ましい |
+| 既存APIからの移行方法 | 新規。`rawTimeSeconds`/`missCount`等のタイマー・ペナルティ関連フィールドはPhase5では含めない（Phase7スピードラン＋ランキングで再検討、12章参照）。Phase7で内部的に`upsertBestRecord`を呼び出す形に拡張する可能性がある |
 
----
-
-## 8. 学習サマリー取得（新規・仮称 `getLearningSummary`）
+### 5.4 `getStudentHistory`（読み取り・確定、Phase5-0で新設）
 
 | 項目 | 内容 |
 |---|---|
-| 目的 | 生徒×分野×単元の正答率等の集計結果を取得する |
-| リクエスト（仮） | `GET ?action=getLearningSummary&studentId=...` |
-| レスポンス（仮） | `{ ok: true, summaries: [{ fieldId, unit, attemptedCount, correctCount, correctRate, lastAnsweredAt }] }` |
+| 目的 | 生徒のAttempt/AnswerRecordを一括取得する（生徒選択時にMemoryStorageへ復元する用途、`docs/architecture/ls-total-test-system-design-v1.md` 10.4節） |
+| リクエスト | `GET ?action=getStudentHistory&studentId=...` |
+| レスポンス | `{ ok: true, attempts: [...], answerRecords: [...] }`（**GAS側では集計しない生データ**。既存のクライアント側`features/history/history-service.js`・`features/weakness/weakness-service.js`をそのまま再利用して集計する） |
 | 必須項目 | `studentId` |
-| エラー | 該当生徒なし |
+| エラー | 該当生徒なし（0件でも`ok:true`で空配列を返す想定） |
 | 冪等性 | 冪等（GET・副作用なし） |
-| 認証・本人確認 | 7番と同様 |
-| 既存APIからの移行方法 | 新規。Phase5で導入 |
+| 認証・本人確認 | 本人以外の学習履歴を取得できないようにする認可チェックを推奨（要確認事項として残る） |
+| 既存APIからの移行方法 | 新規。旧`getWeakQuestions`（5.5節）・`getLearningSummary`（5.6節）はPhase5-0で本APIへ統合し不採用とした |
+
+### 5.5 苦手問題取得（旧・仮称 `getWeakQuestions`、Phase5-0で不採用）
+
+**Phase5-0（2026-08-16）で不採用と判定。** GAS側で苦手問題を集計するのではなく、5.4節`getStudentHistory`が返す生データを、クライアント側の既存`features/weakness/weakness-service.js`（`getWeakQuestions`関数、既に実装済み）で判定する方式へ統合した。歴史的記録として本項は残すが、実装対象ではない。
+
+| 項目 | 内容（不採用時点の設計） |
+|---|---|
+| 目的（旧） | 生徒ごとの苦手問題一覧をGAS側で集計して取得する |
+| リクエスト（旧・仮） | `GET ?action=getWeakQuestions&studentId=...&fieldId=...` |
+| レスポンス（旧・仮） | `{ ok: true, weakQuestions: [{ questionId, score, reasons: [...] }] }` |
+
+### 5.6 学習サマリー取得（旧・仮称 `getLearningSummary`、Phase5-0で不採用）
+
+**Phase5-0（2026-08-16）で不採用と判定。** 5.5節と同じ理由で、GAS側集計ではなくクライアント側`features/history/history-service.js`（`getStudentHistorySummary`等、既に実装済み）による集計へ統合した。歴史的記録として本項は残すが、実装対象ではない。
+
+| 項目 | 内容（不採用時点の設計） |
+|---|---|
+| 目的（旧） | 生徒×分野×単元の正答率等の集計結果をGAS側で計算して取得する |
+| リクエスト（旧・仮） | `GET ?action=getLearningSummary&studentId=...` |
+| レスポンス（旧・仮） | `{ ok: true, summaries: [{ fieldId, unit, attemptedCount, correctCount, correctRate, lastAnsweredAt }] }` |
 
 ---
 
@@ -265,11 +288,13 @@ TestSet専用GASの正本データはTestSet専用Google Spreadsheet「LS総合�
 | 2 | `saveRecord` | 現行→Phase2で拡張 | 維持しつつ段階拡張 |
 | 3 | `authenticateStudent` | 未定（優先度低） | 新規 |
 | 4 | `getStudentProfile` | Phase4 | **Task47で不採用**（4章参照） |
-| 5 | `startAttempt` | Phase2 | 新規 |
-| 6 | `completeAttempt` | Phase2/Phase7 | 新規 |
-| 7 | `getWeakQuestions` | Phase5 | 新規 |
-| 8 | `getLearningSummary` | Phase5 | 新規 |
-| 9 | `getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet` | Phase4 | **Task50確定：TestSet専用GAS Web App（本表1-8・10-12とは別プロジェクト）に実装。詳細は9章** |
+| 5.1 | `startAttempt` | Phase5-2 | **Phase5-0確定：Attempt/AnswerRecord専用GAS Web App（本表1-4・10-12とは別プロジェクト、9章TestSet専用GASとも別）に実装。詳細は5章** |
+| 5.2 | `saveAnswerRecord` | Phase5-2 | 新規（Phase5-0で追加確定。既存`saveRecord`＝2番とは別action・別GAS） |
+| 5.3 | `completeAttempt` | Phase5-2 | Phase5-0で契約確定（旧6番を統合） |
+| 5.4 | `getStudentHistory` | Phase5-2 | 新規（Phase5-0で追加確定。GAS側では集計せず生データを返す） |
+| 5.5 | `getWeakQuestions` | — | **Phase5-0で不採用**（5.4へ統合、5章参照） |
+| 5.6 | `getLearningSummary` | — | **Phase5-0で不採用**（5.4へ統合、5章参照） |
+| 9 | `getSchools`/`getTestSets`/`getTestSet`/`saveTestSet`/`archiveTestSet` | Phase4 | **Task50確定：TestSet専用GAS Web App（本表1-4・5.1-5.4・10-12とは別プロジェクト）に実装。詳細は9章** |
 | 10 | `getAnnualRanking` | Phase7 | 新規（Task51.5でPhase6から変更、スピードラン＋ランキング統合） |
 | 11 | `getAllTimeRanking` | Phase7 | 新規（Task51.5でPhase6から変更） |
 | 12 | `upsertBestRecord` | Phase7 | 新規（Task51.5でPhase6から変更） |

@@ -89,7 +89,7 @@
 |---|---|---|
 | `QuestionSet` / `QuestionSetVersion` | Google Sheets（新設） | 塾スタッフによる更新頻度が高く、GitHub Pages再デプロイを都度要求するCSV方式は運用負荷が高い（domain-model-v1.md 4章参照） |
 | `school_master` / `TestSet` / `TestSetQuestion`（学校テスト対策セット、Task47でTestRangeから改称） | TestSet専用Google Spreadsheet「LS総合テスト対策_学校・テストセットマスター」（新設、Task50で確定）。アクセスはTestSet専用GAS Web App経由（既存GASとは分離） | 学校ごとに異なる問題選定を塾スタッフが随時・即時に更新する運用を想定。問題マスターと異なりCSV+Git+Push方式では即時性要件を満たせない（domain-model-v1.md 3.15節参照） |
-| `Attempt` / `AnswerRecord` | Google Sheets（既存の解答保存シートを拡張） | 生徒の行動ログであり、そもそも配信物ではない |
+| `Attempt` / `AnswerRecord` | Attempt/AnswerRecord専用Google Spreadsheet（新設、Phase5-0確定。既存の解答保存シートは拡張しない。詳細は10章） | 生徒の行動ログであり、そもそも配信物ではない |
 | `RankingRecord` | Google Sheets（新設） | 同上 |
 
 ---
@@ -99,7 +99,7 @@
 | データ | 管理場所 | 理由 |
 |---|---|---|
 | `LearningSummary` | 初期は都度計算（GAS側）。パフォーマンス次第でSheetsへキャッシュ | AnswerRecordから再計算可能な導出データのため、まずは非正規化を避ける |
-| `WeakQuestion` | 都度計算（学習アプリ側`features/weak-questions/`） | 同上。ルールが変わりやすい初期段階では、キャッシュを持つとルール変更のたびに再計算が必要になり複雑化する |
+| `WeakQuestion` | 都度計算（学習アプリ側`features/weakness/`、Phase5-0で`weak-questions/`から訂正。実装は既に`weakness-rules.js`/`weakness-service.js`として存在する） | 同上。ルールが変わりやすい初期段階では、キャッシュを持つとルール変更のたびに再計算が必要になり複雑化する |
 
 ---
 
@@ -139,3 +139,52 @@ data/
 | subject（fieldId）存在確認 | `subject` |
 | mapId存在確認 | `mapId` |
 | svgAreaIds実在確認 | `svgAreaId`, `svgAreaIds` |
+
+---
+
+## 10. Attempt/AnswerRecord専用Spreadsheet schema（新設案、Phase5-0確定・未構築）
+
+**本章はPhase5-0（2026-08-16）の設計確定のみであり、Spreadsheet・GASは未構築（実装はPhase5-2で行う）。** 管理場所は6章参照。TestSet専用Spreadsheet（`school_master`/`test_set`/`test_set_questions`、構築手順は`docs/operations/test-set-gas-setup-v1.md`）とは別のSpreadsheetとする。
+
+### 10.1 `attempts`シート
+
+| 列名 | 用途 | 対応するdomain-model属性 |
+|---|---|---|
+| `attemptId` | 一意なID（主キー） | `domain-model-v1.md` 3.11節 |
+| `studentId` | 生徒ID | 同上 |
+| `questionSetId` | 問題セットID | 同上 |
+| `questionSetVersion` | 問題セットバージョン | 同上 |
+| `fieldId` | 科目キー | 同上 |
+| `sourceType` | Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`） | 3.11.1節（Phase5-0で追加確定） |
+| `testSetId` | TestSet起点のみ値あり、それ以外は空 | 同上 |
+| `startedAt` | 開始日時（ISO 8601） | 3.11節 |
+| `completedAt` | 完了日時（ISO 8601、未完了は空） | 同上 |
+| `completed` | 完了フラグ（true/false） | 同上 |
+| `score` | 正解数 | 同上 |
+| `totalCount` | 出題数 | 同上 |
+
+主キー: `attemptId`。
+
+**Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`, `rawTimeSeconds`, `penalizedTimeSeconds`等のタイマー・ペナルティ関連列。Phase7（スピードラン＋ランキング）で必要になった時点で追加を検討する。
+
+### 10.2 `answer_records`シート
+
+| 列名 | 用途 | 対応するdomain-model属性 |
+|---|---|---|
+| `attemptId` | 所属するAttemptのID（複合キーの一部） | `domain-model-v1.md` 3.12節 |
+| `questionId` | 問題ID（複合キーの一部） | 同上 |
+| `studentId` | 生徒ID | 同上 |
+| `fieldId` | 科目キー | 同上 |
+| `unit` | 単元 | 同上 |
+| `selectedChoice` | 選択・入力した内容（表示用に整形済み） | 同上 |
+| `correctAnswer` | 正解（表示用に整形済み） | 同上 |
+| `isCorrect` | 正誤（true/false） | 同上 |
+| `answeredAt` | 解答日時（ISO 8601） | 同上 |
+
+主キー: `attemptId` + `questionId`の複合キー（同一Attempt内で同じ問題への再回答は最新回答でupsert、`domain-model-v1.md` 3.12/3.12.1節）。
+
+**Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`。Phase7以降で再検討する。
+
+### 10.3 日時形式
+
+すべての日時列（`startedAt`/`completedAt`/`answeredAt`）はISO 8601形式の文字列とする（既存の`AnswerRecord`実装・`domain-model-v1.md`と統一）。

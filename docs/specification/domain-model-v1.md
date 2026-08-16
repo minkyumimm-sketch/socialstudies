@@ -199,10 +199,19 @@ erDiagram
 |---|---|
 | 役割 | 1回のクイズ実施全体（開始〜完了または途中終了まで） |
 | 一意なID | `attemptId` |
-| 主な属性 | `studentId`, `questionSetId`, `questionSetVersion`, `startedAt`, `completedAt`, `completed`(bool), `score`, `totalCount`, `rawTimeSeconds`, `penalizedTimeSeconds` |
+| 主な属性 | `studentId`, `questionSetId`, `questionSetVersion`, `startedAt`, `completedAt`, `completed`(bool), `score`, `totalCount`, `rawTimeSeconds`, `penalizedTimeSeconds`, `sourceType`（オプション、Phase5-0で追加確定）, `testSetId`（オプション、Phase5-0で追加確定） |
 | 他概念との関係 | Studentが実施する、AnswerRecordを複数含む、完了時にRankingRecordの更新候補になる |
-| 管理場所 | 学習アプリ用Sheets（新設） |
+| 管理場所 | Attempt/AnswerRecord専用GAS Web App＋専用Google Spreadsheet（新設、Phase5-0確定。既存`saveRecord`のSheetsは拡張しない。9章のTestSet専用GASとは別プロジェクト。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 10.4節） |
 | 更新主体 | 学習アプリ（自動記録） |
+
+#### 3.11.1 `sourceType` / `testSetId`（オプション属性、確定・Phase5-0）
+
+| 属性 | 内容 |
+|---|---|
+| `sourceType` | Attemptの起点を表す。候補: `normal`（通常学習）／`weak_review`（苦手復習）／`dormant_review`（久しぶり復習）／`testset`（TestSet実行）。省略可能（未設定のAttemptは起点不明として扱う） |
+| `testSetId` | `sourceType="testset"`のときのみ値を持つ。それ以外は`null` |
+
+`schoolId`/`gradeId`/`academicYearId`はAttemptへ重複保存しない。TestSet起点のAttemptについては、`testSetId`からTestSet専用GAS（9章）を逆引きすれば取得できるため、将来TestSet別・学校別分析が必要になった時点で参照する。Phase5-0時点では設計確定のみであり、既存のAttempt生成箇所（`app.js`の`startAttemptForQuiz`呼び出し、`startTestSetGroupQuiz`等）への配線はまだ行っていない（`docs/architecture/ls-total-test-system-design-v1.md` Phase5 Task内訳のPhase5-6で実施予定）。
 
 ### 3.12 AnswerRecord（回答記録）
 
@@ -212,8 +221,10 @@ erDiagram
 | 一意なID | `attemptId` + `questionId`の複合キー |
 | 主な属性 | `studentId`, `fieldId`, `unit`, `selectedChoice`, `correctAnswer`, `isCorrect`, `answeredAt`, `responseTimeSeconds`, `timedOut`(bool) |
 | 他概念との関係 | Attemptに属する、Questionを参照する、LearningSummary・WeakQuestionの集計元 |
-| 管理場所 | 学習アプリ用Sheets（既存の解答保存シートを拡張） |
+| 管理場所 | Attempt/AnswerRecord専用GAS Web App＋専用Google Spreadsheet（新設、Phase5-0確定。既存の解答保存シートは拡張しない） |
 | 更新主体 | 学習アプリ（自動記録） |
+
+**Phase5-0確定事項**: `attemptId::questionId`の複合キー・同一Attempt内での最新回答upsert仕様は変更しない（3.12.1節）。Phase5ではraw回答履歴（同一問題への全解答試行の時系列ログ）を別途保存する設計は追加しない。理由: 現在のHistory/Weaknessロジックは「Attempt内で1問1件」を前提として実装されており、raw履歴を保持する場合は集計ロジック側の作り直しが必要になるため。raw履歴が必要になった場合はPhase7以降で再検討する。
 
 #### 3.12.1 TestSet実行結果とHistory/Weaknessの意味の違い（2026-08-16追記、Task56）
 
@@ -248,7 +259,7 @@ AnswerRecordの一意キーは前項のとおり`attemptId` + `questionId`の複
 | 主な属性 | 苦手スコア、該当条件（10章参照） |
 | 他概念との関係 | AnswerRecordの履歴から算出される。Studentに属する |
 | 管理場所 | 導出データ（都度計算を基本とする） |
-| 更新主体 | 学習アプリ（`features/weak-questions/`のロジック） |
+| 更新主体 | 学習アプリ（`features/weakness/`のロジック、Phase5-0で`weak-questions/`から訂正） |
 
 ### 3.15 TestSet（学校テスト対策セット）
 

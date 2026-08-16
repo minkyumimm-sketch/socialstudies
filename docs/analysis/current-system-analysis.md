@@ -652,6 +652,8 @@ Phase4本番E2Eに伴うコード調査で、`features/history/`・`features/rep
 
 TestSet完了画面とHistory/Weaknessの数値の意味の違い（既知事項Bと直接関係する内容）は`docs/specification/domain-model-v1.md` 3.12.1節を参照。
 
+**Phase5-0追記（2026-08-16）**: 本節の解消方針をPhase5-0（永続化設計確定）で確定した。既存`saveRecord`は改造せず、Attempt/AnswerRecord専用の新規GAS Web App＋専用Google Spreadsheetを追加する（TestSet専用GASの分離方針を踏襲）。既存の`MemoryStorage`は同期キャッシュとして維持し、新規GASを非同期の永続化先とする（`StorageInterface`の単純DI差し替えは、既存History/Weakness/Homeが同期呼び出し前提のため不採用）。**設計確定のみであり、実装（GAS/Spreadsheet構築、コードからの接続）はまだ行っていない。** 詳細は`docs/architecture/ls-total-test-system-design-v1.md` 10.4節・10.5節、`docs/specification/domain-model-v1.md` 3.11/3.11.1/3.12節、`docs/specification/gas-api-contract-v1.md` 5章、`docs/specification/data-schema-v1.md` 10章を参照。
+
 ---
 
 ## 付録: 用語・略称

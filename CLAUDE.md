@@ -166,7 +166,15 @@ Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完
 
 **Phase4（学校別テスト範囲）は完了。** Task56（2026-08-16実施）で本番active TestSet（`TS002`／伊興中学校／中2／`physics`3問）を使った最終E2Eを実施し、講師のTestSet作成〜生徒のTestSet実行〜History/Weakness/AnswerRecordとの既存経路統合まで、完了条件を満たすことを確認済み（詳細は`docs/architecture/ls-total-test-system-design-v1.md` 16章Phase4節「Task56実施結果」を参照）。E2Eに伴い判明した2件の既知事項（Home統計の再計算タイミング、Attempt/AnswerRecordの永続化方式）はTestSet固有の不具合ではなく、`docs/analysis/current-system-analysis.md` 11章・`docs/specification/domain-model-v1.md` 3.12.1節に記録済み。いずれもPhase4時点ではコード修正しない（前者はPhase5改善候補、後者は将来の技術的負債として記録）。
 
-**Phase5（学習分析＋通常学習の想起ファーストUX実装）は次Phase。まだ着手（実装開始）していない。**
+**Phase5（学習分析＋通常学習の想起ファーストUX実装）は次Phase。**
+
+**Phase5-0（永続化設計確定・docs修正）を実施し、設計を確定した（2026-08-16実施・docs更新のみ、実装は未着手）。** 要点：
+- Attempt/AnswerRecordの永続化先として、既存`saveRecord`（`services/gas-service.js`）を改造せず、**新規のAttempt/AnswerRecord専用GAS Web App＋専用Google Spreadsheetを追加**する（TestSet専用GASを既存本番GASと分離した方針を踏襲）。既存`saveRecord`は当面維持し新経路と並走させる（永久並走にはしない、停止時期は実機安定確認後に別途判断）。
+- `features/storage/gas-storage.js`をStorageInterfaceへ単純DI差し替えする方式は不採用（同期StorageInterfaceと非同期GAS fetchの不一致のため）。**MemoryStorageを同期キャッシュ、GASを非同期永続化先**として併存させる（書き込み: Memory即時＋GAS非同期送信、読み込み: 生徒選択時にGASから一括取得しMemoryへ復元）。
+- `features/weakness/`（既存実装：`weakness-rules.js`/`weakness-service.js`/`weakness-quiz-bridge.js`）を正式採用する。旧docsの`features/weak-questions/`という名称は新設しない（実装実態に合わせる）。
+- Attemptへ`sourceType`（`normal`/`weak_review`/`dormant_review`/`testset`）・`testSetId`（TestSet起点のみ値あり）をオプション属性として追加する設計を確定。`schoolId`/`gradeId`/`academicYearId`はAttemptへ重複保存しない（`testSetId`経由の逆引きで対応）。
+
+**Phase5の実装（コード・GAS・Spreadsheetの実変更）はまだ開始していない。** 詳細な設計内容は`docs/architecture/ls-total-test-system-design-v1.md`（Phase5節・10.4節）、`docs/specification/domain-model-v1.md`（3.11/3.12節）、`docs/specification/gas-api-contract-v1.md`（5〜8章・新設のsaveAnswerRecord/getStudentHistory）、`docs/specification/data-schema-v1.md`（10章）を参照。
 
 Phase4はTask47（2026-08-13）でTestSet方式へ再設計済み。studentIdから学校・学年を自動判定せず、講師が問題マスターから問題を選定してTestSet（questionId固定集合）として保存し、生徒が学校・学年・TestSetを自ら選択して実行する。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9章を参照。
 

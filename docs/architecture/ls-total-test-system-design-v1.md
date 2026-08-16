@@ -135,12 +135,14 @@ graph TB
 
 ```
 features/
-├── weak-questions/      … 苦手問題判定ロジック（Phase5）
+├── weakness/            … 苦手問題判定ロジック（Phase5、Phase5-0で正式採用。当初案`weak-questions/`は新設しない）
 ├── ranking/            … ランキング取得・表示ロジック（Phase7、Task51.5でPhase6から変更）
 ├── timer/               … タイマー・ペナルティ計算（Phase7、スピードランと統合）
-├── test-set/            … TestSet（学校テスト対策セット）の解決ロジック（Phase4、Task47でtest-range/から変更）
+├── test-set/            … TestSet（学校テスト対策セット）の解決ロジック（Phase4、Task47でtest-range/から変更。実装は`features/test-set-runner/`等の複数サブフォルダに分割済み）
 └── teacher-distribution/ … 先生配信問題の拡張ポイント（Phase9、雛形のみ）
 ```
+
+**Phase5-0での訂正（2026-08-16）**: 当初案の`features/weak-questions/`は新設しない。既にPhase2実装時点で`features/weakness/`（`weakness-rules.js`/`weakness-service.js`/`weakness-quiz-bridge.js`）として実装されており、Phase5の苦手問題判定機能をほぼ担っているため、docsを実装実態へ合わせる（10.2節も参照）。
 
 **設計判断**
 
@@ -528,7 +530,7 @@ TestSet作成・更新・archiveの各APIは共有PIN（合言葉）を要求す
 
 ### 10.2 将来の推薦ロジック交換に備えた構造（確定）
 
-苦手問題判定は`features/weak-questions/`配下に、**入力=生徒の解答履歴配列、出力=問題ごとのスコア**という単一のシグネチャを持つ関数として実装する。既存の`MAP_RENDERERS`（地図描画の戦略パターン）・`QUESTION_MODE_HANDLERS`（出題形式ディスパッチ）と同じ「差し替え可能なテーブル駆動」の思想を踏襲し、将来ルールベースからAI推薦へ移行する場合も、この関数の中身だけを差し替えられるようにする。
+苦手問題判定は`features/weakness/`配下に、**入力=生徒の解答履歴配列、出力=問題ごとのスコア**という単一のシグネチャを持つ関数として実装する（Phase5-0で`features/weak-questions/`から正式に訂正。既存実装`weakness-rules.js`の`scoreQuestionWeakness()`が本節の設計をそのまま満たしている）。既存の`MAP_RENDERERS`（地図描画の戦略パターン）・`QUESTION_MODE_HANDLERS`（出題形式ディスパッチ）と同じ「差し替え可能なテーブル駆動」の思想を踏襲し、将来ルールベースからAI推薦へ移行する場合も、この関数の中身だけを差し替えられるようにする。
 
 ### 10.3 想起状態と復習対象の関係（確定、Task51.5）
 
@@ -544,6 +546,46 @@ TestSet作成・更新・archiveの各APIは共有PIN（合言葉）を要求す
 つまり通常学習終了後の復習対象は、原則として「不正解だった問題」**OR**「選択肢表示前に『わからない』を押した問題」とする。既存の「間違えた問題をもう一度」機能（`state.session.retryWrongEnabled`等）を壊さず、この条件を後から追加できる構造にする。
 
 **注記（実装スコープ）**: 想起状態（`recallStatus`相当）を`AnswerRecord`等の既存データモデルへ追加するかどうかは、Task51.5では確定しない。既存schema・GAS保存形式・後方互換性を後続の実装Taskで確認したうえで、フィールド名を含めて最小変更で追加する（19章「未確認事項」に追記）。
+
+### 10.4 Attempt/AnswerRecord永続化方針（確定、Phase5-0）
+
+Phase4本番E2E（Task56）に伴う調査で判明した既知事項B（`docs/analysis/current-system-analysis.md` 11.2節：Attempt/AnswerRecordが`features/storage/memory-storage.js`のみで永続化されておらず、`features/storage/gas-storage.js`は全メソッド未実装のスタブのまま）を受け、Phase5-0で解消方針を確定した。**本節は設計確定のみであり、実装（コード・GAS・Spreadsheetの実変更）はまだ行っていない。**
+
+**採用方針1: 既存`saveRecord`を改造せず、専用GAS/Spreadsheetを新規追加する。**
+
+| 選択肢 | 内容 |
+|---|---|
+| (A) 既存`saveRecord`（`services/gas-service.js`）を拡張し、`attemptId`等を追加送信する | 既存本番GAS・既存データへ影響するリスクがある。切り戻しが難しい |
+| (B) Attempt/AnswerRecord専用の新規GAS Web App＋専用Google Spreadsheetを追加する | 既存GAS・既存データに一切影響しない。TestSet専用GASを既存GASから分離した既存方針（9.6節）と整合する。切り戻しが容易 |
+
+**採用**: (B)。既存`saveRecord`は当面維持し、新経路と並走させる（生徒の解答は両経路へ送られる状態になるが、永久の二重保存にはしない。既存`saveRecord`の停止時期は、新経路の実機安定確認後に別途判断する）。
+
+**採用方針2: MemoryStorageを同期キャッシュ、GASを非同期永続化先として併存させる。**
+
+`features/storage/storage-interface.js`を単純にGAS実装へ差し替える（`gas-storage.js`を実装してDI注入するだけの）方式は**不採用**とする。理由: 現在の`StorageInterface`/`Repository`/各Service（`answer-record-service.js`等）/History/Weakness/Homeは全て**同期呼び出し前提**で設計されており、GAS通信（`fetch`）は本質的に非同期であるため、単純差し替えを行うとHistory/Weakness/Home画面のレンダリングパスまで広範囲に非同期化が必要になり、影響範囲が既存設計の前提を超える。
+
+代わりに以下の役割分担とする。
+
+| 層 | 役割 |
+|---|---|
+| `MemoryStorage`（既存） | 同期キャッシュ。既存のHistory/Weakness/Home等は**今までどおりMemoryStorageのみを同期参照**し、この層は変更しない |
+| 新規GAS/Spreadsheet | 非同期の永続化先（正本） |
+
+**書き込み**: MemoryStorageへ即時保存 ＋ 新規GASへ非同期送信（fire-and-forgetまたはエラーハンドリング付き、詳細は実装Taskで確定）。
+**読み込み**: 生徒選択時などのタイミングで、新規GASからその生徒のAttempt/AnswerRecordを一括取得し、MemoryStorageへ復元する。復元後は既存History/Weakness/Homeロジックを無改修のまま利用できる。
+
+**採用方針3: `features/weakness/`を正式採用する（1.3節・10.2節参照）。**
+
+### 10.5 Attempt拡張属性（確定、Phase5-0）
+
+Attemptへ以下をオプション属性として追加する設計を確定した（詳細は`docs/specification/domain-model-v1.md` 3.11節）。
+
+| 属性 | 内容 |
+|---|---|
+| `sourceType` | Attemptの起点。候補: `normal`（通常学習）／`weak_review`（苦手復習）／`dormant_review`（久しぶり復習）／`testset`（TestSet実行）。Phase5-0時点では既存Attempt生成箇所へ値を設定する配線（Phase5-6）は未実施 |
+| `testSetId` | `sourceType="testset"`のときのみ値を持つ。それ以外は`null` |
+
+`schoolId`/`gradeId`/`academicYearId`はAttemptへ重複保存しない。`testSetId`からTestSet専用GAS（9章）を逆引きすれば取得できるため、将来TestSet別・学校別分析が必要になった時点で参照する設計とする。
 
 ---
 
@@ -774,11 +816,28 @@ stateDiagram-v2
 |---|---|
 | 目的 | 10章のルールベース苦手問題判定・学習履歴画面の実装に加え、13.3節「想起ファーストUX」（思い出せた／わからない→選択肢表示）と4.3節「画像要素の付加方針」を実装する |
 | 前提条件 | Phase2完了（AnswerRecordが十分蓄積されていること） |
-| 主な変更対象 | `features/weak-questions/`新設、学習履歴・苦手問題画面新設、想起状態（`recallStatus`相当、フィールド名は実装時に既存schema確認のうえ確定）の記録機構、既存`choice`等のrendererへの想起ファーストUX組み込み、画像付加要素の既存modeへの拡張（`sort`等） |
+| 主な変更対象 | Attempt/AnswerRecord永続化（10.4節、Phase5-0で設計確定済み）、既存`features/weakness/`の活用（新規`weak-questions/`は作らない）、学習履歴・苦手問題画面新設、想起状態（`recallStatus`相当、フィールド名は実装時に既存schema確認のうえ確定）の記録機構、既存`choice`等のrendererへの想起ファーストUX組み込み、画像付加要素の既存modeへの拡張（`sort`等） |
 | 完了条件 | 実データで苦手問題が妥当な範囲で抽出されること（暫定閾値の妥当性を人間が確認）／想起ファーストUXが既存の正誤判定・間違い直し機能を壊さず動作すること／復習対象が10.3節の条件（不正解 OR わからない→正解）で正しく判定されること |
 | 回帰確認 | 既存の間違い直し機能（直近の不正解のみ再出題）が引き続き動作すること。既存`text`問題・`text-renderer`が引き続き動作すること（削除・変換しない） |
 | ロールバック方法 | 新規画面・新規モジュールの削除のみで切り戻し可能。想起ファーストUXは選択肢の即時表示に戻せば実質無効化できる |
 | 次Phaseへ進む判定 | 暫定閾値の妥当性確認＋想起ファーストUXの動作確認＋人間レビュー承認 |
+
+**Phase5 Task内訳（確定、Phase5-0）**
+
+Phase4完了・Task56本番E2Eを受け、Phase5を以下のTaskへ分割する。番号は着手順の目安であり、状況により前後する場合がある。
+
+| Task | 内容 |
+|---|---|
+| Phase5-0 | 永続化設計確定・docs修正（本節。実装はまだ行わない） |
+| Phase5-1 | Home画面統計（`home-weak-count`等）の再計算タイミング改善（`current-system-analysis.md` 11.1節の既知事項A） |
+| Phase5-2 | Attempt/AnswerRecord専用GAS/Spreadsheet構築（10.4節） |
+| Phase5-3 | MemoryStorageへの書き込み時、新規GASへの非同期送信を追加 |
+| Phase5-4 | 生徒選択時に新規GASからMemoryStorageへ復元する処理を追加 |
+| Phase5-5 | ブラウザリロード耐性の確認（Attempt/AnswerRecordがリロード後も復元されること） |
+| Phase5-6 | Attempt生成箇所（通常学習・苦手復習・久しぶり復習・TestSet実行）へ`sourceType`/`testSetId`を配線 |
+| Phase5-7 | 実データでの苦手問題判定（Weakness）の妥当性検証（暫定閾値の見直し含む） |
+| Phase5-8 | 想起ファーストUX（13.3節）を`choice`形式へ先行実装 |
+| Phase5-9 | 想起ファーストUXの他mode対応＋画像付加要素（4.3節）の拡張 |
 
 ### Phase6: 問題マスター大規模拡充（Task51.5で新設。旧Phase6「ランキング」はPhase7へ統合・移動）
 
