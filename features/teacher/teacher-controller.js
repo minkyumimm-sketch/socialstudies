@@ -40,13 +40,6 @@ const GRADE_OPTIONS = ["中1", "中2", "中3"];
 let teacherState = createTeacherState();
 let wired = false;
 
-// ---- 一時診断ログ（Task56、本番の「学校情報を取得できませんでした。」表示経路
-// 特定のためだけの調査用コード。原因確定後に必ず削除する。PIN値は出力しない）----
-let teacherDebugSessionSeq = 0;
-function teacherDebugLog(sessionId, message) {
-  console.log(`[TeacherDebug] session=${sessionId} ${message}`);
-}
-
 /**
  * teacher-screen表示時に呼ぶ唯一のエントリポイント。
  * 誤操作防止のため、呼ばれるたびにstate・フォーム表示をリセットする
@@ -56,8 +49,6 @@ function teacherDebugLog(sessionId, message) {
  */
 export function initTeacherScreen(elements) {
   teacherState = createTeacherState();
-  teacherState.debugSessionId = ++teacherDebugSessionSeq;
-  teacherDebugLog(teacherState.debugSessionId, "initTeacherScreen");
 
   elements.pinInput.value = "";
   elements.pinGate.classList.remove("hidden");
@@ -128,9 +119,6 @@ function wireEvents(elements) {
 }
 
 async function handlePinSubmit(elements) {
-  const debugSessionId = teacherState.debugSessionId;
-  teacherDebugLog(debugSessionId, "handlePinSubmit START");
-
   const pin = String(elements.pinInput.value || "").trim();
   showTeacherError(elements.pinError, "");
   showTeacherError(elements.questionError, "");
@@ -150,20 +138,15 @@ async function handlePinSubmit(elements) {
   elements.pinSubmitButton.textContent = "学校情報を取得中...";
 
   try {
-    teacherDebugLog(debugSessionId, "loadSchools START");
     const schools = await loadSchools();
-    teacherDebugLog(debugSessionId, `loadSchools SUCCESS count=${schools.length}`);
     teacherState.schools = schools;
 
     elements.pinGate.classList.add("hidden");
     elements.form.classList.remove("hidden");
     renderSchoolOptions(elements.schoolSelect, schools);
   } catch (error) {
-    teacherDebugLog(debugSessionId, `loadSchools ERROR ${error && error.message}`);
     console.error("loadSchools error:", error);
-    const message = "学校情報を取得できませんでした。通信環境を確認してください。[SCHOOL]";
-    teacherDebugLog(debugSessionId, `WRITE pinError "${message}"`);
-    showTeacherError(elements.pinError, message);
+    showTeacherError(elements.pinError, "学校情報を取得できませんでした。通信環境を確認してください。");
   } finally {
     elements.pinSubmitButton.disabled = false;
     elements.pinSubmitButton.textContent = "はじめる";
@@ -171,9 +154,7 @@ async function handlePinSubmit(elements) {
 }
 
 async function handleFieldChange(elements) {
-  const debugSessionId = teacherState.debugSessionId;
   const fieldId = elements.fieldSelect.value;
-  teacherDebugLog(debugSessionId, `handleFieldChange START fieldId=${fieldId}`);
   teacherState.currentFieldId = fieldId;
   teacherState.unitFilter = "all";
   teacherState.subunitFilter = "all";
@@ -192,17 +173,13 @@ async function handleFieldChange(elements) {
 
   try {
     const questions = await getQuestionsForField(fieldId);
-    teacherDebugLog(debugSessionId, `handleFieldChange SUCCESS fieldId=${fieldId} count=${questions.length}`);
     const units = distinctInOrder(questions.map((q) => q.unit).filter(Boolean));
     renderUnitOptions(elements.unitSelect, units);
     renderSubunitOptions(elements.subunitSelect, distinctInOrder(questions.map((q) => q.subunit).filter(Boolean)));
     renderFilteredQuestionList(elements);
   } catch (error) {
-    teacherDebugLog(debugSessionId, `handleFieldChange ERROR fieldId=${fieldId} ${error && error.message}`);
     console.error("getQuestionsForField error:", error);
-    const message = "問題データの取得に失敗しました。[QUESTION]";
-    teacherDebugLog(debugSessionId, `WRITE questionError "${message}"`);
-    showTeacherError(elements.questionError, message);
+    showTeacherError(elements.questionError, "問題データの取得に失敗しました。");
     elements.questionList.innerHTML = "";
   }
 }
@@ -271,9 +248,6 @@ async function handleSelectAll(elements, shouldSelect) {
 }
 
 async function handleSave(elements) {
-  const debugSessionId = teacherState.debugSessionId;
-  teacherDebugLog(debugSessionId, "handleSave START");
-
   showSaveResult(elements.saveResult, "", false);
 
   const schoolId = teacherState.selectedSchoolId;
@@ -283,39 +257,17 @@ async function handleSave(elements) {
   const label = String(elements.labelInput.value || "").trim();
   const questions = getSelectedQuestionList(teacherState);
 
-  if (!schoolId) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: schoolId未選択");
-    return showSaveResult(elements.saveResult, "学校を選択してください。", true);
-  }
-  if (!gradeId) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: gradeId未選択");
-    return showSaveResult(elements.saveResult, "学年を選択してください。", true);
-  }
-  if (!academicYearId) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: academicYearId未入力");
-    return showSaveResult(elements.saveResult, "学年度を入力してください。", true);
-  }
-  if (!examRoundLabel) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: examRoundLabel未入力");
-    return showSaveResult(elements.saveResult, "テスト回を入力してください。", true);
-  }
-  if (!label) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: label未入力");
-    return showSaveResult(elements.saveResult, "セット名を入力してください。", true);
-  }
-  if (questions.length === 0) {
-    teacherDebugLog(debugSessionId, "handleSave validation failure: questions0件");
-    return showSaveResult(elements.saveResult, "1問以上選択してください。", true);
-  }
+  if (!schoolId) return showSaveResult(elements.saveResult, "学校を選択してください。", true);
+  if (!gradeId) return showSaveResult(elements.saveResult, "学年を選択してください。", true);
+  if (!academicYearId) return showSaveResult(elements.saveResult, "学年度を入力してください。", true);
+  if (!examRoundLabel) return showSaveResult(elements.saveResult, "テスト回を入力してください。", true);
+  if (!label) return showSaveResult(elements.saveResult, "セット名を入力してください。", true);
+  if (questions.length === 0) return showSaveResult(elements.saveResult, "1問以上選択してください。", true);
 
   elements.saveButton.disabled = true;
   elements.saveButton.textContent = "保存中...";
 
   try {
-    teacherDebugLog(
-      debugSessionId,
-      `saveTestSet START schoolId=${schoolId} gradeId=${gradeId} academicYearId=${academicYearId} examRoundLabel=${examRoundLabel} label=${label} questionCount=${questions.length}`
-    );
     const result = await saveTestSet({
       pin: teacherState.pin,
       testSet: {
@@ -328,16 +280,12 @@ async function handleSave(elements) {
       },
       questions
     });
-    teacherDebugLog(debugSessionId, `saveTestSet RESPONSE ok=${result.ok} error=${result.error} testSetId=${result.testSetId}`);
 
     if (!result.ok) {
-      const message = translateSaveError(result.error, debugSessionId);
-      teacherDebugLog(debugSessionId, `WRITE saveResult "${message}"`);
-      showSaveResult(elements.saveResult, message, true);
+      showSaveResult(elements.saveResult, translateSaveError(result.error), true);
       return;
     }
 
-    teacherDebugLog(debugSessionId, "handleSave SUCCESS");
     const schoolName = teacherState.schools.find((s) => s.schoolId === schoolId)?.schoolName || schoolId;
     showSaveResult(
       elements.saveResult,
@@ -345,7 +293,6 @@ async function handleSave(elements) {
       false
     );
   } catch (error) {
-    teacherDebugLog(debugSessionId, `handleSave ERROR ${error && error.message}`);
     console.error("saveTestSet error:", error);
     showSaveResult(elements.saveResult, "TestSetの保存に失敗しました。通常学習には影響ありません。", true);
   } finally {
@@ -354,21 +301,12 @@ async function handleSave(elements) {
   }
 }
 
-function translateSaveError(rawError, debugSessionId) {
+function translateSaveError(rawError) {
   const message = String(rawError || "");
-  teacherDebugLog(debugSessionId, `translateSaveError INPUT "${message}"`);
-  let output;
-  if (message.includes("PIN")) {
-    output = "講師PINが正しくありません。";
-  } else if (message.includes("schoolId")) {
-    output = "学校情報を取得できませんでした。[SAVE]";
-  } else if (message.includes("questions")) {
-    output = "1問以上選択してください。";
-  } else {
-    output = message || "TestSetの保存に失敗しました。通常学習には影響ありません。";
-  }
-  teacherDebugLog(debugSessionId, `translateSaveError OUTPUT "${output}"`);
-  return output;
+  if (message.includes("PIN")) return "講師PINが正しくありません。";
+  if (message.includes("schoolId")) return "学校情報を取得できませんでした。";
+  if (message.includes("questions")) return "1問以上選択してください。";
+  return message || "TestSetの保存に失敗しました。通常学習には影響ありません。";
 }
 
 async function getQuestionsForField(fieldId) {
