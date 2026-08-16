@@ -752,10 +752,21 @@ stateDiagram-v2
 | 目的 | 学校別のテスト範囲に合わせて、講師が問題マスターから必要な問題を選定してTestSetを作成し、生徒が学校・学年・指定されたTestSetを選択して、選定済み問題のみを学習できるようにする |
 | 前提条件 | Phase3完了。生徒プロフィールAPI（`schoolId`/`gradeId`自動取得）は不要（studentIdから学校・学年を自動判定しない方式のため） |
 | 主な変更対象 | TestSet専用GAS Web App＋専用Google Spreadsheet（`school_master`/`test_set`/`test_set_questions`、既存GASとは分離）—**Task52で構築・API単体疎通確認完了**、講師用問題選定UI（`features/teacher/`、共有PIN保護）—**Task53実装完了**、生徒用TestSet選択UI（`features/test-set-student/`、学校→学年→TestSet一覧→開始前確認）—**Task54実装完了**、TestSet→既存QuestionSet/Attempt接続（`features/test-set-runner/`、fieldIdごとの分割連続実行）—**Task55実装完了** |
-| 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること —**Task55でモックTestSetによる9ケース（単一/複数/3教科以上/存在しないquestionId/fieldId不一致/空/連打/中断）とtext/choice/sort/era/map_click/画像choiceの全モードで動作確認済み。本番active TestSetを使った最終E2Eと375px総点検はTask56で実施** |
-| 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと |
+| 完了条件 | 最低1校・1学年について、講師が問題マスターから問題を選定してTestSetを作成し、生徒側からそのTestSetを選択して、選定された問題だけを正常に出題できること —Task55でモックTestSetによる9ケース（単一/複数/3教科以上/存在しないquestionId/fieldId不一致/空/連打/中断）とtext/choice/sort/era/map_click/画像choiceの全モードで動作確認済み。**Task56（2026-08-16実施）で本番active TestSet（TS002）を使った最終E2Eを実施し、完了条件を満たすことを確認済み（詳細は本節末尾のTask56実施結果を参照）** |
+| 回帰確認 | TestSet未設定校・未設定学年でも、通常学習（従来の科目・単元選択フロー）に全く影響がないこと —Task56の本番E2Eで通常学習側への影響が無いことも確認済み |
 | ロールバック方法 | TestSetが空でも通常学習が動作するフォールバック設計のため、機能フラグ的に無効化可能 |
-| 次Phaseへ進む判定 | 実データでのTestSet作成・出題確認＋人間レビュー承認 |
+| 次Phaseへ進む判定 | 実データでのTestSet作成・出題確認＋人間レビュー承認 —**2026-08-16、Task56実施結果に基づきユーザー承認済み。Phase4は完了。** |
+
+**Task56実施結果（2026-08-16、本番E2E）**
+
+- 実施日：2026-08-16（日）
+- 本番確認用TestSet：`TS002`／伊興中学校（`SC001`）／中2／`physics`／3問（`phy_001`〜`phy_003`）
+- 確認済み項目：講師UIからのTestSet作成経路（`getSchools`→問題選定→`saveTestSet`）／`getTestSets`／`getTestSet`／生徒側TestSet検索／TestSet確認画面／3問表示／Quiz開始／1→2→3問の正常進行／不正解問題の復習／TestSet完走／TestSet中のみ小単元非表示（通常学習では単元・小単元とも表示を維持）／TestSet中の「テスト対策へ戻る」導線／中断後の再開始による状態初期化／通常学習への回帰（影響なし）／History・Weakness・AnswerRecordの既存共通経路の利用／375px幅の主要画面で横スクロールなし／コンソール上にアプリ由来の新規重大エラーなし／`TeacherDebug`診断コードの撤去済みを確認
+- TestSet（`TS002`）はTask56完了後も`status: active`のまま、Phase4本番確認用として保持している（archiveしていない）
+- Task56本番E2Eに伴うコード調査で判明した既知事項の詳細は、重複記載を避けるため以下を参照：
+  - Home統計の再計算タイミング（既知事項A）→`docs/analysis/current-system-analysis.md` 11.1節
+  - Attempt/AnswerRecordの永続化方式（既知事項B）→`docs/analysis/current-system-analysis.md` 11.2節
+  - TestSet完了画面とHistory/Weaknessの数値の意味の違い →`docs/specification/domain-model-v1.md` 3.12.1節
 
 ### Phase5: 学習分析＋通常学習の想起ファーストUX実装（Task51.5で範囲拡張）
 

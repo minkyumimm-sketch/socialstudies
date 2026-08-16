@@ -162,7 +162,11 @@
 
 ## Current Phase
 
-Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済み（実装済みのままPhase5「画像要素の付加方針」へ位置づけを整理、Task51.5）。次に着手すべき本来の実装対象はPhase4（学校別テスト範囲）。
+Phase3は完了。Phase8のうち画像付きchoice問題（40問）はPhase3完了後に前倒しで実装済み（実装済みのままPhase5「画像要素の付加方針」へ位置づけを整理、Task51.5）。
+
+**Phase4（学校別テスト範囲）は完了。** Task56（2026-08-16実施）で本番active TestSet（`TS002`／伊興中学校／中2／`physics`3問）を使った最終E2Eを実施し、講師のTestSet作成〜生徒のTestSet実行〜History/Weakness/AnswerRecordとの既存経路統合まで、完了条件を満たすことを確認済み（詳細は`docs/architecture/ls-total-test-system-design-v1.md` 16章Phase4節「Task56実施結果」を参照）。E2Eに伴い判明した2件の既知事項（Home統計の再計算タイミング、Attempt/AnswerRecordの永続化方式）はTestSet固有の不具合ではなく、`docs/analysis/current-system-analysis.md` 11章・`docs/specification/domain-model-v1.md` 3.12.1節に記録済み。いずれもPhase4時点ではコード修正しない（前者はPhase5改善候補、後者は将来の技術的負債として記録）。
+
+**Phase5（学習分析＋通常学習の想起ファーストUX実装）は次Phase。まだ着手（実装開始）していない。**
 
 Phase4はTask47（2026-08-13）でTestSet方式へ再設計済み。studentIdから学校・学年を自動判定せず、講師が問題マスターから問題を選定してTestSet（questionId固定集合）として保存し、生徒が学校・学年・TestSetを自ら選択して実行する。詳細は`docs/architecture/ls-total-test-system-design-v1.md` 9章を参照。
 

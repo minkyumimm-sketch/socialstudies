@@ -215,6 +215,19 @@ erDiagram
 | 管理場所 | 学習アプリ用Sheets（既存の解答保存シートを拡張） |
 | 更新主体 | 学習アプリ（自動記録） |
 
+#### 3.12.1 TestSet実行結果とHistory/Weaknessの意味の違い（2026-08-16追記、Task56）
+
+AnswerRecordの一意キーは前項のとおり`attemptId` + `questionId`の複合キーであり、同一Attempt内で同一問題へ再回答（復習）した場合、最新の回答が前の回答を上書きする（本節のキー設計自体は変更しない）。
+
+この結果、TestSet完了画面とHistory/Weaknessでは、参照する時点が異なる。
+
+| 画面 | 基準 |
+|---|---|
+| TestSet完了画面（`features/test-set-student-screen`） | 各グループの**初回ラウンドの成績**（`firstRoundScore`/`firstRoundTotal`等、実行時点のin-memory集計。`docs/architecture/ls-total-test-system-design-v1.md` 9.8節参照） |
+| History / Weakness | AnswerRecordの複合キーに基づく、**Attempt内の最新回答を基準とした現在の理解度** |
+
+例：初回3問中2問正解 → 間違えた1問を復習して正解、の場合、TestSet完了画面は初回の「2問正解」を表示するのに対し、History/Weaknessは復習後の最新回答を反映した理解度になる。**これはAnswerRecordの複合キー設計上意図された意味の違いであり、不整合ではない。**
+
 ### 3.13 LearningSummary（学習サマリー）
 
 | 項目 | 内容 |
