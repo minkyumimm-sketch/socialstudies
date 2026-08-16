@@ -278,15 +278,15 @@ const filterManager = createFilterManager({
 homeStartButton.addEventListener("click", goToStartScreenFromHome);
 homeDetailToggle.addEventListener("click", () => toggleHomeDetail(homeElements));
 homeHistoryButton.addEventListener("click", goToHistoryScreen);
-historyBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+historyBackButton.addEventListener("click", returnToHome);
 
 homeTeacherModeButton.addEventListener("click", goToTeacherScreen);
-teacherBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+teacherBackButton.addEventListener("click", returnToHome);
 
 homeTestSetButton.addEventListener("click", goToTestSetStudentScreen);
-tssHomeBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+tssHomeBackButton.addEventListener("click", returnToHome);
 
-startHomeBackButton.addEventListener("click", () => showHomeScreen(homeScreen, allScreens));
+startHomeBackButton.addEventListener("click", returnToHome);
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
@@ -895,6 +895,20 @@ function goToStartScreenFromHome() {
 
   syncStartScreenStudentDisplay();
   showStartScreen(startScreen, allScreens);
+}
+
+// Phase5-1: 各画面から「ホームへ戻る」際に、Home画面の統計表示（学習履歴・苦手問題数等）を
+// 最新化してから遷移する統一関数。renderHomeForStudentは同期・MemoryStorageのみ参照で
+// GAS通信を行わないため（Phase5-0確定の永続化設計どおり、home-renderer.js/home-service.js
+// 側は無変更）、無条件に呼び直してもGAS通信は増えない。studentId未選択時は
+// renderHomeForStudentを呼ばず、既存のHome未選択状態表示（showHomeEmptyState）をそのまま
+// 維持する（renderHomeForStudent自体も空文字列で同じ分岐を持つが、ここでは呼び出し自体を
+// 省略し、意図を明確にする）。
+function returnToHome() {
+  if (state.session.studentId) {
+    renderHomeForStudent(state.session.studentId, homeElements, homePracticeCallbacks);
+  }
+  showHomeScreen(homeScreen, allScreens);
 }
 
 // Phase2 Task23-4: ホーム画面の「学習履歴を見る」から、history-screenへ遷移する。
