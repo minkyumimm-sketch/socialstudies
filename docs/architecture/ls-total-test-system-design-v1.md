@@ -828,10 +828,10 @@ Phase4完了・Task56本番E2Eを受け、Phase5を以下のTaskへ分割する�
 
 | Task | 内容 |
 |---|---|
-| Phase5-0 | 永続化設計確定・docs修正（本節。実装はまだ行わない） |
-| Phase5-1 | Home画面統計（`home-weak-count`等）の再計算タイミング改善（`current-system-analysis.md` 11.1節の既知事項A） |
-| Phase5-2 | Attempt/AnswerRecord専用GAS/Spreadsheet構築（10.4節） |
-| Phase5-3 | MemoryStorageへの書き込み時、新規GASへの非同期送信を追加 |
+| Phase5-0 | 永続化設計確定・docs修正（本節。実装はまだ行わない）**（完了、2026-08-16）** |
+| Phase5-1 | Home画面統計（`home-weak-count`等）の再計算タイミング改善（`current-system-analysis.md` 11.1節の既知事項A）**（完了）**。`app.js`に`returnToHome()`統一関数を新設し、History/講師/学校のテスト対策/start-screenの4経路を統一 |
+| Phase5-2 | Attempt/AnswerRecord専用GAS/Spreadsheet構築（10.4節）**（完了、2026-08-23）**。新規Spreadsheet「LS総合テスト対策_学習記録」（`attempts`/`answer_records`）＋新規GAS「LS総合テスト対策_学習記録API」（`Code.gs`/`SheetHelpers.gs`＋回帰テスト用`Test.gs`）を構築、4API（`startAttempt`/`saveAnswerRecord`/`completeAttempt`/`getStudentHistory`）を実装しWeb Appとしてdeploy済み。内部単体テスト9/9・外部HTTPテスト9/9とも成功、実Spreadsheetでのupsert動作を確認済み。テスト用架空データはcleanup済み（現在両シートとも0件）。既存GAS・TestSet専用GAS・既存学習記録Spreadsheetへの変更なし。**Web App URLはまだフロントコードへ未設定**（Phase5-3で接続予定） |
+| Phase5-3 | MemoryStorageへの書き込み時、新規GASへの非同期送信を追加**（未着手、次Task）** |
 | Phase5-4 | 生徒選択時に新規GASからMemoryStorageへ復元する処理を追加 |
 | Phase5-5 | ブラウザリロード耐性の確認（Attempt/AnswerRecordがリロード後も復元されること） |
 | Phase5-6 | Attempt生成箇所（通常学習・苦手復習・久しぶり復習・TestSet実行）へ`sourceType`/`testSetId`を配線 |
