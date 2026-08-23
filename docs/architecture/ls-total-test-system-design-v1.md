@@ -835,25 +835,29 @@ Phase4完了・Task56本番E2Eを受け、Phase5を以下のTaskへ分割する�
 | Phase5-4 | 生徒選択時に新規GASからMemoryStorageへ復元する処理を追加**（完了、2026-08-23）**。`services/learning-record-service.js`の`fetchStudentLearningRecords(studentId)`（GET）＋新規`features/history/learning-record-restore-integration.js`の`restoreStudentLearningRecords(studentId)`で実装。取得した`attempts`/`answerRecords`を既存`createAttempt`/`saveAttempt`・`createAnswerRecord`/`saveAnswerRecord`経由でRepositoryへupsert（`memoryStorage.clear()`不使用）。`app.js`は`handleHomeStudentSelect()`のみ配線（Homeを即時表示→裏で復元→studentId一致時のみ再描画）。`returnToHome()`は無変更でGAS再取得なし。実GASで`completed`/`isCorrect`がJSON boolean型で返ることを実測確認済み。詳細はCLAUDE.md参照 |
 | Phase5-5 | ブラウザリロード耐性の確認（Attempt/AnswerRecordがリロード後も復元されること）**（完了、2026-08-23（日））**。実装Taskではなく本番Web App／本番学習記録Spreadsheetを使ったE2E確認Task（repositoryコード変更0件、GAS側`Code.gs`/`SheetHelpers.gs`も無変更）。架空生徒で通常学習→保存→`page.reload()`→再選択→復元→Home/History/Weakness一致、新browser/contextでも復元成功を確認。調査中に見つかった低頻度AnswerRecord欠落疑い（1回のみ観測）について、直接HTTPテスト（95件送信、`ok:true`85/85件保存、欠落0）とキー完全突合ブラウザE2E（送信`unique(attemptId::questionId)`5件とSpreadsheet保存キー5件が完全一致）を追加実施したが、いずれも欠落は再現せず。過去の1回の事象は当時のログ不足により真因確定不能のため「GASバグ」「テスト操作ミス」のいずれとも断定せず、現行永続化経路の正常性を確認済みという扱いとする。`SpreadsheetApp.flush()`等のGASコード変更は行っていない。テスト用架空データはcleanup済み。詳細はCLAUDE.md参照 |
 | Phase5-6 | Attempt生成箇所（通常学習・苦手復習・久しぶり復習・TestSet実行）へ`sourceType`/`testSetId`を配線**（完了、2026-08-23（日））**。`features/history/attempt-model.js`の`createAttempt()`へ`startedAt`と同じ`?? null`パターンで追加。`app.js`の`beginAttemptAndShowQuiz(sourceType, testSetId)`を起点に、通常学習=`normal`／Home「苦手を復習」「復習する」=`weak_review`/`dormant_review`（`PRACTICE_TYPE_TO_SOURCE_TYPE`マッピング）／TestSet実行=`testset`＋`test-set-runner.js`新規`getRunnerTestSetId()`を明示的に配線（fallbackでnormalへ丸めない）。TestSet runnerStateへ`testSetId`保持を追加し、複数fieldでも同一testSetIdを維持、終了/中断後は既存の全状態リセットで残留なし。通常Quiz内の間違い直しラウンドは新規Attemptを作らないため元のsourceTypeを維持。`learning-record-sync-integration.js`の`startAttempt` payloadへ2属性を追加送信。実本番GASへ4 sourceTypeを送信し`getStudentHistory`で保存値を実測確認、`createAttempt(gasAttempt)`による復元・旧データ（未設定/空文字列）互換も確認済み（reload E2E自体は未実施、Phase5-5で本番経路のまま確認済みのしくみに乗る）。GAS/Spreadsheet変更0件（Phase5-2で先行実装済みのため）。テストデータcleanup済み。詳細はCLAUDE.md参照 |
-| Phase5-7 | 実データでの苦手問題判定（Weakness）の妥当性検証（暫定閾値の見直し含む） |
-| Phase5-8 | 想起ファーストUX（13.3節）を`choice`形式へ先行実装 |
-| Phase5-9 | 想起ファーストUXの他mode対応＋画像付加要素（4.3節）の拡張 |
+| Phase5-7 | 実データでの苦手問題判定（Weakness）の妥当性検証（暫定閾値の見直し含む）**（2026-08-23（日）運用判断：実運用データが無ければ本質的に検証できないTaskのため、問題マスター拡充・教室運用開始の前提条件にはしない。実生徒の学習データが一定量蓄積してから着手する）** |
+| Phase5-8 | 想起ファーストUX（13.3節）を`choice`形式へ先行実装**（2026-08-23（日）運用判断：学習効果向上のUX改善であり、現状の`choice`でも通常利用可能なため、問題作成・教室運用開始のブロッカーにはしない。実施時期は運用データを見ながら後日判断）** |
+| Phase5-9 | 想起ファーストUXの他mode対応＋画像付加要素（4.3節）の拡張**（2026-08-23（日）運用判断：`imagePath`列は理科CSVに既存、`question-normalizer`もmode非依存で正規化済みのため、既存CSV schemaへの大規模変更を伴わない。問題マスター拡充開始のブロッカーにはしない）** |
 
 ### Phase6: 問題マスター大規模拡充（Task51.5で新設。旧Phase6「ランキング」はPhase7へ統合・移動）
 
 | 項目 | 内容 |
 |---|---|
 | 目的 | 教室実機試用に必要な問題量を確保するため、問題マスターを本格的に拡充する |
-| 前提条件 | Phase5完了（想起ファーストUX・画像付加の実装が済み、拡充する問題がその仕組みへ正しく乗ること） |
+| 前提条件 | Phase5-6完了（学習履歴基盤・永続化・Attempt起点識別が完了していること）**（2026-08-23（日）改訂）**。Phase5-7（Weakness閾値の妥当性検証）は実運用データ蓄積後に着手するため前提条件としない。Phase5-8/5-9（想起ファーストUX他mode対応・画像付加拡張）は既存CSV schemaへ大規模な変更を生じないため前提条件とせず、問題マスター拡充を先行して開始してよい |
 | 主な変更対象 | 既存の`data/*.csv`・Google Sheets問題マスター運用（`docs/operations/question-management-v1.md`）をそのまま使用し、コード変更は原則不要。問題追加は(1)Claude Code/AIが作成する問題 (2)ユーザーが教材・授業経験をもとに自作する問題、の2系統。`choice`を主力としつつ、必要に応じて`sort`/`map_click`/画像付き問題も追加する |
 | 完了条件 | 教室実機試用に十分な問題量が`scripts/validate-questions.mjs`をError/Warning/Critical 0で通過した状態で確保されていること |
 | 回帰確認 | 既存の`questionId`不変原則・CSV管理ルール・`subject`/`unit`/`subunit`/`mode`等の既存仕様を維持すること。AI生成問題を無検証で本番投入しないこと（内容確認・選別を必須とする） |
 | ロールバック方法 | 追加した行の削除のみで切り戻し可能（既存問題には影響しない） |
 | 次Phaseへ進む判定 | 下記「教室実機試用（Phase6→Phase7ゲート）」の完了＋問題修正の反映＋人間レビュー承認 |
 
+**問題CSVへの影響（2026-08-23（日）確認）**：想起ファーストUX（Phase5-8/5-9）は`questionId`/`question`/`choices`/`answer`等の問題データ自体を変更しないUI層の改修であり、CSV schemaへの影響はない。画像付加（Phase5-9）も、理科CSVに既存の`imagePath`列を使う想定で（`core/question-normalizer.js`がmode非依存で既に正規化済み）、主な変更範囲はrenderer側にとどまる。したがってPhase5-8/5-9を後回しにしても、今から作成する問題CSVへの大規模な手戻りは発生しない。
+
 **教室実機試用（Phase6→Phase7ゲート、Task51.5で新設）**
 
 Phase6の問題拡充後、正式公開・ランキング拡張（Phase7）より先に、教室で実際の生徒による実機試用期間を独立した工程として置く。実機試用で問題が見つかった場合はPhase7へ進む前に修正する。
+
+**小規模試用と正式ゲート判定の分離（2026-08-23（日）追記）**：教室実機試用は「Phase6を全て完了してから初めて試す」という単一の工程には限定しない。十分な問題数が揃った分野から、問題マスター拡充と並行して段階的に少人数の実生徒で小規模試用を開始してよい。ただし、Phase6→Phase7への正式なゲート判定（下表の確認対象を満たしているかの判断）は、Phase6の必要範囲（教室実機試用に十分な問題量の確保）が完了した後に別途行う。
 
 確認対象：
 
