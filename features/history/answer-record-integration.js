@@ -12,6 +12,7 @@
 //     （internally MemoryStorageを使う。features/history/quiz-start-integration.js と同じ方針）
 
 import { createAnswerRecord, saveAnswerRecord } from "./answer-record-service.js";
+import { syncSaveAnswerRecord } from "./learning-record-sync-integration.js";
 
 /**
  * 回答確定時に、裏側でAnswerRecordを生成・保存する。
@@ -44,7 +45,13 @@ export function recordAnswerForAttempt(params) {
       answeredAt: new Date().toISOString()
     });
 
-    return saveAnswerRecord(answerRecord);
+    const savedAnswerRecord = saveAnswerRecord(answerRecord);
+
+    // Phase5-3: MemoryStorage保存成功後、学習記録専用GASへも非同期送信する
+    // （fire-and-forget、呼び出し元はawaitしない・失敗してもここでは影響しない）。
+    syncSaveAnswerRecord(savedAnswerRecord);
+
+    return savedAnswerRecord;
   } catch (error) {
     console.error("recordAnswerForAttempt error（裏側の記録のみ失敗。既存の回答フローには影響しません）:", error);
     return null;

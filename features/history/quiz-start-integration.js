@@ -43,6 +43,7 @@ import {
   validateQuestionSetVersion
 } from "../question-set/question-set-version.js";
 import { createAttempt, saveAttempt } from "./attempt-service.js";
+import { syncStartAttempt } from "./learning-record-sync-integration.js";
 
 const TEMPORARY_DEFAULT_COURSE_PURPOSE_ID = "regular_exam";
 
@@ -89,6 +90,11 @@ export async function startAttemptForQuiz({ quizQuestions, subject, studentId })
     });
 
     saveAttempt(attempt);
+
+    // Phase5-3: MemoryStorage保存成功後、学習記録専用GASへも非同期送信する
+    // （fire-and-forget、呼び出し元はawaitしない・失敗してもここでは影響しない）。
+    // subjectはこの関数の引数そのもの＝クリーンなfieldId（旧saveRecordの合成subjectとは別物）。
+    syncStartAttempt(attempt, subject);
 
     return { questionSet, attempt };
   } catch (error) {

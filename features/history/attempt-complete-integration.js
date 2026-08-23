@@ -20,6 +20,7 @@
 
 import { loadAttempt, saveAttempt } from "./attempt-service.js";
 import { loadAnswerRecordsByAttempt } from "./answer-record-service.js";
+import { syncCompleteAttempt } from "./learning-record-sync-integration.js";
 
 /**
  * クイズ終了時に、裏側でAttemptを完了状態へ更新する。
@@ -50,7 +51,13 @@ export function completeAttempt(attemptId) {
       correctRate
     };
 
-    return saveAttempt(completedAttempt);
+    const savedAttempt = saveAttempt(completedAttempt);
+
+    // Phase5-3: MemoryStorage保存成功後、学習記録専用GASへも非同期送信する
+    // （fire-and-forget、呼び出し元はawaitしない・失敗してもここでは影響しない）。
+    syncCompleteAttempt(savedAttempt);
+
+    return savedAttempt;
   } catch (error) {
     console.error("completeAttempt error（裏側の記録のみ失敗。既存のリザルト表示フローには影響しません）:", error);
     return null;
