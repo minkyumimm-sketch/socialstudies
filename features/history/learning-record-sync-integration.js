@@ -18,9 +18,10 @@
 //   - startAttemptが失敗した場合、依存するsaveAnswerRecord/completeAttemptの送信は
 //     行わない（GAS側で「該当attemptIdなし」エラーになることが分かっているため）
 //
-// sourceType/testSetIdはPhase5-3では一切送信しない（gas-api-contract-v1.md §5.1で
-// 任意項目と確定済み。配線はPhase5-6の範囲、先取りしない）。
-// getStudentHistoryはPhase5-4で必要になった時点で追加する（今回は実装しない）。
+// sourceType/testSetIdはPhase5-6でstartAttempt payloadへ配線済み（attempt.sourceType/
+// testSetIdをそのまま送るのみ、値の組み立てはfeatures/history/attempt-model.js・
+// app.js側の責務でありこのファイルでは行わない）。
+// getStudentHistoryはPhase5-4で実装済み（features/history/learning-record-restore-integration.js）。
 
 import {
   startAttempt as sendStartAttempt,
@@ -50,7 +51,12 @@ export function syncStartAttempt(attempt, fieldId) {
     questionSetId: attempt.questionSetId,
     questionSetVersion: attempt.questionSetVersion,
     fieldId,
-    startedAt: attempt.startedAt
+    startedAt: attempt.startedAt,
+    // Phase5-6: attempt.sourceType/testSetIdがnullの場合、GAS側normalizeString_()が
+    // 空文字列へ正規化するため、そのままJSON送信してよい（gas-api-contract-v1.md §5.1、
+    // 既にGAS側で実装済みのvalidationと整合することをテストで確認する）。
+    sourceType: attempt.sourceType,
+    testSetId: attempt.testSetId
   }).catch((error) => {
     console.error("learning-record-service startAttempt error（MemoryStorageには影響しません）:", error);
     throw error; // rejected状態を保持し、依存するsaveAnswerRecord/completeAttempt側が判定できるようにする

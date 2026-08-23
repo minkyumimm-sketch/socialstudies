@@ -57,9 +57,13 @@ const TEMPORARY_DEFAULT_COURSE_PURPOSE_ID = "regular_exam";
  * @param {Array<Object>} params.quizQuestions - 既存フローで既に選定済みの出題（state.quiz.quizQuestions）
  * @param {string} params.subject - 既存の科目キー（fieldIdとして使う。例: japan_geo）
  * @param {string} params.studentId
+ * @param {string|null} [params.sourceType] - Attemptの起点（Phase5-6、`normal`/`weak_review`/
+ *   `dormant_review`/`testset`）。呼び出し元（app.js）が明示的に渡す。省略時はcreateAttempt()の
+ *   デフォルト（null＝起点不明）に委ねる（勝手にnormalへfallbackしない）。
+ * @param {string|null} [params.testSetId] - `sourceType==="testset"`のときのみ値を持つ
  * @returns {Promise<{ questionSet: import("../question-set/question-set-model.js").QuestionSet, attempt: import("./attempt-model.js").Attempt } | null>}
  */
-export async function startAttemptForQuiz({ quizQuestions, subject, studentId }) {
+export async function startAttemptForQuiz({ quizQuestions, subject, studentId, sourceType, testSetId }) {
   try {
     const questionIds = (Array.isArray(quizQuestions) ? quizQuestions : [])
       .map((question) => question?.questionId)
@@ -86,7 +90,9 @@ export async function startAttemptForQuiz({ quizQuestions, subject, studentId })
       questionSetId: questionSet.questionSetId,
       questionSetVersion: questionSet.version,
       totalCount: questionSet.questionIds.length,
-      startedAt: new Date().toISOString()
+      startedAt: new Date().toISOString(),
+      sourceType,
+      testSetId
     });
 
     saveAttempt(attempt);

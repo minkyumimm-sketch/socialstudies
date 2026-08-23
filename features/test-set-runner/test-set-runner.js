@@ -89,6 +89,7 @@ export async function startTestSetRun(selectedTestSet, getActiveQuestionsForFiel
   runnerState = {
     active: true,
     testSetLabel: String(selectedTestSet.label || ""),
+    testSetId: String(selectedTestSet.testSetId || ""),
     groups,
     currentGroupIndex: 0,
     results: []
@@ -102,6 +103,15 @@ export async function startTestSetRun(selectedTestSet, getActiveQuestionsForFiel
  */
 export function isRunnerActive() {
   return runnerState.active;
+}
+
+/**
+ * @returns {string} 実行中TestSetのtestSetId（未実行時は空文字列）。
+ *   Attempt生成箇所（app.js）がsourceType="testset"のAttemptへ渡すために使う
+ *   （Phase5-6、features/history/attempt-model.js参照）。
+ */
+export function getRunnerTestSetId() {
+  return runnerState.testSetId;
 }
 
 /**

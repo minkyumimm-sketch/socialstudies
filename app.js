@@ -59,6 +59,7 @@ import {
   startTestSetRun,
   isRunnerActive,
   getCurrentGroup,
+  getRunnerTestSetId,
   recordCurrentGroupResult,
   hasNextGroup,
   advanceToNextGroup,
@@ -383,7 +384,7 @@ async function startQuiz() {
       return;
     }
 
-    await beginAttemptAndShowQuiz();
+    await beginAttemptAndShowQuiz("normal", null);
   } catch (error) {
     console.error("startQuiz error:", error);
     startError.textContent = "開始に失敗しました。GAS URLやCSVを確認してください。";
@@ -395,14 +396,20 @@ async function startQuiz() {
 
 // Phase2 Task14-1相当の裏側処理（QuestionSet/Attempt生成）とクイズ画面表示をまとめた
 // 共通処理。state.quiz.quizQuestions・state.session.subject等が既に正しく設定済みで
-// あることを前提とする（通常のstartQuiz()、Task21-3の苦手復習・復習推奨開始の両方から
-// 呼ばれる。既存の出題フロー・裏側の記録処理自体は一切変更しない）。
-async function beginAttemptAndShowQuiz() {
+// あることを前提とする（通常のstartQuiz()、Task21-3の苦手復習・復習推奨開始、Task55の
+// TestSet実行の全てから呼ばれる。既存の出題フロー・裏側の記録処理自体は一切変更しない）。
+//
+// Phase5-6: sourceType/testSetIdは呼び出し元（既知の開始経路）が明示的に渡す。
+// 「値が無ければnormal」という後方互換fallbackはしない（起点不明のまま送るより、
+// 呼び出し元の実装漏れとして気づける方を優先する）。
+async function beginAttemptAndShowQuiz(sourceType, testSetId = null) {
   try {
     const domainAttemptResult = await startAttemptForQuiz({
       quizQuestions: state.quiz.quizQuestions,
       subject: state.session.subject,
-      studentId: state.session.studentId
+      studentId: state.session.studentId,
+      sourceType,
+      testSetId
     });
     currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
   } catch (domainError) {
@@ -416,6 +423,14 @@ async function beginAttemptAndShowQuiz() {
   backToStartButton.textContent = isRunnerActive() ? "テスト対策へ戻る" : "開始画面へ戻る";
   showQuizScreen(quizScreen, allScreens);
 }
+
+// Phase5-6: home-practice-controller.jsのpracticeType（"weak"/"dormant"、既存の内部呼称）と、
+// Attemptのsource Type（"weak_review"/"dormant_review"、domain-model-v1.md 3.11.1節の正式値）は
+// 文字列表現が異なるため、ここで変換する。他ファイルへ波及させない最小限のマッピング。
+const PRACTICE_TYPE_TO_SOURCE_TYPE = {
+  weak: "weak_review",
+  dormant: "dormant_review"
+};
 
 // Phase2 Task21-3/Task22-2: ホーム画面の「苦手を復習」「復習する」から、既存start-screenの
 // 科目/単元/分野/出題形式選択を経由せず直接quiz-screenへ入るための共通処理。
@@ -453,7 +468,7 @@ async function startPracticeSession(fieldId, practiceType) {
   state.quiz.allQuestions = practiceResult.questions;
   state.quiz.quizQuestions = pickQuestions(practiceResult.questions, practiceResult.questions.length);
 
-  await beginAttemptAndShowQuiz();
+  await beginAttemptAndShowQuiz(PRACTICE_TYPE_TO_SOURCE_TYPE[practiceType] || null, null);
 }
 
 function startWeaknessReview(fieldId) {
@@ -996,5 +1011,5 @@ async function startTestSetGroupQuiz(fieldId, questionIds) {
   state.quiz.allQuestions = matched;
   state.quiz.quizQuestions = pickQuestions(matched, matched.length);
 
-  await beginAttemptAndShowQuiz();
+  await beginAttemptAndShowQuiz("testset", getRunnerTestSetId());
 }

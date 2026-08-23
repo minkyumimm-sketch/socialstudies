@@ -16,6 +16,7 @@ export function createRunnerState() {
   return {
     active: false,
     testSetLabel: "",
+    testSetId: "",
     groups: /** @type {TestSetGroup[]} */ ([]),
     currentGroupIndex: -1,
     results: [] // [{fieldId, correct, total}] グループ完了ごとに追加

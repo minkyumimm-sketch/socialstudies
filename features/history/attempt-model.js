@@ -31,6 +31,9 @@
  * @property {number} totalCount - 出題数
  * @property {number|null} rawTimeSeconds - ペナルティを含まない実測タイム
  * @property {number|null} penalizedTimeSeconds - ペナルティ込みタイム
+ * @property {string|null} sourceType - Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`、
+ *   Phase5-6で追加。省略時・旧データはnull＝起点不明として扱う。domain-model-v1.md 3.11.1節参照）
+ * @property {string|null} testSetId - `sourceType==="testset"`のときのみ値を持つ、それ以外はnull
  */
 
 import { toTrimmedString, toBooleanFlag, toNullableNumber } from "../common/field-helpers.js";
@@ -54,7 +57,9 @@ export function createAttempt(input = {}) {
     score: toNullableNumber(input.score) ?? 0,
     totalCount: toNullableNumber(input.totalCount) ?? 0,
     rawTimeSeconds: toNullableNumber(input.rawTimeSeconds),
-    penalizedTimeSeconds: toNullableNumber(input.penalizedTimeSeconds)
+    penalizedTimeSeconds: toNullableNumber(input.penalizedTimeSeconds),
+    sourceType: input.sourceType ?? null,
+    testSetId: input.testSetId ?? null
   };
 }
 
