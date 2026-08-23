@@ -84,7 +84,8 @@ export async function startAttemptForQuiz({ quizQuestions, subject, studentId })
       studentId,
       questionSetId: questionSet.questionSetId,
       questionSetVersion: questionSet.version,
-      totalCount: questionSet.questionIds.length
+      totalCount: questionSet.questionIds.length,
+      startedAt: new Date().toISOString()
     });
 
     saveAttempt(attempt);
