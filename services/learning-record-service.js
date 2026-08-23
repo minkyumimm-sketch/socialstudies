@@ -10,12 +10,13 @@
 // JSON文字列を送る）を踏襲する。CORSプリフライトを避けるためのGAS Web App特有の
 // 実践的な回避策であり、Phase5-0/Phase5-2で確定済みの方式。
 //
-// Phase5-3で実装するのはstartAttempt/saveAnswerRecord/completeAttemptの3つのみ。
-// getStudentHistoryはPhase5-4（MemoryStorageへの復元）で必要になった時点で追加する。
+// Phase5-3ではstartAttempt/saveAnswerRecord/completeAttemptの3つ（POST）を実装した。
+// Phase5-4でfetchStudentLearningRecords（GET）を追加する。
 //
 // 各関数は、HTTPレベルの失敗（response.ok===false）だけでなく、GASレスポンスの
 // {ok:false, error} も同様にthrowする。呼び出し側（features/history/
-// learning-record-sync-integration.js）はtry/catchのみで両方の失敗を一律に扱える。
+// learning-record-sync-integration.js・learning-record-restore-integration.js）は
+// try/catchのみで両方の失敗を一律に扱える。
 
 import { LEARNING_RECORD_GAS_WEB_APP_URL } from "../config/learning-record-gas-config.js";
 
@@ -74,4 +75,41 @@ export async function saveAnswerRecord(payload) {
  */
 export async function completeAttempt(payload) {
   return postToLearningRecordGas_("completeAttempt", payload);
+}
+
+/**
+ * 生徒のAttempt/AnswerRecordを学習記録GASから一括取得する（Phase5-4、GET）。
+ * gas-api-contract-v1.md §5.4のとおり、GAS側では集計しない生データをそのまま返す。
+ * 関数名はfetchStudentLearningRecordsとし、既存features/history/history-service.jsの
+ * getStudentHistory()（別モジュール・別シグネチャの既存クライアント集計関数）との
+ * 混同を避ける（GAS側のaction名は契約どおりgetStudentHistoryのまま）。
+ *
+ * @param {string} studentId
+ * @returns {Promise<{ok:true, attempts:Array<Object>, answerRecords:Array<Object>}>}
+ */
+export async function fetchStudentLearningRecords(studentId) {
+  const trimmedStudentId = String(studentId || "").trim();
+
+  if (!trimmedStudentId) {
+    throw new Error("fetchStudentLearningRecords: studentIdが空です。");
+  }
+
+  const query = new URLSearchParams({ action: "getStudentHistory", studentId: trimmedStudentId });
+  const response = await fetch(`${LEARNING_RECORD_GAS_WEB_APP_URL}?${query.toString()}`);
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  const result = await response.json();
+
+  if (!result.ok) {
+    throw new Error(result.error || "getStudentHistory failed");
+  }
+
+  if (!Array.isArray(result.attempts) || !Array.isArray(result.answerRecords)) {
+    throw new Error("getStudentHistory: attempts/answerRecordsが配列ではありません。");
+  }
+
+  return result;
 }

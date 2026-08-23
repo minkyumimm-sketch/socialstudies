@@ -49,6 +49,7 @@ import { ERA_CHOICES } from "./config/era-choices.js";
 import { startAttemptForQuiz } from "./features/history/quiz-start-integration.js";
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
+import { restoreStudentLearningRecords } from "./features/history/learning-record-restore-integration.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
@@ -875,6 +876,17 @@ function handleHomeStudentSelect(student) {
   });
 
   renderHomeForStudent(state.session.studentId, homeElements, homePracticeCallbacks);
+
+  // Phase5-4: 現在のMemoryStorage内容でHomeを即座に表示した後、裏で学習記録GASから
+  // 過去のAttempt/AnswerRecordを取得しMemoryStorageへ復元する（fire-and-forget、
+  // ここではawaitしない）。復元完了時に生徒が切り替わっていた場合、古い生徒のデータで
+  // 現在のHome表示を上書きしないよう、再描画前に選択中studentIdの一致を確認する。
+  const restoringStudentId = state.session.studentId;
+  restoreStudentLearningRecords(restoringStudentId).then((result) => {
+    if (result.ok && state.session.studentId === restoringStudentId) {
+      renderHomeForStudent(state.session.studentId, homeElements, homePracticeCallbacks);
+    }
+  });
 }
 
 // Phase2 Task20-C: ホーム画面で選択済みのstudentId（state.session.studentId）は新しく
