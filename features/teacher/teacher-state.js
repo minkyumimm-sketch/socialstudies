@@ -30,7 +30,15 @@ export function createTeacherState() {
     questionCacheByField: {}, // fieldId -> 正規化済みactive問題配列（遅延ロード）
     unitFilter: "all",
     subunitFilter: "all",
-    selectedQuestions: new Map() // questionId -> {fieldId, questionId}
+    selectedQuestions: new Map(), // questionId -> {fieldId, questionId}
+
+    // 管理Phase M-1: 保存済みTestSet一覧・アーカイブ機能用の状態。
+    // 生徒の学習フロー・問題選択状態とは独立して持つ。
+    savedTestSets: [], // 現在選択中のschoolId/gradeId/academicYearIdに対応するactive一覧
+    savedTestSetsLoading: false,
+    savedTestSetsError: "",
+    confirmingArchiveTestSetId: "", // 非表示確認UIを表示中のtestSetId（空なら非表示）
+    archivingTestSetId: "" // GAS通信中のtestSetId（二重クリック防止用）
   };
 }
 

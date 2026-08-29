@@ -169,6 +169,77 @@ export function renderSelectionSummary(el, teacherState, getSelectedCountByField
 }
 
 /**
+ * 保存済みTestSet一覧を描画する（管理Phase M-1）。行ごとに「非表示にする」ボタンを
+ * 持ち、確認中(confirmingId===testSetId)の行だけ確認メッセージ＋
+ * キャンセル/非表示にするボタンへ切り替える。物理削除ではないことを毎回明示する。
+ *
+ * @param {HTMLElement} containerEl
+ * @param {Array<{testSetId:string, examRoundLabel:string, label:string, questionCount:number}>} testSets
+ * @param {{confirmingId:string, archivingId:string}} uiState
+ * @param {{onRequestArchive:(testSetId:string)=>void, onCancelArchive:()=>void, onConfirmArchive:(testSetId:string)=>void}} callbacks
+ */
+export function renderSavedTestSetList(containerEl, testSets, uiState, callbacks) {
+  containerEl.innerHTML = "";
+
+  if (testSets.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "teacher-testset-empty";
+    empty.textContent = "保存済みのテストセットはありません。";
+    containerEl.appendChild(empty);
+    return;
+  }
+
+  testSets.forEach((testSet) => {
+    const row = document.createElement("div");
+    row.className = "teacher-testset-row";
+
+    if (uiState.confirmingId === testSet.testSetId) {
+      row.classList.add("teacher-testset-row-confirm");
+      const message = document.createElement("p");
+      message.className = "teacher-testset-confirm-message";
+      message.textContent = "このテストセットを生徒の一覧から非表示にします。過去の学習記録は削除されません。よろしいですか？";
+
+      const buttonRow = document.createElement("div");
+      buttonRow.className = "teacher-testset-confirm-buttons";
+
+      const cancelButton = document.createElement("button");
+      cancelButton.type = "button";
+      cancelButton.className = "secondary-button";
+      cancelButton.textContent = "キャンセル";
+      cancelButton.addEventListener("click", () => callbacks.onCancelArchive());
+
+      const confirmButton = document.createElement("button");
+      confirmButton.type = "button";
+      confirmButton.className = "primary-button";
+      const isArchiving = uiState.archivingId === testSet.testSetId;
+      confirmButton.textContent = isArchiving ? "処理中..." : "非表示にする";
+      confirmButton.disabled = isArchiving;
+      confirmButton.addEventListener("click", () => callbacks.onConfirmArchive(testSet.testSetId));
+
+      buttonRow.appendChild(cancelButton);
+      buttonRow.appendChild(confirmButton);
+      row.appendChild(message);
+      row.appendChild(buttonRow);
+    } else {
+      const info = document.createElement("p");
+      info.className = "teacher-testset-info";
+      info.textContent = `${testSet.label}（${testSet.examRoundLabel}・${testSet.questionCount}問）`;
+
+      const archiveButton = document.createElement("button");
+      archiveButton.type = "button";
+      archiveButton.className = "secondary-button";
+      archiveButton.textContent = "非表示にする";
+      archiveButton.addEventListener("click", () => callbacks.onRequestArchive(testSet.testSetId));
+
+      row.appendChild(info);
+      row.appendChild(archiveButton);
+    }
+
+    containerEl.appendChild(row);
+  });
+}
+
+/**
  * @param {HTMLElement} el
  * @param {string} message
  */

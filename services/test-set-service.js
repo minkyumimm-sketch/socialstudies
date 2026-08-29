@@ -11,7 +11,9 @@
 //
 // Task53で使用するのはloadSchools/saveTestSetの2関数。Task54で生徒用TestSet選択UIに
 // 必要なloadTestSets/loadTestSetを追加した（このファイルの当初コメントで予告していた
-// 拡張のとおり）。archiveTestSetは講師用TestSet編集機能が必要になった時点で追加する。
+// 拡張のとおり）。管理Phase M-1で講師用TestSet一覧・アーカイブ機能に必要なarchiveTestSet
+// を追加した（GAS API契約はTask52で確定・単体テスト済み、docs/specification/
+// gas-api-contract-v1.md 9.5節）。
 
 import { TEST_SET_GAS_WEB_APP_URL } from "../config/test-set-gas-config.js";
 
@@ -100,6 +102,31 @@ export async function saveTestSet(payload) {
     },
     body: JSON.stringify({
       action: "saveTestSet",
+      ...payload
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+/**
+ * TestSetを物理削除せず、status=archivedへ変更する（冪等、docs/specification/
+ * gas-api-contract-v1.md 9.5節）。過去のAttempt/AnswerRecord/testSetIdには影響しない。
+ * @param {{pin:string, testSetId:string}} payload
+ * @returns {Promise<{ok:boolean, error?:string}>}
+ */
+export async function archiveTestSet(payload) {
+  const response = await fetch(TEST_SET_GAS_WEB_APP_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "text/plain;charset=utf-8"
+    },
+    body: JSON.stringify({
+      action: "archiveTestSet",
       ...payload
     })
   });

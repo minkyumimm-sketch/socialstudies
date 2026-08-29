@@ -17,7 +17,7 @@
 import { loadQuestions } from "../../core/question-loader.js";
 import { normalizeQuestion } from "../../core/question-normalizer.js";
 import { SUBJECT_CONFIG } from "../../config/subjects.js";
-import { loadSchools, saveTestSet } from "../../services/test-set-service.js";
+import { loadSchools, saveTestSet, loadTestSets, archiveTestSet } from "../../services/test-set-service.js";
 import {
   createTeacherState,
   setQuestionSelected,
@@ -31,6 +31,7 @@ import {
   renderSubunitOptions,
   renderQuestionList,
   renderSelectionSummary,
+  renderSavedTestSetList,
   showTeacherError,
   showSaveResult
 } from "./teacher-renderer.js";
@@ -57,6 +58,8 @@ export function initTeacherScreen(elements) {
   showTeacherError(elements.questionError, "");
   showSaveResult(elements.saveResult, "", false);
   elements.questionList.innerHTML = "";
+  elements.testsetListStatus.textContent = "";
+  elements.testsetListContainer.innerHTML = "";
   renderSelectionSummary(elements.selectionSummary, teacherState, getSelectedCountByField);
 
   renderFieldOptions(elements.fieldSelect);
@@ -90,14 +93,17 @@ function wireEvents(elements) {
 
   elements.schoolSelect.addEventListener("change", () => {
     teacherState.selectedSchoolId = elements.schoolSelect.value;
+    refreshSavedTestSetList(elements);
   });
 
   elements.gradeSelect.addEventListener("change", () => {
     teacherState.gradeId = elements.gradeSelect.value;
+    refreshSavedTestSetList(elements);
   });
 
   elements.academicYearInput.addEventListener("change", () => {
     teacherState.academicYearId = String(elements.academicYearInput.value || "").trim();
+    refreshSavedTestSetList(elements);
   });
 
   elements.examRoundInput.addEventListener("change", () => {
@@ -151,6 +157,111 @@ async function handlePinSubmit(elements) {
     elements.pinSubmitButton.disabled = false;
     elements.pinSubmitButton.textContent = "はじめる";
   }
+}
+
+// 管理Phase M-1: 保存済みTestSet一覧（school/grade/academicYear単位、status=active）。
+// 新規の検索UIは作らず、既存の学校/学年/学年度の3項目をそのままgetTestSetsの
+// 絞り込み条件として流用する（GAS API契約上の必須項目と一致、docs/specification/
+// gas-api-contract-v1.md 9.2節）。
+async function refreshSavedTestSetList(elements) {
+  const schoolId = teacherState.selectedSchoolId;
+  const gradeId = teacherState.gradeId;
+  const academicYearId = String(elements.academicYearInput.value || "").trim();
+
+  teacherState.confirmingArchiveTestSetId = "";
+  teacherState.archivingTestSetId = "";
+
+  if (!schoolId || !gradeId || !academicYearId) {
+    teacherState.savedTestSets = [];
+    teacherState.savedTestSetsError = "";
+    elements.testsetListStatus.textContent = "";
+    // 「0件」と区別するため、条件未充足の間はリスト自体を空にし、
+    // 「保存済みのテストセットはありません」という誤解を招く表示は出さない。
+    elements.testsetListContainer.innerHTML = "<p class=\"teacher-testset-empty\">学校・学年・学年度を選択すると、保存済みのテストセットが表示されます。</p>";
+    return;
+  }
+
+  teacherState.savedTestSetsLoading = true;
+  elements.testsetListStatus.textContent = "読込中...";
+
+  try {
+    const testSets = await loadTestSets({ schoolId, gradeId, academicYearId });
+    teacherState.savedTestSets = testSets;
+    teacherState.savedTestSetsError = "";
+    elements.testsetListStatus.textContent = "";
+  } catch (error) {
+    console.error("loadTestSets error:", error);
+    teacherState.savedTestSets = [];
+    teacherState.savedTestSetsError = "保存済みテストセットを取得できませんでした。通信環境を確認してください。";
+    elements.testsetListStatus.textContent = teacherState.savedTestSetsError;
+  } finally {
+    teacherState.savedTestSetsLoading = false;
+  }
+
+  renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+}
+
+function teacherTestSetUiState() {
+  return {
+    confirmingId: teacherState.confirmingArchiveTestSetId,
+    archivingId: teacherState.archivingTestSetId
+  };
+}
+
+function buildArchiveCallbacks(elements) {
+  return {
+    onRequestArchive: (testSetId) => handleRequestArchiveTestSet(elements, testSetId),
+    onCancelArchive: () => handleCancelArchiveTestSet(elements),
+    onConfirmArchive: (testSetId) => handleConfirmArchiveTestSet(elements, testSetId)
+  };
+}
+
+function handleRequestArchiveTestSet(elements, testSetId) {
+  teacherState.confirmingArchiveTestSetId = testSetId;
+  renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+}
+
+function handleCancelArchiveTestSet(elements) {
+  teacherState.confirmingArchiveTestSetId = "";
+  renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+}
+
+async function handleConfirmArchiveTestSet(elements, testSetId) {
+  // 二重クリック防止：既にこのtestSetIdへ通信中なら何もしない。
+  if (teacherState.archivingTestSetId === testSetId) return;
+
+  teacherState.archivingTestSetId = testSetId;
+  elements.testsetListStatus.textContent = "";
+  renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+
+  try {
+    const result = await archiveTestSet({ pin: teacherState.pin, testSetId });
+
+    if (!result.ok) {
+      teacherState.archivingTestSetId = "";
+      elements.testsetListStatus.textContent = translateArchiveError(result.error);
+      renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+      return;
+    }
+
+    // 成功：一覧からこのtestSetIdだけを取り除く（他のTestSetの状態には触れない）。
+    teacherState.savedTestSets = teacherState.savedTestSets.filter((t) => t.testSetId !== testSetId);
+    teacherState.confirmingArchiveTestSetId = "";
+    teacherState.archivingTestSetId = "";
+    renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+  } catch (error) {
+    console.error("archiveTestSet error:", error);
+    teacherState.archivingTestSetId = "";
+    elements.testsetListStatus.textContent = "非表示にする処理に失敗しました。通常のTestSet作成・生徒の学習には影響ありません。";
+    renderSavedTestSetList(elements.testsetListContainer, teacherState.savedTestSets, teacherTestSetUiState(), buildArchiveCallbacks(elements));
+  }
+}
+
+function translateArchiveError(rawError) {
+  const message = String(rawError || "");
+  if (message.includes("PIN")) return "講師PINが正しくありません。";
+  if (message.includes("testSetId")) return "対象のテストセットが見つかりませんでした。";
+  return message || "非表示にする処理に失敗しました。";
 }
 
 async function handleFieldChange(elements) {
@@ -292,6 +403,7 @@ async function handleSave(elements) {
       `保存しました：${result.testSetId} ／ ${schoolName} ／ ${gradeId} ／ ${label} ／ ${questions.length}問`,
       false
     );
+    await refreshSavedTestSetList(elements);
   } catch (error) {
     console.error("saveTestSet error:", error);
     showSaveResult(elements.saveResult, "TestSetの保存に失敗しました。通常学習には影響ありません。", true);
