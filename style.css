@@ -133,9 +133,34 @@ select {
   font-size: 0.9rem;
 }
 
+.furigana-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+#furigana-toggle-button {
+  width: auto;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.furigana-status {
+  font-size: 0.8rem;
+  color: #777;
+}
+
 #question-text {
   margin: 0 0 20px;
-  line-height: 1.7;
+  line-height: 2.2;
+}
+
+#question-text rt,
+.choice-button rt,
+.sort-item-text rt {
+  font-size: 0.55em;
+  color: #555;
 }
 
 .question-image {

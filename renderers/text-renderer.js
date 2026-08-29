@@ -1,3 +1,5 @@
+import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
+
 export function renderTextQuestion(question, elements) {
   const {
     questionText,
@@ -6,7 +8,7 @@ export function renderTextQuestion(question, elements) {
     submitButton
   } = elements;
 
-  questionText.textContent = question.question || "問題文";
+  applyFuriganaText(questionText, question.question || "問題文");
 
   choicesContainer.className = "choices";
   choicesContainer.innerHTML = "";

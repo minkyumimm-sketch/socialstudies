@@ -1,3 +1,8 @@
+import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
+import { buildFuriganaFragment } from "../features/furigana/furigana-dom.js";
+import { isFuriganaEnabled } from "../features/furigana/furigana-state.js";
+import { convertToFuriganaSegments } from "../features/furigana/furigana-service.js";
+
 export function renderSortQuestion(question, elements, state, onReorder) {
   const {
     questionText,
@@ -7,7 +12,7 @@ export function renderSortQuestion(question, elements, state, onReorder) {
     answerResult
   } = elements;
 
-  questionText.textContent = question.question || "問題文";
+  applyFuriganaText(questionText, question.question || "問題文");
 
   choicesContainer.className = "choices sort-list";
   choicesContainer.innerHTML = "";
@@ -50,7 +55,7 @@ export function drawSortList(container, state, onReorder) {
 
     const text = document.createElement("div");
     text.className = "sort-item-text";
-    text.textContent = `${index + 1}. ${item}`;
+    renderSortItemText(text, index, item);
 
     const controls = document.createElement("div");
     controls.className = "sort-controls";
@@ -81,6 +86,26 @@ export function drawSortList(container, state, onReorder) {
     row.appendChild(controls);
     container.appendChild(row);
   });
+}
+
+// 「1. 」の番号部分はCSV由来ではなく表示用に付与する接頭辞のため、ふりがな変換の
+// 対象外とし、item側だけをfurigana-service.jsへ渡す。drawSortList()は並び替えの
+// たびに要素を作り直す（container.innerHTML=""）ため、古い変換が後から解決しても
+// 既に破棄された要素に書き込むだけで実害はない（世代トークンのガードは不要）。
+async function renderSortItemText(element, index, item) {
+  const prefix = `${index + 1}. `;
+
+  if (!isFuriganaEnabled()) {
+    element.replaceChildren(document.createTextNode(`${prefix}${item}`));
+    return;
+  }
+
+  element.replaceChildren(document.createTextNode(`${prefix}${item}`));
+
+  const segments = await convertToFuriganaSegments(item);
+  if (!isFuriganaEnabled() || !segments) return;
+
+  element.replaceChildren(document.createTextNode(prefix), buildFuriganaFragment(segments));
 }
 
 function getSortDisplayItems(question) {

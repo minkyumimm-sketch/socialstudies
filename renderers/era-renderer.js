@@ -1,3 +1,5 @@
+import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
+
 export function renderEraQuestion(question, elements, eraChoices, onSelectChoice) {
   const {
     questionText,
@@ -7,7 +9,7 @@ export function renderEraQuestion(question, elements, eraChoices, onSelectChoice
     answerResult
   } = elements;
 
-  questionText.textContent = question.question || "問題文";
+  applyFuriganaText(questionText, question.question || "問題文");
 
   choicesContainer.className = "choices";
   choicesContainer.innerHTML = "";
@@ -31,7 +33,8 @@ export function renderEraQuestion(question, elements, eraChoices, onSelectChoice
     const button = document.createElement("button");
     button.type = "button";
     button.className = "choice-button";
-    button.textContent = choice;
+    button.dataset.choiceValue = choice;
+    applyFuriganaText(button, choice);
 
     button.addEventListener("click", () => {
       onSelectChoice(choice);

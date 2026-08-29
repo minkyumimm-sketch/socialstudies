@@ -46,6 +46,9 @@ import {
   filterStudents
 } from "./services/student-service.js";
 import { ERA_CHOICES } from "./config/era-choices.js";
+import { isFuriganaEnabled, setFuriganaEnabled } from "./features/furigana/furigana-state.js";
+import { ensureFuriganaEngineReady } from "./features/furigana/furigana-service.js";
+import { applyFuriganaText } from "./features/furigana/furigana-apply.js";
 import { startAttemptForQuiz } from "./features/history/quiz-start-integration.js";
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
@@ -226,6 +229,8 @@ const quizSubject = document.getElementById("quiz-subject");
 const quizProgress = document.getElementById("quiz-progress");
 const quizScore = document.getElementById("quiz-score");
 const quizUnit = document.getElementById("quiz-unit");
+const furiganaToggleButton = document.getElementById("furigana-toggle-button");
+const furiganaStatus = document.getElementById("furigana-status");
 const choicesContainer = document.getElementById("choices-container");
 const answerInput = document.getElementById("answer-input");
 const submitButton = document.getElementById("submit-button");
@@ -297,6 +302,7 @@ retryButton.addEventListener("click", retryQuiz);
 backButton.addEventListener("click", backToStart);
 wrongRetryButton.addEventListener("click", retryWrongOnlyFromResult);
 backToStartButton.addEventListener("click", backToStart);
+furiganaToggleButton.addEventListener("click", handleFuriganaToggle);
 
 subjectSelect.addEventListener("change", async () => {
   await filterManager.syncFiltersForSubjectChange();
@@ -483,6 +489,67 @@ function getQuestionId(question) {
   const rawId = String(question?.questionId ?? question?.id ?? "").trim();
   if (rawId) return rawId;
   return buildFallbackQuestionId(question || {}, state.session.subject || "");
+}
+
+// Task F-1/F-2: ふりがなON/OFF切替。
+// トグル自体はrenderQuestion()を呼び直さない（state.ui.answered等がリセットされ、
+// 既に解答済みの問題が誤って未解答状態へ戻ってしまうため）。代わりに、現在画面に
+// 出ている問題文・choiceボタン・sort項目のテキストだけを、既存の解答済み状態
+// （ロック・正誤色・selectedChoice等）を一切変えずに再描画する。
+async function handleFuriganaToggle() {
+  const nextEnabled = !isFuriganaEnabled();
+  setFuriganaEnabled(nextEnabled);
+  furiganaToggleButton.textContent = nextEnabled ? "ふりがな ON" : "ふりがな OFF";
+  furiganaToggleButton.setAttribute("aria-pressed", String(nextEnabled));
+
+  if (!nextEnabled) {
+    furiganaStatus.textContent = "";
+    refreshFuriganaDisplay();
+    return;
+  }
+
+  furiganaStatus.textContent = "ふりがなを準備中…";
+  const ready = await ensureFuriganaEngineReady();
+
+  // 準備中にもう一度OFFへ切り替えられていたら、ここでONへ戻さない。
+  if (!isFuriganaEnabled()) {
+    furiganaStatus.textContent = "";
+    return;
+  }
+
+  if (!ready) {
+    furiganaStatus.textContent = "ふりがなの準備に失敗しました。通常表示のまま続けられます。";
+    setFuriganaEnabled(false);
+    furiganaToggleButton.textContent = "ふりがな OFF";
+    furiganaToggleButton.setAttribute("aria-pressed", "false");
+    return;
+  }
+
+  furiganaStatus.textContent = "";
+  refreshFuriganaDisplay();
+}
+
+// 現在表示中の問題文・choice/eraボタン・sort項目のテキストだけを、
+// ふりがな設定に合わせて再描画する（クイズの進行状態・解答結果には触れない）。
+function refreshFuriganaDisplay() {
+  const question = state.quiz.currentQuestion;
+  if (!question) return;
+
+  applyFuriganaText(questionElements.questionText, question.question || questionElements.questionText.textContent);
+
+  if (question.mode === "choice" || question.mode === "era") {
+    choicesContainer.querySelectorAll(".choice-button").forEach((button) => {
+      const value = button.dataset.choiceValue;
+      if (value !== undefined) applyFuriganaText(button, value);
+    });
+  }
+
+  if (question.mode === "sort") {
+    drawSortList(choicesContainer, state, (fromIndex, toIndex) => {
+      if (state.ui.answered) return;
+      swapSortItems(fromIndex, toIndex);
+    });
+  }
 }
 
 async function renderQuestion() {

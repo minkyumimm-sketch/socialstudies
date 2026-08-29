@@ -1,3 +1,5 @@
+import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
+
 export function renderChoiceQuestion(question, elements, onSelectChoice) {
   const {
     questionText,
@@ -8,7 +10,7 @@ export function renderChoiceQuestion(question, elements, onSelectChoice) {
     questionImage
   } = elements;
 
-  questionText.textContent = question.question || "問題文";
+  applyFuriganaText(questionText, question.question || "問題文");
 
   if (question.imagePath) {
     questionImage.src = question.imagePath;
@@ -44,7 +46,8 @@ export function renderChoiceQuestion(question, elements, onSelectChoice) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "choice-button";
-    button.textContent = choice;
+    button.dataset.choiceValue = choice;
+    applyFuriganaText(button, choice);
 
     button.addEventListener("click", () => {
       onSelectChoice(choice);
@@ -60,7 +63,9 @@ export function lockChoiceButtons(container, selectedChoice, correctAnswer, norm
   buttons.forEach((button) => {
     button.disabled = true;
 
-    const value = normalizeValue(button.textContent);
+    // ふりがな表示時、button.textContentは<rt>の読みまで連結されて判定に使えなくなるため、
+    // ボタン生成時に保持した原文(dataset.choiceValue)を判定に使う（DOM表示と判定データの分離）。
+    const value = normalizeValue(button.dataset.choiceValue ?? button.textContent);
 
     if (value === normalizeValue(correctAnswer)) {
       button.classList.add("correct");

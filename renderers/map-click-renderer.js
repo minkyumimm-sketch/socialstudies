@@ -5,6 +5,8 @@ import {
   getAllPrefectureIds
 } from "./map-click-config.js";
 
+import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
+
 import {
   setupSvgForPrefectureMap,
   bindPrefectureEvents,
@@ -132,7 +134,7 @@ export async function renderMapClickQuestion(question, elements, state) {
   if (!prepared) return;
 
   const { questionText, mapClickContainer } = prepared;
-  questionText.textContent = question.question || "地図問題";
+  applyFuriganaText(questionText, question.question || "地図問題");
 
   ensureMapSelectionState(state);
   state.ui.selectedMapArea = "";
