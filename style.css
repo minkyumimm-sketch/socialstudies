@@ -694,6 +694,16 @@ select {
   gap: 16px;
 }
 
+/* 2026-08-30追加: 汎用.hidden{display:none}は.home-detailと同じ詳細度(単一クラス)のため、
+   スタイルシート上で後に定義された.home-detailのdisplay:flexが優先され、hiddenクラスが
+   効かない不具合があった（ホーム画面の「詳細を見る」が常時展開表示のままになり、
+   ボタンを押しても見た目が変化しなかった）。他画面へ影響させないよう、
+   .home-detail.hidden（詳細度0,0,2,0）をここに限定して追加する
+   （.tss-step.hiddenと同じ安全パターン、グローバルな!important指定は使わない）。 */
+.home-detail.hidden {
+  display: none;
+}
+
 .home-section-title {
   margin: 0 0 8px;
   font-size: 0.9rem;
