@@ -57,6 +57,7 @@ import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-ren
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
 import { initTeacherScreen } from "./features/teacher/teacher-controller.js";
+import { initTeacherHistorySection } from "./features/teacher/teacher-history-controller.js";
 import { initTestSetStudentScreen, showTestSetCompletion } from "./features/test-set-student/test-set-student-controller.js";
 import {
   startTestSetRun,
@@ -180,6 +181,19 @@ const teacherElements = {
   selectionSummary: document.getElementById("teacher-selection-summary"),
   saveButton: document.getElementById("teacher-save-button"),
   saveResult: document.getElementById("teacher-save-result")
+};
+
+// 管理Phase M-2: 講師用「生徒別の間違い問題確認」セクションのDOM要素。
+// teacher-history-controller.jsはこのelementsバッグを受け取るだけで、
+// DOM取得は一切行わない（teacher-controller.jsと同じ方針）。
+const teacherHistoryElements = {
+  studentInput: document.getElementById("teacher-history-student-input"),
+  studentIdInput: document.getElementById("teacher-history-student-id"),
+  studentSuggestions: document.getElementById("teacher-history-student-suggestions"),
+  selectedStudentLabel: document.getElementById("teacher-history-selected-student-label"),
+  showButton: document.getElementById("teacher-history-show-button"),
+  status: document.getElementById("teacher-history-status"),
+  wrongList: document.getElementById("teacher-history-wrong-list")
 };
 
 // Task54: 生徒用「学校のテスト対策」選択画面（test-set-student-screen）のDOM要素。
@@ -1025,6 +1039,7 @@ function goToHistoryScreen() {
 // state・フォームをリセットする（PINも含め毎回再入力、誤操作防止のため）。
 function goToTeacherScreen() {
   initTeacherScreen(teacherElements);
+  initTeacherHistorySection(teacherHistoryElements);
   showTeacherScreen(teacherScreen, allScreens);
 }
 
@@ -1074,6 +1089,14 @@ async function startTestSetGroupQuiz(fieldId, questionIds) {
   state.session.modeFilter = "all";
   state.session.subunitFilter = "all";
   state.session.requestedQuestionCount = matched.length;
+  // TestSetは通常学習の「間違えた問題だけ復習」設定を引き継がない（別仕様、2026-08-30確定）。
+  // state.session.retryWrongEnabledの初期値はtrue固定（core/state.js）で、通常学習の
+  // startQuiz()を一度も経由せずTestSetへ直行した場合に前セッションの値が漏れ込む
+  // （もしくは初期値trueのまま）ため、85問完走後に意図せず間違い直しラウンドへ突入し
+  // TestSetが完了しない不具合があった。通常学習側のチェックボックス連動ロジック
+  // （core/quiz-controller.jsのprepareQuizStart）は変更せず、TestSet専用の実行経路である
+  // ここでだけ明示的にfalseへ固定する。
+  state.session.retryWrongEnabled = false;
 
   resetQuizState(state);
   resetUiState(state);

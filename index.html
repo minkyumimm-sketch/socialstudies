@@ -343,6 +343,24 @@
 
           <button id="teacher-save-button" class="primary-button" type="button">TestSetを保存</button>
           <p id="teacher-save-result" class="teacher-save-result"></p>
+
+          <hr class="teacher-section-divider" />
+
+          <div id="teacher-history-section" class="teacher-history-section">
+            <h3>生徒の学習状況</h3>
+
+            <div class="form-group">
+              <label for="teacher-history-student-input">生徒（名前で検索）</label>
+              <input type="text" id="teacher-history-student-input" autocomplete="off" placeholder="生徒名を入力" />
+              <input type="hidden" id="teacher-history-student-id" />
+              <div id="teacher-history-student-suggestions" class="suggestions hidden"></div>
+              <div id="teacher-history-selected-student-label" class="selected-student hidden"></div>
+            </div>
+
+            <button id="teacher-history-show-button" class="primary-button" type="button" disabled>間違いを表示</button>
+            <p id="teacher-history-status" class="error-message"></p>
+            <div id="teacher-history-wrong-list" class="teacher-history-wrong-list"></div>
+          </div>
         </div>
 
         <button id="teacher-back-button" class="secondary-button">ホームへ戻る</button>

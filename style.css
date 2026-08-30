@@ -1045,6 +1045,76 @@ select {
   align-items: stretch;
 }
 
+.teacher-section-divider {
+  margin: 24px 0;
+  border: none;
+  border-top: 1px solid #e6ebf5;
+}
+
+.teacher-history-section h3 {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+}
+
+.teacher-history-wrong-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.teacher-history-empty {
+  color: #667;
+  padding: 10px;
+  text-align: center;
+  font-size: 0.88rem;
+}
+
+.teacher-history-count {
+  font-weight: bold;
+  color: #2f4d8f;
+  margin: 0;
+}
+
+.teacher-history-card {
+  padding: 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+  border-left: 3px solid #d93025;
+}
+
+.teacher-history-meta {
+  margin: 0 0 6px;
+  font-size: 0.78rem;
+  color: #667;
+}
+
+.teacher-history-question {
+  margin: 0 0 6px;
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+.teacher-history-selected {
+  margin: 0 0 2px;
+  font-size: 0.88rem;
+  color: #d93025;
+  word-break: break-word;
+}
+
+.teacher-history-correct {
+  margin: 0 0 6px;
+  font-size: 0.88rem;
+  color: #1a7f37;
+  word-break: break-word;
+}
+
+.teacher-history-date {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #667;
+}
+
 .teacher-selection-summary {
   font-weight: bold;
   color: #2f4d8f;
@@ -1077,6 +1147,15 @@ select {
 .tss-step {
   display: flex;
   flex-direction: column;
+}
+
+/* 2026-08-30追加: 汎用.hidden{display:none}は.tss-stepと同じ詳細度(単一クラス)のため、
+   スタイルシート上で後に定義された.tss-stepのdisplay:flexが優先され、hiddenクラスが
+   効かない不具合があった（TestSet選択画面の各step=学校選択/一覧/確認/完了が常に
+   同時表示され得る）。他画面へ影響させないよう、.tss-step.hidden（詳細度0,0,2,0）を
+   ここに限定して追加する（グローバルな!important指定は使わない）。 */
+.tss-step.hidden {
+  display: none;
 }
 
 .tss-list-empty {
