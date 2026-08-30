@@ -1,4 +1,5 @@
-import { GAS_WEB_APP_URL, postToGas } from "./gas-service.js";
+import { postToGas } from "./gas-service.js";
+import { STUDENT_MASTER_GAS_WEB_APP_URL } from "../config/student-master-gas-config.js";
 
 export function normalizeStudentRecord(student) {
   return {
@@ -10,7 +11,7 @@ export function normalizeStudentRecord(student) {
 }
 
 export async function loadActiveStudents(state) {
-  const url = `${GAS_WEB_APP_URL}?action=getActiveStudents`;
+  const url = `${STUDENT_MASTER_GAS_WEB_APP_URL}?action=getActiveStudents`;
 
   const response = await fetch(url);
   if (!response.ok) {
