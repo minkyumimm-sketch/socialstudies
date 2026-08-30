@@ -10,13 +10,27 @@
 //   - GAS通信の失敗を既存Quiz処理へ一切throwしない（呼び出し元はawaitしない前提）
 //   - console.errorで診断可能にするのみ
 //
-// 順序保証（最小限、過剰なqueueシステムへは発展させない）：
+// 順序保証：
 //   - saveAnswerRecordは、対象attemptIdのstartAttempt送信が完了するまで待ってから送信する
 //     （新GAS側saveAnswerRecordは対象attemptIdがattemptsに存在することを要求するため）
 //   - completeAttemptも同様にstartAttempt完了を待ってから送信する
-//   - AnswerRecord同士・AnswerRecordとcompleteAttemptの間の完全な直列queueは作らない
 //   - startAttemptが失敗した場合、依存するsaveAnswerRecord/completeAttemptの送信は
 //     行わない（GAS側で「該当attemptIdなし」エラーになることが分かっているため）
+//
+//   - 【2026-08-30追加】同一attemptId内のsaveAnswerRecord/completeAttempt送信は、
+//     attemptIdごとに1件ずつ直列実行する（runSerializedForAttempt_）。TS002（85問）の
+//     本番E2Eで、回答を待ち時間なく連続実行すると85件のsaveAnswerRecordが並列に
+//     GASへ届き、学習記録GAS側のLockService排他制御が輻輳して一部保存が失敗する
+//     （画面は完了表示になるがサーバー側はAnswerRecord欠落・completed=falseのまま、
+//     という不整合が実機で確認された）ことへの対応。直列化することで、GAS側の
+//     排他ロック取得の競合そのものを減らす（固定sleepでの時間稼ぎではなく、
+//     送信順序そのものを保証する方式）。
+//     completeAttemptも同じattemptIdのqueueへ乗せることで、「その時点までに
+//     enqueue済みの全saveAnswerRecordの送信（成功・リトライ後失敗いずれか確定するまで）」
+//     が終わってから送信されることを保証する（＝全保存要求の処理終了→completeAttempt、
+//     の順序保証）。個々のsaveAnswerRecordが最終的に失敗しても（services/
+//     learning-record-service.jsのリトライを使い切った場合）、キュー自体は
+//     次のタスクへ進む（1件の失敗でcompleteAttemptが永久に送られなくなることは防ぐ）。
 //
 // sourceType/testSetIdはPhase5-6でstartAttempt payloadへ配線済み（attempt.sourceType/
 // testSetIdをそのまま送るのみ、値の組み立てはfeatures/history/attempt-model.js・
@@ -33,6 +47,31 @@ import {
 // syncCompleteAttempt完了時に破棄するため、同時に進行中のAttempt数程度のサイズに収まり、
 // 無制限に増え続けない。
 const startAttemptPromises = new Map();
+
+// attemptId -> 「その時点までにenqueueされた全タスクが終わったこと」を表すPromise（常に解決済みへ
+// 帰着し、rejectしない）。syncSaveAnswerRecord/syncCompleteAttemptはこのMapを介して同一attemptId内の
+// 送信を1件ずつ直列実行する。syncCompleteAttempt完了時に破棄する（startAttemptPromisesと同じ方針）。
+const attemptTaskQueues = new Map();
+
+/**
+ * 同一attemptId内のタスク（GAS送信）を1件ずつ直列実行する。
+ * 前段のタスクが失敗していても、後続のタスクは実行する（1件の失敗でキュー全体を
+ * 止めない＝completeAttemptが永久に送られなくなる事故を防ぐ）。
+ *
+ * @param {string} attemptId
+ * @param {() => Promise<void>} taskFn
+ * @returns {Promise<void>} このtaskFn自体の完了（呼び出し元は自分のタスクの成否をそのまま受け取れる）
+ */
+function runSerializedForAttempt_(attemptId, taskFn) {
+  const previousTail = attemptTaskQueues.get(attemptId) || Promise.resolve();
+  const taskResult = previousTail.then(taskFn, taskFn);
+  const nextTail = taskResult.then(
+    () => {},
+    () => {}
+  );
+  attemptTaskQueues.set(attemptId, nextTail);
+  return taskResult;
+}
 
 /**
  * Attempt開始を学習記録GASへ非同期送信する。呼び出し元はawaitしなくてよい
@@ -91,31 +130,42 @@ async function waitForStartAttempt_(attemptId) {
 export async function syncSaveAnswerRecord(answerRecord) {
   if (!answerRecord?.attemptId || !answerRecord?.questionId) return;
 
-  const started = await waitForStartAttempt_(answerRecord.attemptId);
-  if (!started) {
-    console.error(
-      "learning-record-service saveAnswerRecord skipped（startAttemptが失敗したため送信しません）:",
-      answerRecord.attemptId,
-      answerRecord.questionId
-    );
-    return;
-  }
+  const attemptId = answerRecord.attemptId;
 
-  try {
-    await sendSaveAnswerRecord({
-      attemptId: answerRecord.attemptId,
-      questionId: answerRecord.questionId,
-      studentId: answerRecord.studentId,
-      fieldId: answerRecord.fieldId,
-      unit: answerRecord.unit,
-      selectedChoice: answerRecord.selectedChoice,
-      correctAnswer: answerRecord.correctAnswer,
-      isCorrect: answerRecord.isCorrect,
-      answeredAt: answerRecord.answeredAt
-    });
-  } catch (error) {
-    console.error("learning-record-service saveAnswerRecord error（MemoryStorageには影響しません）:", error);
-  }
+  return runSerializedForAttempt_(attemptId, async () => {
+    const started = await waitForStartAttempt_(attemptId);
+    if (!started) {
+      console.error(
+        "learning-record-service saveAnswerRecord skipped（startAttemptが失敗したため送信しません）:",
+        attemptId,
+        answerRecord.questionId
+      );
+      return;
+    }
+
+    try {
+      await sendSaveAnswerRecord({
+        attemptId,
+        questionId: answerRecord.questionId,
+        studentId: answerRecord.studentId,
+        fieldId: answerRecord.fieldId,
+        unit: answerRecord.unit,
+        selectedChoice: answerRecord.selectedChoice,
+        correctAnswer: answerRecord.correctAnswer,
+        isCorrect: answerRecord.isCorrect,
+        answeredAt: answerRecord.answeredAt
+      });
+    } catch (error) {
+      // リトライ上限（services/learning-record-service.js側、最大3回）を使い切っても
+      // 失敗した場合にここへ到達する。データ欠落を黙って成功扱いにしないよう、
+      // 通常のGAS通信エラーと区別できる形で明示的にログへ残す（UIへは表示しない、
+      // 過度な複雑化を避ける方針のため）。
+      console.error(
+        `learning-record-service saveAnswerRecord 失敗（リトライ上限到達・MemoryStorageには影響しません、AnswerRecordがサーバー側に保存されていません）: attemptId=${attemptId} questionId=${answerRecord.questionId}`,
+        error
+      );
+    }
+  });
 }
 
 /**
@@ -134,25 +184,30 @@ export async function syncCompleteAttempt(completedAttempt) {
 
   const attemptId = completedAttempt.attemptId;
 
+  // 同一attemptIdのqueueへ乗せることで、その時点までにenqueue済みの全saveAnswerRecord
+  // （成功・リトライ後失敗いずれか確定するまで）が終わってから送信されることを保証する。
   try {
-    const started = await waitForStartAttempt_(attemptId);
-    if (!started) {
-      console.error(
-        "learning-record-service completeAttempt skipped（startAttemptが失敗したため送信しません）:",
-        attemptId
-      );
-      return;
-    }
+    await runSerializedForAttempt_(attemptId, async () => {
+      const started = await waitForStartAttempt_(attemptId);
+      if (!started) {
+        console.error(
+          "learning-record-service completeAttempt skipped（startAttemptが失敗したため送信しません）:",
+          attemptId
+        );
+        return;
+      }
 
-    await sendCompleteAttempt({
-      attemptId,
-      completedAt: completedAttempt.completedAt,
-      score: completedAttempt.score,
-      totalCount: completedAttempt.totalCount
+      await sendCompleteAttempt({
+        attemptId,
+        completedAt: completedAttempt.completedAt,
+        score: completedAttempt.score,
+        totalCount: completedAttempt.totalCount
+      });
     });
   } catch (error) {
     console.error("learning-record-service completeAttempt error（MemoryStorageには影響しません）:", error);
   } finally {
     startAttemptPromises.delete(attemptId);
+    attemptTaskQueues.delete(attemptId);
   }
 }

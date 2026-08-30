@@ -20,6 +20,22 @@
 
 import { LEARNING_RECORD_GAS_WEB_APP_URL } from "../config/learning-record-gas-config.js";
 
+// GAS側のLockService排他制御が混雑時に返す一時的エラー（本番環境の実際のエラー文言で確認済み、
+// 2026-08-30実施のTS002 85問高速実行時に実測）。この文言のときだけ限定回数リトライする。
+// 必須項目欠落・該当attemptIdなし等の非一時的エラー（gas-api-contract-v1.md §5.1〜5.3）は
+// 対象外とし、リトライせず従来どおり即座にthrowする（無限リトライ・非一時的エラーの
+// 握り潰しを禁止する方針のため）。
+const TRANSIENT_ERROR_SIGNATURE = "サーバーが混み合っています";
+const RETRY_DELAYS_MS = [300, 600, 1200];
+
+function sleep_(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientError_(error) {
+  return String(error?.message || "").includes(TRANSIENT_ERROR_SIGNATURE);
+}
+
 async function postToLearningRecordGas_(action, payload) {
   const response = await fetch(LEARNING_RECORD_GAS_WEB_APP_URL, {
     method: "POST",
@@ -45,6 +61,26 @@ async function postToLearningRecordGas_(action, payload) {
   return result;
 }
 
+// LockServiceの混雑による一時的エラーのときだけ、限定回数（最大3回）リトライする
+// （300ms→600ms→1200ms、無限リトライは行わない）。それ以外のエラーは1回目で即throwする。
+async function postToLearningRecordGasWithRetry_(action, payload) {
+  for (let attemptIndex = 0; ; attemptIndex += 1) {
+    try {
+      return await postToLearningRecordGas_(action, payload);
+    } catch (error) {
+      const isLastAttempt = attemptIndex >= RETRY_DELAYS_MS.length;
+      if (!isTransientError_(error) || isLastAttempt) {
+        throw error;
+      }
+      console.error(
+        `learning-record-service ${action} 一時的エラーのためリトライします（${attemptIndex + 1}/${RETRY_DELAYS_MS.length}回目）:`,
+        error
+      );
+      await sleep_(RETRY_DELAYS_MS[attemptIndex]);
+    }
+  }
+}
+
 /**
  * Attemptの開始を学習記録GASへ記録する。
  * gas-api-contract-v1.md §5.1のとおり、sourceType/testSetIdは任意項目
@@ -54,7 +90,7 @@ async function postToLearningRecordGas_(action, payload) {
  * @returns {Promise<{ok:true}>}
  */
 export async function startAttempt(payload) {
-  return postToLearningRecordGas_("startAttempt", payload);
+  return postToLearningRecordGasWithRetry_("startAttempt", payload);
 }
 
 /**
@@ -64,7 +100,7 @@ export async function startAttempt(payload) {
  * @returns {Promise<{ok:true}>}
  */
 export async function saveAnswerRecord(payload) {
-  return postToLearningRecordGas_("saveAnswerRecord", payload);
+  return postToLearningRecordGasWithRetry_("saveAnswerRecord", payload);
 }
 
 /**
@@ -74,7 +110,7 @@ export async function saveAnswerRecord(payload) {
  * @returns {Promise<{ok:true}>}
  */
 export async function completeAttempt(payload) {
-  return postToLearningRecordGas_("completeAttempt", payload);
+  return postToLearningRecordGasWithRetry_("completeAttempt", payload);
 }
 
 /**
