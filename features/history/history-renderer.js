@@ -82,7 +82,21 @@ function getHistoryScreenData(studentId) {
   const summary = getStudentHistorySummary(studentId);
   const fieldIds = dashboard.studiedFields.map((field) => field.fieldId);
   const fieldDashboards = getFieldDashboards(studentId, fieldIds);
-  const recentHistory = getStudentHistoryList(studentId, { order: "desc", limit: RECENT_HISTORY_LIMIT });
+
+  // AnswerRecordが0件のAttempt（開始のみで未回答のまま終わったAttempt。TestSet/通常学習を
+  // 問わず発生しうる）は「最近の学習履歴」には表示しない。Attempt/AnswerRecordの保存自体は
+  // 一切変更しない（削除・無効化しない）、表示のみの除外とする。
+  // limit適用前に全件取得してから除外することで、除外後もRECENT_HISTORY_LIMIT件を
+  // 確実に表示できるようにする（limit適用後に除外すると件数が欠けるため）。
+  const allHistory = getStudentHistoryList(studentId, { order: "desc" });
+  const answeredItems = allHistory.items.filter(
+    (entry) => Array.isArray(entry.answerRecords) && entry.answerRecords.length > 0
+  );
+  const recentHistory = {
+    studentId: allHistory.studentId,
+    totalCount: allHistory.totalCount,
+    items: answeredItems.slice(0, RECENT_HISTORY_LIMIT)
+  };
 
   return { dashboard, summary, fieldDashboards, recentHistory };
 }
@@ -171,8 +185,13 @@ function renderSubjectList(fieldDashboards, listElement) {
  * 今回表示しない（未完了Attemptのscoreが実際の正解数と一致しない場合があるため、
  * UI側での補正も行わない。回答数はanswerRecords.lengthという実データの件数のみを使う）。
  *
- * questionSetがnull（QuestionSetが見つからないAttempt）の場合も、getSubjectLabel()が
- * "不明"を返すため画面全体は壊れない。
+ * questionSetがnull（QuestionSetが見つからないAttempt。ページ再読込等で別セッションに
+ * なり、QuestionSetがメモリ上に復元されていない場合に発生する。QuestionSet自体はGASへ
+ * 保存・復元されないため、既存の仕様上の制約であり本修正の対象外）の場合は、
+ * 同じAttemptに属するAnswerRecord（GASへ保存され再読込後も復元される）が保持する
+ * fieldIdを代わりに使う。AnswerRecordは同一Attempt内で常に同じfieldIdを持つため
+ * （QuestionSetモデルの単一fieldId制約、Task55）、先頭の1件で十分。
+ * どちらも取得できない場合のみ、getSubjectLabel()が"不明"を返す。
  *
  * @param {ReturnType<typeof getStudentHistoryList>["items"]} items
  * @param {HTMLElement} listElement
@@ -193,7 +212,8 @@ function renderRecentList(items, listElement) {
     item.className = "history-recent-item";
 
     const dateLabel = formatDateLabel(entry.attempt?.completedAt || entry.attempt?.startedAt);
-    const subjectLabel = getSubjectLabel(entry.questionSet?.fieldId);
+    const fallbackFieldId = Array.isArray(entry.answerRecords) ? entry.answerRecords[0]?.fieldId : undefined;
+    const subjectLabel = getSubjectLabel(entry.questionSet?.fieldId || fallbackFieldId);
     const answeredCount = Array.isArray(entry.answerRecords) ? entry.answerRecords.length : 0;
 
     const date = document.createElement("span");

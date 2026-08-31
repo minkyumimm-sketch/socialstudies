@@ -175,11 +175,13 @@ select {
 .choices {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 .choice-button {
   width: 100%;
+  min-height: 48px;
+  padding: 14px 18px;
   text-align: left;
   background: #f3f6fc;
   color: #222;
