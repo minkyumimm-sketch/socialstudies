@@ -206,6 +206,33 @@ select {
   border-color: #e09a9a;
 }
 
+/* Phase2「わからない」ボタン: choice-buttonと同等以上のタップしやすさ(min-height/padding)を
+   確保しつつ、警告色を避けた中立トーン＋点線ボーダーで、通常の選択肢とは見た目に差をつける。 */
+.unknown-answer-button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 14px 18px;
+  margin: 14px 0 0;
+  font-size: 1rem;
+  text-align: center;
+  background: #fff;
+  color: #52606d;
+  border: 1px dashed #b8c2d1;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.unknown-answer-button:hover:not(:disabled) {
+  background: #f3f6fc;
+}
+
+.unknown-answer-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .result-box {
   min-height: 72px;
   margin-top: 18px;

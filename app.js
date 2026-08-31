@@ -46,6 +46,7 @@ import {
   filterStudents
 } from "./services/student-service.js";
 import { ERA_CHOICES } from "./config/era-choices.js";
+import { UNKNOWN_ANSWER_VALUE } from "./config/unknown-answer.js";
 import { isFuriganaEnabled, setFuriganaEnabled } from "./features/furigana/furigana-state.js";
 import { ensureFuriganaEngineReady } from "./features/furigana/furigana-service.js";
 import { applyFuriganaText } from "./features/furigana/furigana-apply.js";
@@ -251,6 +252,7 @@ const furiganaStatus = document.getElementById("furigana-status");
 const choicesContainer = document.getElementById("choices-container");
 const answerInput = document.getElementById("answer-input");
 const submitButton = document.getElementById("submit-button");
+const unknownAnswerButton = document.getElementById("unknown-answer-button");
 const answerResult = document.getElementById("answer-result");
 const nextButton = document.getElementById("next-button");
 const backToStartButton = document.getElementById("back-to-start-button");
@@ -314,6 +316,7 @@ startHomeBackButton.addEventListener("click", returnToHome);
 
 startButton.addEventListener("click", startQuiz);
 submitButton.addEventListener("click", handleSubmitButton);
+unknownAnswerButton.addEventListener("click", () => handleAnswer(UNKNOWN_ANSWER_VALUE));
 nextButton.addEventListener("click", goToNextQuestion);
 retryButton.addEventListener("click", retryQuiz);
 backButton.addEventListener("click", backToStart);
@@ -611,6 +614,8 @@ function resetQuestionArea() {
   submitButton.style.display = "none";
   submitButton.disabled = false;
 
+  unknownAnswerButton.disabled = false;
+
   answerResult.classList.remove("correct", "incorrect");
   answerResult.style.color = "";
 
@@ -675,8 +680,10 @@ function handleAnswer(selectedChoice) {
   }
 
   state.ui.answered = true;
+  unknownAnswerButton.disabled = true;
 
   const question = state.quiz.currentQuestion;
+  const isUnknownAnswer = selectedChoice === UNKNOWN_ANSWER_VALUE;
 
   const judgeTarget =
     question?.mode === "map_click"
@@ -684,7 +691,9 @@ function handleAnswer(selectedChoice) {
       : selectedChoice;
 
   const correctAnswer = getCorrectAnswer(question);
-  const isCorrect = judgeAnswer(question, judgeTarget, normalizeValue);
+  // 「わからない」はjudgeAnswer()の偶然の不一致に依存せず、明示的にisCorrect=falseとする
+  // （STEP4の方針どおり。judgeAnswer・AnswerRecordモデル・GAS契約は無変更）。
+  const isCorrect = isUnknownAnswer ? false : judgeAnswer(question, judgeTarget, normalizeValue);
 
   const displaySelectedChoice =
     question?.mode === "map_click"

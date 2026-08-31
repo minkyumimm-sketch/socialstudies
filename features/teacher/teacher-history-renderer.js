@@ -3,6 +3,8 @@
 // 管理Phase M-2の描画専用ファイル（DOM書き込みのみ、GAS通信・状態保持は行わない、
 // 既存teacher-renderer.jsと同じ方針）。
 
+import { formatSelectedChoiceForDisplay } from "../../config/unknown-answer.js";
+
 function formatAnsweredAt(answeredAt) {
   if (!answeredAt) return "日時不明";
   const time = Date.parse(answeredAt);
@@ -62,7 +64,7 @@ export function renderWrongAnswerList(containerEl, wrongAnswers, hasAttempts = t
 
     const selectedLine = document.createElement("p");
     selectedLine.className = "teacher-history-selected";
-    selectedLine.textContent = `生徒の回答：${record.selectedChoice || "（未記録）"}`;
+    selectedLine.textContent = `生徒の回答：${formatSelectedChoiceForDisplay(record.selectedChoice) || "（未記録）"}`;
 
     const correctLine = document.createElement("p");
     correctLine.className = "teacher-history-correct";

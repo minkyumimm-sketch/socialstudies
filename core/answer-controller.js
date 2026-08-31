@@ -1,3 +1,5 @@
+import { UNKNOWN_ANSWER_VALUE, formatSelectedChoiceForDisplay } from "../config/unknown-answer.js";
+
 function splitPipeValues(value) {
   return String(value ?? "")
     .split("|")
@@ -64,10 +66,17 @@ export function applyAnswerResult(params) {
       ? (question.answer || formatMapClickLabelList(question.svgAreaIds || question.svgAreaId || "", getMapAreaLabelById))
       : correctAnswer;
 
+  // 「わからない」（selectedChoice===UNKNOWN_ANSWER_VALUE）の場合は、mode別の整形
+  // （map_clickの地名変換等）を経由させず、AnswerRecordへ保存する値を常に内部値
+  // そのままにする。画面表示（結果メッセージ）だけは別途ラベルへ変換する。
   const displaySelectedAnswer =
-    question?.mode === "map_click"
-      ? formatMapClickLabelList(selectedChoice, getMapAreaLabelById)
-      : selectedChoice;
+    selectedChoice === UNKNOWN_ANSWER_VALUE
+      ? UNKNOWN_ANSWER_VALUE
+      : question?.mode === "map_click"
+        ? formatMapClickLabelList(selectedChoice, getMapAreaLabelById)
+        : selectedChoice;
+
+  const messageSelectedAnswer = formatSelectedChoiceForDisplay(displaySelectedAnswer);
 
   if (isCorrect) {
     state.quiz.score += 1;
@@ -75,7 +84,7 @@ export function applyAnswerResult(params) {
       true,
       question,
       displayCorrectAnswer,
-      displaySelectedAnswer,
+      messageSelectedAnswer,
       getMapAreaLabelById
     );
     answerResult.classList.add("correct");
@@ -85,7 +94,7 @@ export function applyAnswerResult(params) {
       false,
       question,
       displayCorrectAnswer,
-      displaySelectedAnswer,
+      messageSelectedAnswer,
       getMapAreaLabelById
     );
     answerResult.classList.add("incorrect");
