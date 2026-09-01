@@ -114,6 +114,19 @@ export async function completeAttempt(payload) {
 }
 
 /**
+ * 未完了Attemptの進行状態（attempt_progress）を学習記録GASへupsertする（Phase3B-2）。
+ * questionIds/wrongQuestionIdsはJSON配列文字列として渡すこと（呼び出し元、
+ * features/history/learning-record-sync-integration.jsの責務）。
+ * gas-api-contract-v1.md §5.7参照。
+ *
+ * @param {Object} payload
+ * @returns {Promise<{ok:true}>}
+ */
+export async function saveAttemptProgress(payload) {
+  return postToLearningRecordGasWithRetry_("saveAttemptProgress", payload);
+}
+
+/**
  * 生徒のAttempt/AnswerRecordを学習記録GASから一括取得する（Phase5-4、GET）。
  * gas-api-contract-v1.md §5.4のとおり、GAS側では集計しない生データをそのまま返す。
  * 関数名はfetchStudentLearningRecordsとし、既存features/history/history-service.jsの

@@ -36,12 +36,29 @@
 // testSetIdをそのまま送るのみ、値の組み立てはfeatures/history/attempt-model.js・
 // app.js側の責務でありこのファイルでは行わない）。
 // getStudentHistoryはPhase5-4で実装済み（features/history/learning-record-restore-integration.js）。
+//
+// Phase3B-2: attempt_progress（Phase3B-1でGAS側確定済み）の送信もこのファイルへ追加する。
+// 【重要】progress専用の別ファイル（例: features/progress/progress-sync-integration.js）で
+// 独立した直列queueを持たせると、completeAttemptが使うqueue（下記attemptTaskQueues）とは
+// 別チェーンになり、「completeAttemptが未送信のprogressを追い越さない」という順序保証が
+// 構造的に壊れる。そのためprogress送信は既存のrunSerializedForAttempt_/
+// attemptTaskQueues/waitForStartAttempt_をそのまま再利用し、AnswerRecord・
+// completeAttemptと同じ直列queueに乗せる（Phase3B-2実装前のコード監査で確定した設計判断）。
+// progress固有の文脈（questionIds snapshot・unit・sourceType・testSetId・
+// wrongQuestionIds・retryRound）はfeatures/progress/progress-model.jsが保持し、
+// このファイルはGAS送信とqueueへの追加のみを担う。
 
 import {
   startAttempt as sendStartAttempt,
   saveAnswerRecord as sendSaveAnswerRecord,
-  completeAttempt as sendCompleteAttempt
+  completeAttempt as sendCompleteAttempt,
+  saveAttemptProgress as sendSaveAttemptProgress
 } from "../../services/learning-record-service.js";
+import {
+  buildAttemptProgressPayload,
+  clearAttemptProgressContext,
+  recordRetryStart
+} from "../progress/progress-model.js";
 
 // attemptId -> startAttempt送信のPromise（成功/失敗いずれも解決済みの状態を保持する）。
 // syncCompleteAttempt完了時に破棄するため、同時に進行中のAttempt数程度のサイズに収まり、
@@ -169,6 +186,71 @@ export async function syncSaveAnswerRecord(answerRecord) {
 }
 
 /**
+ * 未完了Attemptの進行状態（attempt_progress）を学習記録GASへ非同期送信する
+ * （Phase3B-2）。呼び出し元はawaitしなくてよい。対象attemptIdのstartAttemptが
+ * 完了するまで内部で待機し（新GAS側saveAttemptProgressも対象attemptIdがattemptsに
+ * 存在することを要求するため）、既存のAnswerRecord/completeAttemptと同じ直列queueへ
+ * 乗せることで送信順序を保証する。
+ *
+ * progress固有の文脈（questionIds/unit/sourceType/testSetId/wrongQuestionIds/
+ * retryRound）はfeatures/progress/progress-model.jsのcontextから組み立てる。
+ * 対象attemptIdの文脈が存在しない場合（追跡対象外）は何もしない。
+ *
+ * enqueue自体は同期的に行われる（runSerializedForAttempt_は同期関数）ため、
+ * 呼び出し元が本関数を「AnswerRecord保存の直後」など特定の順序で呼べば、
+ * その呼び出し順序どおりにGASへの送信順が保証される。
+ *
+ * @param {string} attemptId
+ * @param {number} currentQuestionIndex - 「次に表示すべき問題のindex」（0-based）
+ */
+export function syncAttemptProgress(attemptId, currentQuestionIndex) {
+  if (!attemptId) return;
+
+  const payload = buildAttemptProgressPayload(attemptId, currentQuestionIndex);
+  if (!payload) return;
+
+  runSerializedForAttempt_(attemptId, async () => {
+    const started = await waitForStartAttempt_(attemptId);
+    if (!started) {
+      console.error(
+        "learning-record-service saveAttemptProgress skipped（startAttemptが失敗したため送信しません）:",
+        attemptId
+      );
+      return;
+    }
+
+    try {
+      await sendSaveAttemptProgress({
+        ...payload,
+        questionIds: JSON.stringify(payload.questionIds),
+        wrongQuestionIds: JSON.stringify(payload.wrongQuestionIds)
+      });
+    } catch (error) {
+      console.error(
+        `learning-record-service saveAttemptProgress 失敗（MemoryStorageには影響しません、続きから復元用の進行状態がサーバー側に保存されていません）: attemptId=${attemptId}`,
+        error
+      );
+    }
+  });
+}
+
+/**
+ * retry（間違えた問題だけ復習）開始時に、progress文脈のwrongQuestionIds/retryRoundを
+ * 更新したうえで、currentQuestionIndex=0としてただちに1回送信する（Phase3B-2）。
+ * 呼び出し元（app.js）は、retryで実際に出題される順序（シャッフル後）を
+ * wrongQuestionIdsとして渡すこと。
+ *
+ * @param {string} attemptId
+ * @param {string[]} wrongQuestionIds - retryで実際に出題される順序
+ */
+export function syncAttemptProgressRetryStart(attemptId, wrongQuestionIds) {
+  if (!attemptId) return;
+
+  recordRetryStart(attemptId, wrongQuestionIds);
+  syncAttemptProgress(attemptId, 0);
+}
+
+/**
  * Attempt完了を学習記録GASへ非同期送信する。呼び出し元はawaitしなくてよい。
  * 対象attemptIdのstartAttemptが完了するまで内部で待機する（順序保証）。
  * AnswerRecord送信の完了までは待たない（新GAS側completeAttemptはanswer_recordsを
@@ -209,5 +291,8 @@ export async function syncCompleteAttempt(completedAttempt) {
   } finally {
     startAttemptPromises.delete(attemptId);
     attemptTaskQueues.delete(attemptId);
+    // Phase3B-2: progress文脈もAttemptのライフサイクル終了に合わせて破棄する
+    // （GAS側attempt_progress行自体は削除しない。あくまでクライアント側の後片付け）。
+    clearAttemptProgressContext(attemptId);
   }
 }

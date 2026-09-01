@@ -54,6 +54,8 @@ import { startAttemptForQuiz } from "./features/history/quiz-start-integration.j
 import { recordAnswerForAttempt } from "./features/history/answer-record-integration.js";
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 import { restoreStudentLearningRecords } from "./features/history/learning-record-restore-integration.js";
+import { syncAttemptProgressRetryStart } from "./features/history/learning-record-sync-integration.js";
+import { extractQuestionIds, resolveUnitForSourceType } from "./features/progress/progress-model.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
 import { buildHomePracticeQuiz } from "./features/home/home-practice-controller.js";
 import { renderHistoryForStudent } from "./features/history/history-renderer.js";
@@ -410,7 +412,7 @@ async function startQuiz() {
       return;
     }
 
-    await beginAttemptAndShowQuiz("normal", null);
+    await beginAttemptAndShowQuiz("normal", null, unitFilter);
   } catch (error) {
     console.error("startQuiz error:", error);
     startError.textContent = "開始に失敗しました。GAS URLやCSVを確認してください。";
@@ -428,14 +430,18 @@ async function startQuiz() {
 // Phase5-6: sourceType/testSetIdは呼び出し元（既知の開始経路）が明示的に渡す。
 // 「値が無ければnormal」という後方互換fallbackはしない（起点不明のまま送るより、
 // 呼び出し元の実装漏れとして気づける方を優先する）。
-async function beginAttemptAndShowQuiz(sourceType, testSetId = null) {
+// Phase3B-2: unitFilterも呼び出し元が渡す（state.session.unitFilterは呼び出し元によって
+// "all"固定の場合と実際の選択値の場合があるため、ここではなく各呼び出し元の直前で
+// 読む）。resolveUnitForSourceType()がsourceType==="normal"以外を空文字へ正規化する。
+async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter = "") {
   try {
     const domainAttemptResult = await startAttemptForQuiz({
       quizQuestions: state.quiz.quizQuestions,
       subject: state.session.subject,
       studentId: state.session.studentId,
       sourceType,
-      testSetId
+      testSetId,
+      unit: resolveUnitForSourceType(sourceType, unitFilter)
     });
     currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
   } catch (domainError) {
@@ -494,7 +500,7 @@ async function startPracticeSession(fieldId, practiceType) {
   state.quiz.allQuestions = practiceResult.questions;
   state.quiz.quizQuestions = pickQuestions(practiceResult.questions, practiceResult.questions.length);
 
-  await beginAttemptAndShowQuiz(PRACTICE_TYPE_TO_SOURCE_TYPE[practiceType] || null, null);
+  await beginAttemptAndShowQuiz(PRACTICE_TYPE_TO_SOURCE_TYPE[practiceType] || null, null, state.session.unitFilter);
 }
 
 function startWeaknessReview(fieldId) {
@@ -735,7 +741,12 @@ function handleAnswer(selectedChoice) {
       unit: savePayload.unit,
       selectedChoice: savePayload.selectedChoice,
       correctAnswer: savePayload.correctAnswer,
-      isCorrect: savePayload.isCorrect
+      isCorrect: savePayload.isCorrect,
+      // Phase3B-2: 「次に表示すべき問題のindex」。「次へ」クリック時ではなく回答確定時点で
+      // 送ることで、ブラウザが閉じられても回答済みの問題へ再開時に戻ってしまうズレを防ぐ
+      // （state.quiz.currentIndexはこの時点ではまだ「今answerした問題」のindexのまま、
+      // goToNextQuestion()が押されるまでインクリメントされない）。
+      currentQuestionIndex: state.quiz.currentIndex + 1
     });
   } catch (domainError) {
     console.error("recordAnswerForAttempt error（既存の回答フローには影響しません）:", domainError);
@@ -774,6 +785,10 @@ function goToNextQuestion() {
 
   if (!state.quiz.retryMode && state.session.retryWrongEnabled && state.quiz.wrongQuestions.length > 0) {
     startRetryWrongRound(state);
+    // Phase3B-2: startRetryWrongRound()実行後はstate.quiz.quizQuestionsが
+    // シャッフル済みのwrong問題一覧に置き換わっているため、この時点で抽出した順序が
+    // 「retryで実際に出題される順序」と一致する（wrongQuestionIdsとして送るのはこの順序）。
+    syncAttemptProgressRetryStart(currentDomainAttemptId, extractQuestionIds(state.quiz.quizQuestions));
     renderQuestion();
     return;
   }
@@ -1113,5 +1128,5 @@ async function startTestSetGroupQuiz(fieldId, questionIds) {
   state.quiz.allQuestions = matched;
   state.quiz.quizQuestions = pickQuestions(matched, matched.length);
 
-  await beginAttemptAndShowQuiz("testset", getRunnerTestSetId());
+  await beginAttemptAndShowQuiz("testset", getRunnerTestSetId(), state.session.unitFilter);
 }
