@@ -185,6 +185,28 @@ data/
 
 **Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`。Phase7以降で再検討する。
 
-### 10.3 日時形式
+### 10.3 `attempt_progress`シート（新設、Phase3B-1確定・本番未反映）
 
-すべての日時列（`startedAt`/`completedAt`/`answeredAt`）はISO 8601形式の文字列とする（既存の`AnswerRecord`実装・`domain-model-v1.md`と統一）。
+**本節はPhase3B-1（2026-09-01）のGAS側設計確定・ローカル検証のみであり、本番Spreadsheet・本番GASへは未反映（実装反映は将来のPhase3B-1本番反映ステップで行う）。** 管理場所は`attempts`/`answer_records`と同じAttempt/AnswerRecord専用Spreadsheet。詳細な実装・テスト結果は`docs/operations/learning-record-gas/README.md`参照。
+
+| 列名 | 用途 | 対応するdomain-model属性 |
+|---|---|---|
+| `attemptId` | 一意なID（主キー、`attempts.attemptId`と同一） | `domain-model-v1.md` 3.12.2節 |
+| `studentId` | 生徒ID（`attempts.studentId`と一致必須） | 同上 |
+| `fieldId` | 科目キー | 同上 |
+| `unit` | 単元（任意。`weak_review`/`dormant_review`等では空欄許容） | 同上 |
+| `sourceType` | `normal`/`testset`/`weak_review`/`dormant_review`のいずれか | 同上 |
+| `testSetId` | `sourceType="testset"`のときのみ必須、それ以外は空 | 同上 |
+| `questionIds` | 開始時点の出題順snapshot（JSON配列文字列、順序保持） | 同上 |
+| `currentQuestionIndex` | 次に表示すべき問題のindex（0-based、整数） | 同上 |
+| `wrongQuestionIds` | retry対象の順序付き配列（JSON配列文字列、空配列可） | 同上 |
+| `retryRound` | 0=通常ラウンド、1以上=retry巡数（整数） | 同上 |
+| `status` | `in_progress` / `abandoned`の2値のみ | 同上 |
+| `startedAt` | このprogressの開始日時（初回保存時のみ確定、以降書き換えない） | 同上 |
+| `updatedAt` | 最終更新日時（GASサーバー時刻を正本とする） | 同上 |
+
+主キー: `attemptId`。冪等upsert（`saveAttemptProgress`）。`Attempt.completed`は重複保存しない。
+
+### 10.4 日時形式
+
+すべての日時列（`startedAt`/`completedAt`/`answeredAt`/`attempt_progress.startedAt`/`attempt_progress.updatedAt`）はISO 8601形式の文字列とする（既存の`AnswerRecord`実装・`domain-model-v1.md`と統一）。

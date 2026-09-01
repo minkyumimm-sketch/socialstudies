@@ -239,6 +239,23 @@ AnswerRecordの一意キーは前項のとおり`attemptId` + `questionId`の複
 
 例：初回3問中2問正解 → 間違えた1問を復習して正解、の場合、TestSet完了画面は初回の「2問正解」を表示するのに対し、History/Weaknessは復習後の最新回答を反映した理解度になる。**これはAnswerRecordの複合キー設計上意図された意味の違いであり、不整合ではない。**
 
+#### 3.12.2 AttemptProgress（進行中学習状態、Phase3A/3B-1確定・GAS未反映）
+
+| 項目 | 内容 |
+|---|---|
+| 役割 | 未完了Attemptを「続きから」再開するために必要な進行状態。中断・ブラウザ終了後の再開基盤（Phase3A設計、Phase3B-1でGAS側保存基盤を確定） |
+| 一意なID | `attemptId`（`attempts.attemptId`と同一。主キー） |
+| 主な属性 | `studentId`, `fieldId`, `unit`（任意）, `sourceType`, `testSetId`, `questionIds`（開始時点の出題順snapshot、JSON配列）, `currentQuestionIndex`（0-based、次に表示すべき問題のindex）, `wrongQuestionIds`（retry対象の順序付き配列、JSON配列）, `retryRound`（0=通常、1以上=retry巡数）, `status`（`in_progress`/`abandoned`）, `startedAt`, `updatedAt` |
+| 他概念との関係 | Attemptに1:1で対応する。Attempt/AnswerRecordの内容は一切変更・重複保存しない（`completed`・`score`等はAttempt側を正とし、AttemptProgress側には持たない） |
+| 管理場所 | Attempt/AnswerRecord専用GAS Web App＋専用Google Spreadsheet内の新規シート`attempt_progress`（Phase3B-1確定、`docs/operations/learning-record-gas/README.md`参照。**2026-09-01時点で本番Spreadsheet・本番GASへは未反映**、ローカルNode vmサンドボックスでの検証のみ完了） |
+| 更新主体 | 学習アプリ（自動記録。Phase3B-1時点ではGAS側APIのみ確定、Web側からの送信配線はPhase3B-2で実施予定） |
+
+**Phase3A確定事項（設計のみ）・Phase3B-1確定事項（GAS実装・ローカル検証のみ、本番未反映）**:
+- `questionIds`はTestSetを含む全`sourceType`で、Attempt開始時点のsnapshotとして保存する（TestSetの`getTestSet`再取得結果を進行中学習の正本にはしない。TestSetが後からarchived・内容変更された場合でも、生徒が実際に開始した時点の出題集合を復元できるようにするため）。
+- `currentQuestionIndex`は常に「次に表示すべき問題のindex」を意味する（現在表示中/最後に回答した問題のindexではない）。配列長と同値は「現在ラウンドの全問回答済み・次状態遷移直前」として有効な値。
+- `status`は`in_progress`/`abandoned`の2値のみ。正常完了は新しいstatus値を追加せず、既存`Attempt.completed`を参照して判定する（`getAttemptProgress`は`Attempt.completed===true`の候補を再開候補から除外する）。
+- 新規GAS API3本（`saveAttemptProgress`/`getAttemptProgress`/`abandonAttemptProgress`）を追加する。既存4API（`startAttempt`/`saveAnswerRecord`/`completeAttempt`/`getStudentHistory`）の契約は無変更（`docs/specification/gas-api-contract-v1.md` 5.7-5.9節）。
+
 ### 3.13 LearningSummary（学習サマリー）
 
 | 項目 | 内容 |

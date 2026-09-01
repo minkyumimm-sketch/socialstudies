@@ -157,6 +157,48 @@
 | リクエスト（旧・仮） | `GET ?action=getLearningSummary&studentId=...` |
 | レスポンス（旧・仮） | `{ ok: true, summaries: [{ fieldId, unit, attemptedCount, correctCount, correctRate, lastAnsweredAt }] }` |
 
+### 5.7 `saveAttemptProgress`（書込み・確定、Phase3B-1で新設・本番未反映）
+
+**本節はPhase3B-1（2026-09-01）のGAS側設計確定・ローカルNode vmサンドボックス検証のみであり、本番未反映（実装は`docs/operations/learning-record-gas/AttemptProgress.gs`参照、反映方法は同ディレクトリのREADME参照）。**
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 未完了Attemptの進行状態（`attempt_progress`シート、`domain-model-v1.md` 3.12.2節）をupsertする |
+| リクエスト | `POST { action:"saveAttemptProgress", attemptId, studentId, fieldId, unit, sourceType, testSetId, questionIds, currentQuestionIndex, wrongQuestionIds, retryRound, status, startedAt, updatedAt }`（`questionIds`/`wrongQuestionIds`はJSON配列文字列） |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `attemptId`, `studentId`, `fieldId`, `sourceType`, `questionIds`（1件以上、重複不可）。`sourceType="testset"`のときのみ`testSetId`も必須。`unit`は任意（`weak_review`/`dormant_review`等、単一unitで表現できない起点では空欄許容） |
+| `sourceType`/`testSetId`のルール | 既存`handleStartAttempt`と同じルールを踏襲：`sourceType="testset"`のときのみ`testSetId`必須、それ以外では`testSetId`の指定自体を禁止（エラー）。`sourceType`は`attempt_progress`では省略不可（既存`Attempt.sourceType`は後方互換のため省略可だが、`attempt_progress`はレガシーデータを持たない新設テーブルのため、再開候補の判定を単純化する目的で必須とする、Phase3B-1確定） |
+| エラー | 必須項目欠落、`questionIds`/`wrongQuestionIds`が不正JSON・非配列・重複、`currentQuestionIndex`/`retryRound`が負数、`currentQuestionIndex`が対象配列長を超える（配列長と同値は有効）、`status`/`sourceType`が許可値以外、`sourceType`と`testSetId`の組み合わせ不正、新規行作成時に該当`attemptId`が`attempts`シートに存在しない・`studentId`不一致、既存行更新時に既存`attempt_progress`行と`studentId`不一致 |
+| 冪等性 | 冪等（同じ`attemptId`で複数回送っても1行のまま更新。新規行作成時のみ`attempts`との整合確認を行い、以降の更新では既存`attempt_progress`行との`studentId`一致確認のみを行う） |
+| `updatedAt`の扱い | クライアント指定値は無視し、常にGASサーバー時刻で上書きする |
+| `startedAt`の扱い | 初回保存時のみ確定し、以降の更新で書き換えない |
+| 認証・本人確認 | `studentId`の自己申告に依存（既存4APIと同水準） |
+
+### 5.8 `getAttemptProgress`（読み取り・確定、Phase3B-1で新設・本番未反映）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 生徒の再開候補（進行中のAttempt）を1件取得する |
+| リクエスト | `GET ?action=getAttemptProgress&studentId=...` |
+| レスポンス | `{ ok: true, progress: {...} \| null }`（`questionIds`/`wrongQuestionIds`は配列にparse済みで返す） |
+| 必須項目 | `studentId` |
+| 候補条件 | `studentId`完全一致、`status="in_progress"`、対応する`attempts.completed !== true`。該当0件は`progress:null`（エラーではない） |
+| 複数候補時 | `updatedAt`降順（同値時は`attemptId`降順）で最新1件のみを返す。複数候補一覧APIは今回設けない |
+| 冪等性 | 冪等（GET・副作用なし） |
+| 認証・本人確認 | 本人以外の学習履歴を取得できないようにする認可チェックを推奨（既存`getStudentHistory`と同じ要確認事項） |
+
+### 5.9 `abandonAttemptProgress`（書込み・確定、Phase3B-1で新設・本番未反映）
+
+| 項目 | 内容 |
+|---|---|
+| 目的 | 途中学習が存在する状態で「新しく始める」等を選んだ場合に、該当progressを再開候補から外す |
+| リクエスト | `POST { action:"abandonAttemptProgress", attemptId }` |
+| レスポンス | `{ ok: true }` または `{ ok: false, error }` |
+| 必須項目 | `attemptId` |
+| 処理内容 | `status`を`abandoned`へ更新するのみ。物理削除しない。`Attempt`/`AnswerRecord`は一切変更しない |
+| エラー | 該当`attemptId`が`attempt_progress`に存在しない（`archiveTestSet`の「該当`testSetId`なし」エラーと同じ設計方針、9.5節参照） |
+| 冪等性 | 冪等（既に`abandoned`済みへの再リクエストも成功として扱う） |
+
 ---
 
 ## 9. TestSet API（Task50で確定・専用GAS Web App新設）
