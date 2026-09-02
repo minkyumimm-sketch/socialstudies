@@ -19,6 +19,12 @@ const TEXT_CHOICE_MODE_FILTER_OPTIONS = [
   { value: "choice", label: "選択" }
 ];
 
+// choice問題しか持たない科目用。text問題を追加したらTEXT_CHOICE_MODE_FILTER_OPTIONSへ切り替える。
+const CHOICE_ONLY_MODE_FILTER_OPTIONS = [
+  { value: "all", label: "すべて" },
+  { value: "choice", label: "選択" }
+];
+
 export const MODE_FILTER_OPTIONS = {
   japan_geo: GEO_MODE_FILTER_OPTIONS,
   world_geo: GEO_MODE_FILTER_OPTIONS,
@@ -29,6 +35,7 @@ export const MODE_FILTER_OPTIONS = {
     { value: "era", label: "時代当て" },
     { value: "sort", label: "並び替え" }
   ],
+  civics: CHOICE_ONLY_MODE_FILTER_OPTIONS,
   biology: TEXT_CHOICE_MODE_FILTER_OPTIONS,
   chemistry: TEXT_CHOICE_MODE_FILTER_OPTIONS,
   physics: TEXT_CHOICE_MODE_FILTER_OPTIONS,
