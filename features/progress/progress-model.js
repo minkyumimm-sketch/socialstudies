@@ -2,8 +2,8 @@
 //
 // Phase3B-2: attempt_progress（docs/specification/domain-model-v1.md 3.12.2節、
 // Phase3B-1でGAS側確定済み）のpayload組み立てに必要な、Attempt単位の一時的な
-// 文脈（questionIds snapshot・unit・sourceType・testSetId・wrongQuestionIds・retryRound）
-// を保持する。GAS通信・直列queueは一切持たない（それはfeatures/history/
+// 文脈（questionIds snapshot・unit・sourceType・testSetId・wrongQuestionIds・retryRound・
+// retryWrongEnabled[Phase3C前提で追加]）を保持する。GAS通信・直列queueは一切持たない（それはfeatures/history/
 // learning-record-sync-integration.jsの責務。既存のattemptId単位直列queueと
 // 同じ場所に置くことで、AnswerRecord/completeAttemptとの送信順序保証を構造的に壊さない
 // ため、意図的にGAS通信をこのファイルへ持ち込まない）。
@@ -52,8 +52,11 @@ export function resolveUnitForSourceType(sourceType, unitFilter) {
  * @param {string} params.fieldId
  * @param {string} params.unit
  * @param {string[]} params.questionIds - 開始時点の出題順snapshot（以後retryでも変更しない）
+ * @param {boolean} params.retryWrongEnabled - 開始時点でのretry可否設定のsnapshot
+ *   （Phase3C前提。中断→再開時に正確に復元するため、retryRoundやsourceTypeからの
+ *   再計算はしない。呼び出し元がその時点の実際の設定値をそのまま渡す）
  */
-export function initAttemptProgressContext({ attempt, fieldId, unit, questionIds }) {
+export function initAttemptProgressContext({ attempt, fieldId, unit, questionIds, retryWrongEnabled }) {
   if (!attempt?.attemptId) return;
 
   contexts.set(attempt.attemptId, {
@@ -65,6 +68,7 @@ export function initAttemptProgressContext({ attempt, fieldId, unit, questionIds
     questionIds: [...questionIds],
     wrongQuestionIds: [],
     retryRound: 0,
+    retryWrongEnabled: Boolean(retryWrongEnabled),
     startedAt: attempt.startedAt
   });
 }
@@ -121,6 +125,7 @@ export function buildAttemptProgressPayload(attemptId, currentQuestionIndex) {
     currentQuestionIndex,
     wrongQuestionIds: context.wrongQuestionIds,
     retryRound: context.retryRound,
+    retryWrongEnabled: context.retryWrongEnabled,
     status: "in_progress",
     startedAt: context.startedAt
   };

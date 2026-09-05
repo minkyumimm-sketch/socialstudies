@@ -65,9 +65,12 @@ const TEMPORARY_DEFAULT_COURSE_PURPOSE_ID = "regular_exam";
  * @param {string} [params.unit] - attempt_progress.unitへ送る値（Phase3B-2、
  *   features/progress/progress-model.jsのresolveUnitForSourceType()で呼び出し元が
  *   決定済みの値をそのまま渡す想定。省略時は空文字）
+ * @param {boolean} [params.retryWrongEnabled] - 開始時点でのretry可否設定のsnapshot
+ *   （Phase3C前提。呼び出し元＝app.jsのstate.session.retryWrongEnabledをそのまま渡す想定。
+ *   省略時はtrue、既存createSessionState()のデフォルトと合わせる）
  * @returns {Promise<{ questionSet: import("../question-set/question-set-model.js").QuestionSet, attempt: import("./attempt-model.js").Attempt, questionIds: string[] } | null>}
  */
-export async function startAttemptForQuiz({ quizQuestions, subject, studentId, sourceType, testSetId, unit = "" }) {
+export async function startAttemptForQuiz({ quizQuestions, subject, studentId, sourceType, testSetId, unit = "", retryWrongEnabled = true }) {
   try {
     const questionIds = (Array.isArray(quizQuestions) ? quizQuestions : [])
       .map((question) => question?.questionId)
@@ -109,7 +112,7 @@ export async function startAttemptForQuiz({ quizQuestions, subject, studentId, s
     // Phase3B-2: attempt_progressの初回snapshotも、startAttemptと同じタイミングで送信する
     // （syncAttemptProgressは内部でsyncStartAttemptの完了を待ってから送信するため、
     // Attempt不在エラーにはならない）。
-    initAttemptProgressContext({ attempt, fieldId: subject, unit, questionIds });
+    initAttemptProgressContext({ attempt, fieldId: subject, unit, questionIds, retryWrongEnabled });
     syncAttemptProgress(attempt.attemptId, 0);
 
     return { questionSet, attempt, questionIds };

@@ -433,6 +433,9 @@ async function startQuiz() {
 // Phase3B-2: unitFilterも呼び出し元が渡す（state.session.unitFilterは呼び出し元によって
 // "all"固定の場合と実際の選択値の場合があるため、ここではなく各呼び出し元の直前で
 // 読む）。resolveUnitForSourceType()がsourceType==="normal"以外を空文字へ正規化する。
+// Phase3C前提: retryWrongEnabledは、この時点で既にstate.session.retryWrongEnabledへ
+// 呼び出し元（startQuiz/startPracticeSession/startTestSetGroupQuiz）が正しい実効値を
+// 設定済みのため、ここで直接読むだけでよい（新しい引数を各呼び出し元へ増やさない）。
 async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter = "") {
   try {
     const domainAttemptResult = await startAttemptForQuiz({
@@ -441,7 +444,8 @@ async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter 
       studentId: state.session.studentId,
       sourceType,
       testSetId,
-      unit: resolveUnitForSourceType(sourceType, unitFilter)
+      unit: resolveUnitForSourceType(sourceType, unitFilter),
+      retryWrongEnabled: state.session.retryWrongEnabled
     });
     currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
   } catch (domainError) {
