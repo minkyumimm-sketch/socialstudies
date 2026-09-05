@@ -185,9 +185,9 @@ data/
 
 **Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`。Phase7以降で再検討する。
 
-### 10.3 `attempt_progress`シート（新設、Phase3B-1確定・本番未反映）
+### 10.3 `attempt_progress`シート（14列、Phase3C前提で`retryWrongEnabled`追加）
 
-**本節はPhase3B-1（2026-09-01）のGAS側設計確定・ローカル検証のみであり、本番Spreadsheet・本番GASへは未反映（実装反映は将来のPhase3B-1本番反映ステップで行う）。** 管理場所は`attempts`/`answer_records`と同じAttempt/AnswerRecord専用Spreadsheet。詳細な実装・テスト結果は`docs/operations/learning-record-gas/README.md`参照。
+管理場所は`attempts`/`answer_records`と同じAttempt/AnswerRecord専用Spreadsheet。詳細な実装・テスト結果・本番反映時の注意は`docs/operations/learning-record-gas/README.md`参照。
 
 | 列名 | 用途 | 対応するdomain-model属性 |
 |---|---|---|
@@ -201,6 +201,7 @@ data/
 | `currentQuestionIndex` | 次に表示すべき問題のindex（0-based、整数） | 同上 |
 | `wrongQuestionIds` | retry対象の順序付き配列（JSON配列文字列、空配列可） | 同上 |
 | `retryRound` | 0=通常ラウンド、1以上=retry巡数（整数） | 同上 |
+| `retryWrongEnabled` | 学習開始時点のretry可否設定のsnapshot（boolean、Phase3C前提で新設） | 同上 |
 | `status` | `in_progress` / `abandoned`の2値のみ | 同上 |
 | `startedAt` | このprogressの開始日時（初回保存時のみ確定、以降書き換えない） | 同上 |
 | `updatedAt` | 最終更新日時（GASサーバー時刻を正本とする） | 同上 |

@@ -62,7 +62,7 @@ Web側（`app.js`等）からのprogress送信・中断ボタン・続きからU
 
 **安全性の根拠**: `writeRow_`は、書き込み対象シートの`headers`引数（例：`ATTEMPTS_HEADERS`）に実際に含まれる列名についてのみ`DATE_HEADERS`との一致を確認して`setNumberFormat`を適用する。`attempts`/`answer_records`の`headers`には`updatedAt`という列名自体が存在しないため、`DATE_HEADERS`へ`updatedAt`を追加しても、既存2シートへの書込み時にこの列名が一致することはなく、既存の書込み挙動（フォーマット適用箇所）は一切変化しない。`SHEET_NAMES`への追加も、既存の`SHEET_NAMES.ATTEMPTS`/`SHEET_NAMES.ANSWER_RECORDS`参照箇所には影響しない末尾追加のみ。
 
-## 3. `attempt_progress`シート正式列（13列）
+## 3. `attempt_progress`シート正式列（14列、Phase3C前提で13列から拡張）
 
 既存`attempts`/`answer_records`の列命名規則（`docs/specification/data-schema-v1.md` 10.1/10.2節）に合わせ、camelCaseで統一。
 
@@ -78,11 +78,14 @@ Web側（`app.js`等）からのprogress送信・中断ボタン・続きからU
 | 8 | `currentQuestionIndex` | 整数（0-based） | 必須 | **「次に表示すべき問題のindex」**。開始直後は0。全問回答済みは配列長と同値（有効な状態、エラーではない）。 |
 | 9 | `wrongQuestionIds` | JSON配列文字列 | 必須（空配列可、重複不可） | retry対象問題の順序付き配列。retry未開始は`[]`。 |
 | 10 | `retryRound` | 整数（0以上） | 必須 | 0=通常ラウンド、1=1回目retry。将来2以上へ拡張可能（今回のvalidationで上限は設けない）。 |
-| 11 | `status` | string | 必須 | `in_progress` / `abandoned`の2値のみ。 |
-| 12 | `startedAt` | ISO8601文字列 | 必須 | 初回保存時のみ確定。以降のupdateで書き換えない。`DATE_HEADERS`対象（既存）。 |
-| 13 | `updatedAt` | ISO8601文字列 | 必須 | 常にGASサーバー時刻で上書き（クライアント指定値は無視）。`DATE_HEADERS`対象（2.1節の追加により）。 |
+| 11 | `retryWrongEnabled` | boolean | 必須（Phase3C前提で新設） | 学習開始時点で選択されていたretry可否設定のsnapshot。`retryRound`やGET時点の状態から再計算・推測しない（`sourceType==="testset"`は既存仕様どおり常に`false`、それ以外はUI選択値をそのまま保存）。Phase3Cの「中断→続きから再開」機能で、再開後の判定を中断前と同一にするために保存する。 |
+| 12 | `status` | string | 必須 | `in_progress` / `abandoned`の2値のみ。 |
+| 13 | `startedAt` | ISO8601文字列 | 必須 | 初回保存時のみ確定。以降のupdateで書き換えない。`DATE_HEADERS`対象（既存）。 |
+| 14 | `updatedAt` | ISO8601文字列 | 必須 | 常にGASサーバー時刻で上書き（クライアント指定値は無視）。`DATE_HEADERS`対象（2.1節の追加により）。 |
 
 `Attempt.completed`は`attempt_progress`へ重複保存しない（`attempts`シートを都度参照する）。
+
+**本番反映時の注意（`retryWrongEnabled`列追加、Phase3C前提）**: 既存の13列版が本番稼働中に14列版へコード更新すると、本番Spreadsheetのヘッダー行（1行目）が13列のままではヘッダー不一致により`getValidatedSheet_`が全リクエストをエラーにする。**コードdeploy前に、本番Spreadsheetの現在の行数・既存in_progress/abandoned件数を確認し、既存データがある場合はヘッダー行へ`retryWrongEnabled`列（`retryRound`と`status`の間）を手動追加してから、その後にコードをdeployすること**（詳細は`AttemptProgress.gs`冒頭コメント参照）。既存データ行がある場合、その行の`retryWrongEnabled`セルは空欄のまま残す（true/falseで機械的に補完しない。空欄は`toBoolean_()`により安全に`false`として読み出されるのみ）。
 
 ## 4. 新規API（3本）
 

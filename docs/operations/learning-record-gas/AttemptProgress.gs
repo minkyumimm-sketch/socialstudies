@@ -24,6 +24,23 @@
 // （詳細はdocs/operations/learning-record-gas/README.md参照。両方とも既存の
 //   attempts/answer_recordsの書込み挙動には影響しない末尾追加のみ）
 //
+// 【重要・Phase3C前提でのretryWrongEnabled 14列化に伴う本番反映時の注意】
+// getValidatedSheet_()は、既存シートのヘッダー行がATTEMPT_PROGRESS_HEADERSと
+// 完全一致しない場合throwする仕様（getOrCreateAttemptProgressSheet_()参照）。
+// 本番Spreadsheetのattempt_progressシートが既に13列ヘッダーで作成済み・
+// 実データが存在する場合、本ファイルを14列版へ更新して単純にdeployすると、
+// 既存シートとのヘッダー不一致により、既存データの有無に関わらず
+// saveAttemptProgress/getAttemptProgress/abandonAttemptProgressの全リクエストが
+// 即座にエラーになる。したがって本番反映前に必ず、
+//   (a) 本番attempt_progressシートの現在の行数・既存in_progress/abandoned件数を確認し、
+//   (b) 既存行がある場合は、ヘッダー行（1行目）へ手動で"retryWrongEnabled"列を
+//       retryRoundとstatusの間へ挿入し、既存データ行のこの列は空欄のまま残す
+//       （trueやfalseで機械的に補完しない。空欄はtoBoolean_()により安全にfalse
+//       として読み出されるのみで、実際の値をClaude側が推測して書き込むことはしない）、
+//   (c) その後に本ファイル(14列版)のコードをdeployする
+// という順序を踏むこと。既存行が0件であることを確認できた場合のみ、
+// ヘッダー行の手動編集は不要（次回保存時に自動生成される14列ヘッダーがそのまま正本になる）。
+//
 // 【findRowIndexByKey_の仕様（本番確認済み）】
 // readRowsAsObjects_() が各行オブジェクトへ __row: index + 2 という内部メタキーを付与し、
 // findRowIndexByKey_() は一致した行の __row（= Spreadsheet上の実際の行番号、1-based。
@@ -78,6 +95,11 @@
 // SHEET_NAMES.ATTEMPT_PROGRESS / DATE_HEADERSへ末尾追加する前提のため、ここでは持たない）
 // ---------------------------------------------------------------------------
 
+// Phase3C前提（retryWrongEnabled 14列化）: retryRoundの直後・statusの直前へ追加。
+// resume時に「中断前に選択されていたretry可否設定」を正確に復元するために必須
+// （retryRoundからの再計算・sourceTypeからの推測はしない。Phase3C監査で、
+// retryRound===0で中断されたAttemptについてはretryWrongEnabledをどこからも
+// 導出できないことが判明したため、正本として保存する列を新設した）。
 var ATTEMPT_PROGRESS_HEADERS = [
   "attemptId",
   "studentId",
@@ -89,6 +111,7 @@ var ATTEMPT_PROGRESS_HEADERS = [
   "currentQuestionIndex",
   "wrongQuestionIds",
   "retryRound",
+  "retryWrongEnabled",
   "status",
   "startedAt",
   "updatedAt"
@@ -257,6 +280,13 @@ function validateSaveAttemptProgressPayload_(payload) {
     throw new Error("retryRoundは0以上の整数である必要があります。");
   }
 
+  // Phase3C前提: retryWrongEnabledは開始時に確定するAttempt単位の設定値のsnapshotであり、
+  // retryRoundから再計算しない・真偽値以外（"true"/"false"等の文字列）を正本化しない。
+  if (typeof payload.retryWrongEnabled !== "boolean") {
+    throw new Error("retryWrongEnabledはtrue/falseのいずれかで必須です。");
+  }
+  var retryWrongEnabled = payload.retryWrongEnabled;
+
   // index==配列長は「現在ラウンドの全問回答済み・次状態遷移直前」として有効(エラーにしない)。
   var targetArrayLength = retryRound === 0 ? questionIdsArray.length : wrongQuestionIdsArray.length;
   if (currentQuestionIndex > targetArrayLength) {
@@ -277,6 +307,7 @@ function validateSaveAttemptProgressPayload_(payload) {
     currentQuestionIndex: currentQuestionIndex,
     wrongQuestionIds: wrongQuestionIdsArray,
     retryRound: retryRound,
+    retryWrongEnabled: retryWrongEnabled,
     status: status
   };
 }
@@ -329,6 +360,7 @@ function handleSaveAttemptProgress(payload) {
         currentQuestionIndex: normalized.currentQuestionIndex,
         wrongQuestionIds: JSON.stringify(normalized.wrongQuestionIds),
         retryRound: normalized.retryRound,
+        retryWrongEnabled: normalized.retryWrongEnabled,
         status: normalized.status,
         startedAt: startedAt,
         updatedAt: nowIso
@@ -344,7 +376,10 @@ function handleSaveAttemptProgress(payload) {
       );
     }
 
-    // startedAtは書き換えない(初回保存時の値を維持)。
+    // startedAtは書き換えない(初回保存時の値を維持)。retryWrongEnabledは
+    // Attempt単位で不変の設定値だが、クライアントは毎回同じ値を送ってくる想定のため
+    // (features/progress/progress-model.jsのcontextから都度組み立てる)、他の列と同様に
+    // 毎回書き込む(値の再計算・retryRoundからの推測は行わない)。
     writeRow_(sheet, ATTEMPT_PROGRESS_HEADERS, rowIndex, {
       attemptId: normalized.attemptId,
       studentId: normalized.studentId,
@@ -356,6 +391,7 @@ function handleSaveAttemptProgress(payload) {
       currentQuestionIndex: normalized.currentQuestionIndex,
       wrongQuestionIds: JSON.stringify(normalized.wrongQuestionIds),
       retryRound: normalized.retryRound,
+      retryWrongEnabled: normalized.retryWrongEnabled,
       status: normalized.status,
       startedAt: existingRow.startedAt,
       updatedAt: nowIso
@@ -449,6 +485,8 @@ function handleAbandonAttemptProgress(payload) {
       currentQuestionIndex: existingRow.currentQuestionIndex,
       wrongQuestionIds: existingRow.wrongQuestionIds,
       retryRound: existingRow.retryRound,
+      // Phase3C前提: abandon時もretryWrongEnabledの値を維持する(意味変更なし)。
+      retryWrongEnabled: existingRow.retryWrongEnabled,
       status: "abandoned",
       startedAt: existingRow.startedAt,
       updatedAt: new Date().toISOString()

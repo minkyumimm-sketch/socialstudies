@@ -164,11 +164,12 @@
 | 項目 | 内容 |
 |---|---|
 | 目的 | 未完了Attemptの進行状態（`attempt_progress`シート、`domain-model-v1.md` 3.12.2節）をupsertする |
-| リクエスト | `POST { action:"saveAttemptProgress", attemptId, studentId, fieldId, unit, sourceType, testSetId, questionIds, currentQuestionIndex, wrongQuestionIds, retryRound, status, startedAt, updatedAt }`（`questionIds`/`wrongQuestionIds`はJSON配列文字列） |
+| リクエスト | `POST { action:"saveAttemptProgress", attemptId, studentId, fieldId, unit, sourceType, testSetId, questionIds, currentQuestionIndex, wrongQuestionIds, retryRound, retryWrongEnabled, status, startedAt, updatedAt }`（`questionIds`/`wrongQuestionIds`はJSON配列文字列、`retryWrongEnabled`はboolean） |
 | レスポンス | `{ ok: true }` または `{ ok: false, error }` |
-| 必須項目 | `attemptId`, `studentId`, `fieldId`, `sourceType`, `questionIds`（1件以上、重複不可）。`sourceType="testset"`のときのみ`testSetId`も必須。`unit`は任意（`weak_review`/`dormant_review`等、単一unitで表現できない起点では空欄許容） |
+| 必須項目 | `attemptId`, `studentId`, `fieldId`, `sourceType`, `questionIds`（1件以上、重複不可）, `retryWrongEnabled`（boolean、Phase3C前提で必須化）。`sourceType="testset"`のときのみ`testSetId`も必須。`unit`は任意（`weak_review`/`dormant_review`等、単一unitで表現できない起点では空欄許容） |
 | `sourceType`/`testSetId`のルール | 既存`handleStartAttempt`と同じルールを踏襲：`sourceType="testset"`のときのみ`testSetId`必須、それ以外では`testSetId`の指定自体を禁止（エラー）。`sourceType`は`attempt_progress`では省略不可（既存`Attempt.sourceType`は後方互換のため省略可だが、`attempt_progress`はレガシーデータを持たない新設テーブルのため、再開候補の判定を単純化する目的で必須とする、Phase3B-1確定） |
-| エラー | 必須項目欠落、`questionIds`/`wrongQuestionIds`が不正JSON・非配列・重複、`currentQuestionIndex`/`retryRound`が負数、`currentQuestionIndex`が対象配列長を超える（配列長と同値は有効）、`status`/`sourceType`が許可値以外、`sourceType`と`testSetId`の組み合わせ不正、新規行作成時に該当`attemptId`が`attempts`シートに存在しない・`studentId`不一致、既存行更新時に既存`attempt_progress`行と`studentId`不一致 |
+| `retryWrongEnabled`のルール | 学習開始時点でのretry可否設定のsnapshot。`retryRound`や`sourceType`からの再計算・推測はしない（`Phase3C前提`で確定。中断→再開の判定を中断前と同一にするため） |
+| エラー | 必須項目欠落、`questionIds`/`wrongQuestionIds`が不正JSON・非配列・重複、`currentQuestionIndex`/`retryRound`が負数、`currentQuestionIndex`が対象配列長を超える（配列長と同値は有効）、`status`/`sourceType`が許可値以外、`sourceType`と`testSetId`の組み合わせ不正、`retryWrongEnabled`がboolean以外、新規行作成時に該当`attemptId`が`attempts`シートに存在しない・`studentId`不一致、既存行更新時に既存`attempt_progress`行と`studentId`不一致 |
 | 冪等性 | 冪等（同じ`attemptId`で複数回送っても1行のまま更新。新規行作成時のみ`attempts`との整合確認を行い、以降の更新では既存`attempt_progress`行との`studentId`一致確認のみを行う） |
 | `updatedAt`の扱い | クライアント指定値は無視し、常にGASサーバー時刻で上書きする |
 | `startedAt`の扱い | 初回保存時のみ確定し、以降の更新で書き換えない |
@@ -180,7 +181,7 @@
 |---|---|
 | 目的 | 生徒の再開候補（進行中のAttempt）を1件取得する |
 | リクエスト | `GET ?action=getAttemptProgress&studentId=...` |
-| レスポンス | `{ ok: true, progress: {...} \| null }`（`questionIds`/`wrongQuestionIds`は配列にparse済みで返す） |
+| レスポンス | `{ ok: true, progress: {...} \| null }`（`questionIds`/`wrongQuestionIds`は配列にparse済み、`retryWrongEnabled`はbooleanで返す） |
 | 必須項目 | `studentId` |
 | 候補条件 | `studentId`完全一致、`status="in_progress"`、対応する`attempts.completed !== true`。該当0件は`progress:null`（エラーではない） |
 | 複数候補時 | `updatedAt`降順（同値時は`attemptId`降順）で最新1件のみを返す。複数候補一覧APIは今回設けない |
