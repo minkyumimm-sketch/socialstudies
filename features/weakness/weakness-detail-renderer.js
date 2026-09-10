@@ -8,7 +8,11 @@
 // 安全なDOM生成（innerHTML不使用、createTextNode経由）とふりがな設定の両方を
 // 既存の仕組みのままquiz画面・履歴詳細画面と同じように適用する（新しいふりがな処理を作らない）。
 //
-// 「この1問を解く」ボタンはPhase4D-3対象のため、本ファイルには一切含めない（読み取り専用）。
+// Phase4D-3: 「この1問を解く」ボタンを追加した。viewModel.availableがfalse
+// （missing、または既存のavailable/status契約上browsable-but-not-startableな場合を含む）の
+// 間は一切描画しない（既存の「現在利用できない問題です。」表示と同じ条件を再利用するだけで、
+// 新しい判定基準は持ち込まない）。押下時の実際のAttempt開始処理（sourceType固定・
+// resume競合guard等）はapp.js側の責務で、ここではコールバック呼び出しのみを行う。
 // 仮のAttemptを作ってfeatures/history/history-detail-renderer.jsのフローへ押し込むことは
 // しない（Phase4D事前監査の結論どおり、Weakness専用のview model・renderer構成を維持する）。
 
@@ -26,8 +30,9 @@ import { applyFuriganaText } from "../furigana/furigana-apply.js";
 /**
  * @param {import("./weakness-detail-model.js").WeaknessDetailViewModel} viewModel
  * @param {WeaknessDetailScreenElements} elements
+ * @param {() => (Promise<void>|void)} [onStartSingleQuestion] - 「この1問を解く」押下時
  */
-export function renderWeaknessDetailScreen(viewModel, elements) {
+export function renderWeaknessDetailScreen(viewModel, elements, onStartSingleQuestion) {
   elements.error.textContent = "";
   elements.subjectLabel.textContent = getSubjectLabel(viewModel.fieldId);
   elements.stat.textContent = `正答率${formatPercent(viewModel.correctRate)}（${viewModel.answeredCount}問中${viewModel.correctCount}問正解）`;
@@ -70,6 +75,20 @@ export function renderWeaknessDetailScreen(viewModel, elements) {
     applyFuriganaText(body, viewModel.explanation);
     explanationLine.appendChild(body);
     elements.body.appendChild(explanationLine);
+  }
+
+  if (typeof onStartSingleQuestion === "function") {
+    const startButton = document.createElement("button");
+    startButton.type = "button";
+    startButton.className = "primary-button weakness-detail-start-button";
+    startButton.textContent = "この1問を解く";
+    startButton.addEventListener("click", () => {
+      startButton.disabled = true;
+      Promise.resolve(onStartSingleQuestion()).finally(() => {
+        startButton.disabled = false;
+      });
+    });
+    elements.body.appendChild(startButton);
   }
 }
 

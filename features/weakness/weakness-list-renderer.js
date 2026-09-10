@@ -8,8 +8,10 @@
 // 日付・科目名・正答率の表示基準はfeatures/history/history-renderer.jsのgetSubjectLabel()/
 // formatPercent()をそのまま再利用する（表示ロジックを複数箇所に分岐させない）。
 //
-// 「この1問を解く」「まとめて解く」ボタンはPhase4D-3対象のため、本ファイルには一切含めない
-// （card tapは「詳細」への遷移のみ）。
+// Phase4D-3: 「まとめて解く」（科目groupごと）ボタンを追加した。判定・sort順は一切変えず、
+// 既存のviewModel.items（WeaknessServiceのscore降順→questionId昇順、既に確定済み）を
+// fieldIdで先頭出現順にgroup化して表示するだけ（groupの並び自体も新しいsort基準を
+// 持ち込まない）。「この1問を解く」は詳細画面（weakness-detail-renderer.js）側の責務。
 
 import { getSubjectLabel, formatPercent } from "../history/history-renderer.js";
 
@@ -66,13 +68,68 @@ function renderWeaknessListItem(item, onOpenDetail) {
 }
 
 /**
+ * itemsをfieldId単位でgroup化する。groupの並びは、各fieldIdが元のitems配列内で
+ * 最初に出現した順（＝WeaknessServiceが確定した既存順序から導かれる、新しいsort基準は
+ * 持ち込まない）。group内のitem順も元の並びをそのまま維持する。
+ *
+ * @param {Array<Object>} items
+ * @returns {Map<string, Array<Object>>}
+ */
+function groupItemsByField(items) {
+  const groups = new Map();
+  items.forEach((item) => {
+    const fieldId = item?.fieldId || "";
+    if (!groups.has(fieldId)) {
+      groups.set(fieldId, []);
+    }
+    groups.get(fieldId).push(item);
+  });
+  return groups;
+}
+
+/**
+ * 1つの科目groupの見出し＋「まとめて解く」ボタンを生成する。
+ * 件数は既にWeaknessService/一覧view modelが確定済みのgroup内item数をそのまま表示するだけで、
+ * ここで苦手判定・件数の再計算は行わない。
+ *
+ * @param {string} fieldId
+ * @param {Array<Object>} groupItems
+ * @param {(fieldId: string) => (Promise<void>|void)} onPracticeField
+ * @returns {HTMLDivElement}
+ */
+function renderWeaknessFieldGroupHeader(fieldId, groupItems, onPracticeField) {
+  const header = document.createElement("div");
+  header.className = "weakness-field-group-header";
+
+  const label = document.createElement("span");
+  label.className = "weakness-field-group-label";
+  label.textContent = `${getSubjectLabel(fieldId)}（${groupItems.length}問）`;
+  header.appendChild(label);
+
+  const practiceButton = document.createElement("button");
+  practiceButton.type = "button";
+  practiceButton.className = "primary-button weakness-field-group-practice-button";
+  practiceButton.textContent = "まとめて解く";
+  practiceButton.addEventListener("click", () => {
+    practiceButton.disabled = true;
+    Promise.resolve(onPracticeField(fieldId)).finally(() => {
+      practiceButton.disabled = false;
+    });
+  });
+  header.appendChild(practiceButton);
+
+  return header;
+}
+
+/**
  * 【入口】studentIdに紐づく苦手問題一覧をDOMへ描画する。
  *
  * @param {import("./weakness-list-model.js").WeaknessListViewModel} viewModel
  * @param {WeaknessScreenElements} elements
- * @param {(item: Object) => void} [onOpenDetail] - card押下時（Phase4D-1+2は詳細画面遷移のみ）
+ * @param {(item: Object) => void} [onOpenDetail] - card押下時（詳細画面遷移）
+ * @param {(fieldId: string) => (Promise<void>|void)} [onPracticeField] - 科目group「まとめて解く」押下時
  */
-export function renderWeaknessListScreen(viewModel, elements, onOpenDetail) {
+export function renderWeaknessListScreen(viewModel, elements, onOpenDetail, onPracticeField) {
   elements.list.innerHTML = "";
   elements.errorMessage.textContent = "";
 
@@ -85,8 +142,21 @@ export function renderWeaknessListScreen(viewModel, elements, onOpenDetail) {
 
   elements.emptyMessage.classList.add("hidden");
 
-  items.forEach((item) => {
-    elements.list.appendChild(renderWeaknessListItem(item, onOpenDetail));
+  const groups = groupItemsByField(items);
+
+  groups.forEach((groupItems, fieldId) => {
+    const group = document.createElement("div");
+    group.className = "weakness-field-group";
+
+    if (typeof onPracticeField === "function") {
+      group.appendChild(renderWeaknessFieldGroupHeader(fieldId, groupItems, onPracticeField));
+    }
+
+    groupItems.forEach((item) => {
+      group.appendChild(renderWeaknessListItem(item, onOpenDetail));
+    });
+
+    elements.list.appendChild(group);
   });
 }
 

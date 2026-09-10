@@ -12,6 +12,7 @@ import {
   resolveFixedSessionFieldId,
   prepareFixedQuestionSession,
   prepareFixedWrongQuestionSession,
+  prepareFixedSingleQuestionSession,
   isWrongRetryEligibleAttempt
 } from "./core/quiz-controller.js";
 import { pickQuestions } from "./core/question-picker.js";
@@ -676,10 +677,14 @@ const PRACTICE_TYPE_TO_SOURCE_TYPE = {
 // features/home/home-practice-controller.js（buildHomePracticeQuiz）に委譲し、
 // ここでは「controllerを呼ぶ→0件なら中断→stateへ反映→既存クイズ開始処理を呼ぶ」という
 // 画面固有の配線のみを行う（0件の場合はクイズを開始しない、というご指示のとおり）。
-async function startPracticeSession(fieldId, practiceType) {
+//
+// Phase4D-3: errorTargetはhandleHistoryRetryClick()等と同じerrorTargetパターン
+// （既定はhomeError＝Home画面側）。苦手一覧画面（weakness-screen）の「まとめて解く」から
+// 呼ばれる場合はHomeが非表示中のため、呼び出し元がweaknessErrorへ差し替える。
+async function startPracticeSession(fieldId, practiceType, { errorTarget = homeError } = {}) {
   if (!state.session.studentId || !fieldId) return;
 
-  homeError.textContent = "";
+  errorTarget.textContent = "";
 
   const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
   const practiceResult = buildHomePracticeQuiz({
@@ -690,7 +695,7 @@ async function startPracticeSession(fieldId, practiceType) {
   });
 
   if (practiceResult.questions.length === 0) {
-    homeError.textContent = "現在解ける問題がありません。時間をおいて再度お試しください。";
+    errorTarget.textContent = "現在解ける問題がありません。時間をおいて再度お試しください。";
     return;
   }
 
@@ -712,12 +717,15 @@ async function startPracticeSession(fieldId, practiceType) {
 // STEP7: 苦手復習・復習推奨もresume候補競合の共通ガードを通す
 // （practiceType自体はstartPracticeSession内部でsourceTypeへ変換されるため、
 // ここでは呼び出し方を変えるだけで既存のマッピングロジックには触れない）。
-function startWeaknessReview(fieldId) {
-  return confirmAndAbandonResumeBeforeNewAttempt(() => startPracticeSession(fieldId, "weak"));
+//
+// Phase4D-3: errorTargetはstartPracticeSession()と同じerrorTargetパターン
+// （既定はhomeError、Home「苦手を復習」「復習する」の既存呼び出し箇所は無変更のまま）。
+function startWeaknessReview(fieldId, { errorTarget = homeError } = {}) {
+  return confirmAndAbandonResumeBeforeNewAttempt(() => startPracticeSession(fieldId, "weak", { errorTarget }));
 }
 
-function startDormantReview(fieldId) {
-  return confirmAndAbandonResumeBeforeNewAttempt(() => startPracticeSession(fieldId, "dormant"));
+function startDormantReview(fieldId, { errorTarget = homeError } = {}) {
+  return confirmAndAbandonResumeBeforeNewAttempt(() => startPracticeSession(fieldId, "dormant", { errorTarget }));
 }
 
 function getQuestionId(question) {
@@ -1834,7 +1842,9 @@ function handleHomeLatestStudyClick(entry) {
 // （features/history/history-detail-service.jsのloadQuestionMapForFieldをそのまま再利用）が
 // CSV読込を伴う非同期処理のため、fetchResumeCandidateForStartScreen()と同じ
 // requestId + studentId二重チェックで、取得中に生徒が切り替わった場合の誤描画を防ぐ
-// （4D-3対象の「この1問を解く」「まとめて解く」ボタンは一切含まない、読み取り専用）。
+// （Phase4D-3で追加した「この1問を解く」「まとめて解く」の実際のAttempt開始処理は
+// handleWeaknessFieldGroupPracticeClick()/handleWeaknessSingleQuestionPracticeClick()側の
+// 責務で、この一覧取得処理自体は引き続き読み取り専用）。
 let weaknessListRequestId = 0;
 
 async function goToWeaknessScreen() {
@@ -1847,7 +1857,7 @@ async function goToWeaknessScreen() {
     const viewModel = await getWeaknessListViewModel(studentId);
     if (requestId !== weaknessListRequestId || state.session.studentId !== studentId) return;
 
-    renderWeaknessListScreen(viewModel, weaknessElements, handleWeaknessDetailClick);
+    renderWeaknessListScreen(viewModel, weaknessElements, handleWeaknessDetailClick, handleWeaknessFieldGroupPracticeClick);
     showWeaknessScreen(weaknessScreen, allScreens);
   } catch (error) {
     console.error("苦手問題一覧の取得でエラーが発生しました（既存のHome表示には影響しません）:", error);
@@ -1862,15 +1872,81 @@ async function goToWeaknessScreen() {
 // 既に解決済み（questionまで解決済み）のものをそのまま受け取るだけで、ここで
 // WeaknessServiceの再呼び出し・questionIdの再検索は行わない（4C-1/4C-2と同じ設計）。
 // 同期処理のみのため、非同期の競合ガードは不要。
+//
+// Phase4D-3: 「この1問を解く」ボタンのコールバックをここでitemをclosureに閉じ込めて渡す。
+// WeaknessDetailViewModelにはunitが無いため（Phase4D-1+2の正本view model契約は変更しない）、
+// unitを含む元のWeaknessListItem（item）をそのまま渡すことでこのgapを吸収する
+// （view modelへ新しいfieldを追加しない、という最小差分の判断）。
 function handleWeaknessDetailClick(item) {
   try {
     const viewModel = buildWeaknessDetailViewModel(item);
-    renderWeaknessDetailScreen(viewModel, weaknessDetailElements);
+    renderWeaknessDetailScreen(viewModel, weaknessDetailElements, () => handleWeaknessSingleQuestionPracticeClick(item));
   } catch (error) {
     console.error("苦手問題の詳細表示でエラーが発生しました（既存の一覧表示には影響しません）:", error);
     showWeaknessDetailError(weaknessDetailElements, "この問題の詳細を表示できませんでした。");
   }
   showWeaknessDetailScreen(weaknessDetailScreen, allScreens);
+}
+
+// Phase4D-3: 苦手一覧「まとめて解く」・詳細「この1問を解く」共通の二重押し防止フラグ。
+// 学習履歴画面専用のhistoryRetryInProgressとは無関係な画面同士のため共有しない
+// （片方の処理中にもう一方の無関係な画面がブロックされるのを避ける、新しい単一目的の
+// ガードを1つだけ追加する）。
+let weaknessPracticeStartInProgress = false;
+
+// Phase4D-3: 苦手一覧「まとめて解く」（科目groupごと）。既存のstartWeaknessReview()
+// （Home「苦手を復習」と完全に同一の処理: startPracticeSession(fieldId,"weak")→
+// sourceType=weak_review、confirmAndAbandonResumeBeforeNewAttempt経由）をそのまま呼ぶだけで、
+// 新しいbuilder・新しいsourceTypeは一切作らない。エラー表示先のみweaknessErrorへ差し替える
+// （Phase4C-2のerrorTargetパターンを踏襲、historyErrorへは漏らさない）。
+async function handleWeaknessFieldGroupPracticeClick(fieldId) {
+  if (weaknessPracticeStartInProgress) return;
+  weaknessPracticeStartInProgress = true;
+
+  try {
+    await startWeaknessReview(fieldId, { errorTarget: weaknessError });
+  } finally {
+    weaknessPracticeStartInProgress = false;
+  }
+}
+
+// Phase4D-3: 苦手詳細「この1問を解く」。itemはhandleWeaknessDetailClick()が描画時点で
+// 既に解決済みのWeaknessListItemをclosure経由でそのまま受け取るだけで、questionIdの
+// 再検索・WeaknessServiceの再呼び出しは行わない。仮のAttemptは作らず、3D-1/3D-2と同じ
+// assembleFixedQuestionSession()の延長（prepareFixedSingleQuestionSession()）のみを使う。
+async function handleWeaknessSingleQuestionPracticeClick(item) {
+  if (!item || !item.available) return;
+  if (weaknessPracticeStartInProgress) return;
+  weaknessPracticeStartInProgress = true;
+  weaknessDetailError.textContent = "";
+
+  try {
+    const questions = await filterManager.getNormalizedQuestionsForSubject(item.fieldId);
+    const prepared = prepareFixedSingleQuestionSession({
+      state,
+      questions,
+      questionId: item.questionId,
+      fieldId: item.fieldId,
+      unit: item.unit
+    });
+
+    if (!prepared.ok) {
+      weaknessDetailError.textContent = prepared.errorMessage;
+      return;
+    }
+
+    // Phase3C: 3D-1/3D-2と同じ既存の共通ガードをそのまま再利用する（複製しない）。
+    // sourceTypeは新しいAttemptの起点として固定値"weak_review"を使う（元Attemptの
+    // 引き継ぎではない。この1問には元Attemptが存在しないため）。
+    await confirmAndAbandonResumeBeforeNewAttempt(() =>
+      beginAttemptAndShowQuiz("weak_review", null, prepared.unit)
+    );
+  } catch (error) {
+    console.error("苦手問題「この1問を解く」の開始準備でエラーが発生しました（既存の詳細表示には影響しません）:", error);
+    weaknessDetailError.textContent = "この問題は現在やり直せません。";
+  } finally {
+    weaknessPracticeStartInProgress = false;
+  }
 }
 
 // Phase4D-1+2: 苦手問題一覧・詳細の「戻る」。origin分岐は不要（Home→一覧→Home、

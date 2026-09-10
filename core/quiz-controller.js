@@ -395,6 +395,32 @@ export function prepareFixedWrongQuestionSession({ state, questions, attempt, an
 }
 
 /**
+ * Phase4D-3本体: 「この1問を解く」用。苦手問題一覧/詳細で選択された1問だけを
+ * 出題するstate.quiz/state.session構造を組み立てる（assembleFixedQuestionSession()の
+ * JSDocが将来の3D-3拡張として想定していたとおり、orderedQuestionIds=[questionId]を
+ * 渡すだけの薄いラッパー）。
+ *
+ * 過去のAnswerRecord/Attemptからの復元ではなく、questionId・fieldId・unitは
+ * 呼び出し元（苦手問題機能）が現在のWeaknessListItemから直接指定する。
+ *
+ * @param {Object} params
+ * @param {import("./state.js").state} params.state
+ * @param {Array<Object>} params.questions - fieldIdの正規化済み問題一覧
+ * @param {string} params.questionId - 出題する1問のquestionId
+ * @param {string} params.fieldId
+ * @param {string} params.unit
+ * @returns {{ok:true, fieldId:string, unit:string}|{ok:false, errorMessage:string}}
+ */
+export function prepareFixedSingleQuestionSession({ state, questions, questionId, fieldId, unit }) {
+  const trimmedId = String(questionId || "").trim();
+  if (!trimmedId) {
+    return { ok: false, errorMessage: "この問題は現在やり直せません。" };
+  }
+
+  return assembleFixedQuestionSession({ state, questions, orderedQuestionIds: [trimmedId], fieldId, unit });
+}
+
+/**
  * Phase3D-2本体: 履歴カードへ「間違えたN問をやり直す」を表示してよいAttemptかどうかを判定する
  * 純粋関数。history-renderer.js（表示条件）・app.js（直接呼び出し防御）の両方から参照し、
  * 判定基準を1箇所に保つ。
