@@ -16,10 +16,11 @@
 
 import { createRunnerState } from "./test-set-runner-state.js";
 import {
-  findLatestCompletedAttemptForGroup,
   buildTestSetReviewGroups,
   computeReviewCompletionSummary
 } from "./test-set-review-model.js";
+import { findAttemptForRunRound } from "./test-set-run-identity.js";
+import { generateRunId } from "../common/id-utils.js";
 
 let runnerState = createRunnerState();
 
@@ -98,7 +99,10 @@ export async function startTestSetRun(selectedTestSet, getActiveQuestionsForFiel
     testSetId: String(selectedTestSet.testSetId || ""),
     groups,
     currentGroupIndex: 0,
-    results: []
+    results: [],
+    // Phase4E-0A: このTestSet実行1回を通じて維持するrunIdを、開始時に1回だけ発行する
+    // （group/reviewごとに再生成しない、Phase4E-0A正式契約どおり）。
+    runId: generateRunId()
   };
 
   return { ok: true };
@@ -118,6 +122,21 @@ export function isRunnerActive() {
  */
 export function getRunnerTestSetId() {
   return runnerState.testSetId;
+}
+
+/**
+ * @returns {string} 実行中TestSetのrunId（未実行時は空文字列、Phase4E-0A）。
+ *   Attempt生成箇所（app.js）がsourceType="testset"/"testset_review"のAttemptへ渡すために使う。
+ */
+export function getRunnerRunId() {
+  return runnerState.runId;
+}
+
+/**
+ * @returns {number} 現在の復習周数（Phase4E-0A）。0=通常group中、1以上=review周数。
+ */
+export function getCurrentReviewRound() {
+  return runnerState.currentReviewRound;
 }
 
 /**
@@ -214,9 +233,12 @@ export function abortRun() {
  * @param {Array<{fieldId:string, questionId:string}>} params.questions - loadTestSet()のquestions部分
  * @param {string} params.resumeFieldId - resume対象progressのfieldId（現在再開すべきグループ）
  * @param {Array<import("../history/attempt-model.js").Attempt>} params.priorAttempts - 同一studentIdの既存Attempt一覧
+ * @param {string} params.runId - resume対象progress.runId（Phase4E-0A、通常group全件の完了済みAttempt
+ *   をrunId厳密一致で復元する。空文字列の場合は旧データ＝新複数周resumeの対象外として復元不能を返す）
+ * @param {string} params.studentId - resume対象progress.studentId（Phase4E-0A、findAttemptForRunRoundの必須条件）
  * @returns {{ok:true}|{ok:false, errorMessage:string}}
  */
-export function restoreRunnerState({ testSet, questions, resumeFieldId, priorAttempts }) {
+export function restoreRunnerState({ testSet, questions, resumeFieldId, priorAttempts, runId, studentId }) {
   const groups = groupQuestionsByField(Array.isArray(questions) ? questions : []);
   const groupIndex = groups.findIndex((group) => group.fieldId === resumeFieldId);
 
@@ -225,23 +247,35 @@ export function restoreRunnerState({ testSet, questions, resumeFieldId, priorAtt
   }
 
   const testSetId = String(testSet?.testSetId || "");
+  const trimmedRunId = String(runId || "");
+
+  if (!trimmedRunId) {
+    // Phase4E-0A正式契約: runIdが無い（旧データ、または本番GAS未反映）場合は、
+    // completedAt頼みの推測復元へフォールバックせず、安全側（resume不能）へ倒す。
+    return { ok: false, errorMessage: "前回の続きのデータに不整合があります。先生に確認してください。" };
+  }
+
   const results = [];
 
   for (let i = 0; i < groupIndex; i += 1) {
     const group = groups[i];
 
-    // Phase3D-4B-1: 候補選択ロジック自体はfindLatestCompletedAttemptForGroup()へ
-    // そのまま切り出し済み（test-set-review-model.js）。フィルタ条件・sort比較関数・
-    // tie時の挙動は一切変更していない（Phase3D-4B設計監査STEP34-38で確認済み）。
-    const latest = findLatestCompletedAttemptForGroup(priorAttempts, {
-      sourceType: "testset",
+    // Phase4E-0A: studentId/testSetId/runId/sourceType/fieldId/reviewRound=0の完全一致1件のみを
+    // 正とする（findAttemptForRunRound、test-set-run-identity.js）。0件・複数件はいずれも
+    // fail-closedでresume不能とし、completedAt/time-windowでの推測は一切行わない。
+    const found = findAttemptForRunRound(priorAttempts, {
+      studentId,
       testSetId,
-      fieldId: group.fieldId
+      runId: trimmedRunId,
+      sourceType: "testset",
+      fieldId: group.fieldId,
+      reviewRound: 0
     });
 
-    if (!latest) {
+    if (!found.ok) {
       return { ok: false, errorMessage: "前回の続きのデータに不整合があります。先生に確認してください。" };
     }
+    const latest = found.attempt;
 
     results.push({
       fieldId: group.fieldId,
@@ -261,7 +295,8 @@ export function restoreRunnerState({ testSet, questions, resumeFieldId, priorAtt
     testSetId,
     groups,
     currentGroupIndex: groupIndex,
-    results
+    results,
+    runId: trimmedRunId
   };
 
   return { ok: true };
@@ -285,6 +320,8 @@ export function restoreRunnerState({ testSet, questions, resumeFieldId, priorAtt
  * @param {Array<{fieldId:string, questionIds:string[]}>} runnerData.reviewGroups
  * @param {number} runnerData.currentReviewIndex
  * @param {Array<{fieldId:string, correct:number, total:number, initialWrongQuestionIds:string[]|null}>} runnerData.reviewResults
+ * @param {string} runnerData.runId - Phase4E-0A、resume対象progress.runIdをそのまま復元する。
+ * @param {number} runnerData.currentReviewRound - Phase4E-0A、resume対象progress.reviewRoundをそのまま復元する。
  */
 export function restoreReviewRunnerState({
   testSetLabel,
@@ -294,7 +331,9 @@ export function restoreReviewRunnerState({
   results,
   reviewGroups,
   currentReviewIndex,
-  reviewResults
+  reviewResults,
+  runId,
+  currentReviewRound
 }) {
   runnerState = {
     ...createRunnerState(),
@@ -307,7 +346,9 @@ export function restoreReviewRunnerState({
     results,
     reviewGroups,
     currentReviewIndex,
-    reviewResults
+    reviewResults,
+    runId: String(runId || ""),
+    currentReviewRound: Number(currentReviewRound) || 0
   };
 }
 
@@ -360,6 +401,19 @@ export function startReviewPhase(reviewGroups) {
   runnerState.reviewGroups = safeGroups;
   runnerState.currentReviewIndex = 0;
   runnerState.reviewResults = [];
+  // Phase4E-0A: 最初のreview周は1（0=通常group、testset_reviewの1周目=1という正式契約どおり）。
+  runnerState.currentReviewRound = 1;
+}
+
+/**
+ * Phase4E-0A: 復習周を1つ進める（次周のreviewGroups/reviewResultsの切り替え自体は
+ * Phase4E本体＝全問正解まで自動反復の実装時に配線する。本関数は「周カウンタを進める」
+ * という最小限のAPIのみを先行して用意する、Phase4E-0Aの合意事項どおり）。
+ * 現時点ではapp.jsのどこからも呼ばれない（未配線）。
+ */
+export function advanceToNextReviewRound() {
+  runnerState.currentReviewRound += 1;
+  return runnerState.currentReviewRound;
 }
 
 /**

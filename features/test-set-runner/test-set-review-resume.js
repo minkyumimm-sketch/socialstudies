@@ -6,27 +6,22 @@
 //
 // 通常TestSet resume（features/test-set-runner/test-set-runner.js の restoreRunnerState）は
 // 本番稼働中の既存機能であり、このファイルはそれを壊さずに再利用する
-// （groupQuestionsByField/findLatestCompletedAttemptForGroupを共有、大規模リファクタしない）。
+// （groupQuestionsByFieldを共有、大規模リファクタしない）。
 //
-// runIdが存在しないため、過去に同一TestSetをreview済みのcompleted Attemptが
-// 混入するリスクを完全には排除できない（Phase3D-4B設計監査で確認済みの既存制約）。
-// これを実用上抑制するため、「今回runの通常group最終完了時刻(normalRunCompletedAt)から
-// 現在resume対象のreview Attempt開始時刻(progress.startedAt)まで」の時間窓の外にある
-// review Attemptは候補から除外する。ただしこれは数学的な完全保証ではなく、既存の
-// 潜在的制約（completedAt tie時の挙動を含む）をそのまま継承する。
+// Phase4E-0A: 旧実装は runId が存在しないため、過去に同一TestSetをreview済みのcompleted
+// Attemptが混入するリスクを「今回runの通常group最終完了時刻から現在resume対象のreview
+// Attempt開始時刻まで」の時間窓で実用上抑制するのみだった（数学的完全保証ではない、
+// Phase3D-4B設計監査で確認済みの既存制約）。Phase4E-0Aのrun identity監査で、この
+// completedAt/time-window方式では同一run内の複数review周を安全に判別できないと判明したため、
+// studentId/testSetId/runId/sourceType/fieldId/reviewRoundの完全一致（findAttemptForRunRound、
+// test-set-run-identity.js）へ置き換えた。0件・複数件はいずれもfail-closedで復元不能とし、
+// completedAtでの推測選択・時間窓での絞り込みは一切行わない。
 
 import { groupQuestionsByField } from "./test-set-runner.js";
-import {
-  buildTestSetReviewGroups,
-  findReviewGroupIndex,
-  findLatestCompletedAttemptForGroup
-} from "./test-set-review-model.js";
+import { buildTestSetReviewGroups, findReviewGroupIndex } from "./test-set-review-model.js";
+import { findAttemptForRunRound } from "./test-set-run-identity.js";
 
 const REJECT_MESSAGE = "前回の間違い直しの続きを再開できませんでした。テスト対策画面からもう一度お試しください。";
-
-function isValidIsoTimestamp(value) {
-  return typeof value === "string" && value.length > 0 && !Number.isNaN(Date.parse(value));
-}
 
 function isSubsetOf(ids, allowedIds) {
   const allowedSet = new Set(allowedIds);
@@ -41,12 +36,15 @@ function arraysEqualInOrder(a, b) {
 /**
  * testset_review progressから、review再開に必要なrunnerState復元用plain dataを組み立てる。
  * 検証途中で1件でも不整合が見つかった場合、推測補完・部分復元は一切行わず即座に
- * {ok:false}を返す（Phase3D-4B設計監査「old data final contract」「error final contract」の結論どおり）。
+ * {ok:false}を返す（Phase3D-4B設計監査「old data final contract」「error final contract」の結論、
+ * Phase4E-0A正式契約「重複keyはfail-closed」を踏襲）。
  *
  * @param {Object} params
  * @param {{testSetId:string, label:string}} params.testSet - loadTestSet()のtestSet部分
  * @param {Array<{fieldId:string, questionId:string}>} params.questions - loadTestSet()のquestions部分
- * @param {Object} params.progress - getAttemptProgress()が返すprogress（sourceType==="testset_review"）
+ * @param {Object} params.progress - getAttemptProgress()が返すprogress（sourceType==="testset_review"、
+ *   Phase4E-0Aで追加された`runId`/`reviewRound`を含む想定。旧データ（runId空・reviewRound欠落）は
+ *   下記STEP22のvalidationでREJECTされ、新複数周resumeの対象にはならない）
  * @param {Array<import("../history/attempt-model.js").Attempt>} params.priorAttempts - 同一studentIdの既存Attempt一覧
  *   （resume対象のcurrent review Attempt自身も含む、loadAttemptsByStudentの既存契約どおり）
  * @returns {{ok:true, runnerData:Object}|{ok:false, errorMessage:string}}
@@ -54,11 +52,20 @@ function arraysEqualInOrder(a, b) {
 export function prepareTestSetReviewResumePlan({ testSet, questions, progress, priorAttempts }) {
   const testSetId = String(testSet?.testSetId || "");
   const attempts = Array.isArray(priorAttempts) ? priorAttempts : [];
+  const studentId = String(progress?.studentId || "");
+  const runId = String(progress?.runId || "");
+  const reviewRound = Number(progress?.reviewRound);
 
-  // STEP22: progress基本validation
+  // STEP22: progress基本validation（Phase4E-0A: runId/reviewRoundも必須化。
+  // 旧データ・本番GAS未反映時はrunIdが空のためここで必ずREJECTされ、旧完了済みAttemptを
+  // 使った推測復元へは一切フォールバックしない）。
   if (
     progress?.sourceType !== "testset_review" ||
     !testSetId ||
+    !studentId ||
+    !runId ||
+    !Number.isInteger(reviewRound) ||
+    reviewRound < 1 ||
     !progress?.fieldId ||
     !Array.isArray(progress?.questionIds) ||
     progress.questionIds.length === 0
@@ -66,13 +73,16 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
     return { ok: false, errorMessage: REJECT_MESSAGE };
   }
 
-  // STEP241/242: resume対象の現在review Attempt自体の整合性を確認する。
+  // STEP241/242: resume対象の現在review Attempt自体の整合性を確認する
+  // （Phase4E-0A: runId/reviewRoundもprogressと完全一致することを追加で要求する）。
   const currentAttempt = attempts.find((attempt) => attempt?.attemptId === progress.attemptId);
   const currentAttemptFieldId = String(currentAttempt?.questionSetId || "").split("__")[0];
   if (
     !currentAttempt ||
     currentAttempt.sourceType !== "testset_review" ||
     currentAttempt.testSetId !== testSetId ||
+    currentAttempt.runId !== runId ||
+    Number(currentAttempt.reviewRound) !== reviewRound ||
     currentAttemptFieldId !== progress.fieldId ||
     currentAttempt.completed === true
   ) {
@@ -83,31 +93,32 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
   const groups = groupQuestionsByField(Array.isArray(questions) ? questions : []);
 
   // STEP30/224-228: 通常group全件について、完了済みAttemptから結果を復元する。
-  // 1件でも見つからない・情報不明(null)・現在group定義とのsubset不整合があれば復元不能。
+  // studentId/testSetId/runId/fieldId/reviewRound=0の完全一致1件のみを正とする
+  // （0件・複数件はいずれもfail-closed）。
   const results = [];
-  const normalCompletedAtList = [];
 
   for (const group of groups) {
-    const latest = findLatestCompletedAttemptForGroup(attempts, {
-      sourceType: "testset",
+    const found = findAttemptForRunRound(attempts, {
+      studentId,
       testSetId,
-      fieldId: group.fieldId
+      runId,
+      sourceType: "testset",
+      fieldId: group.fieldId,
+      reviewRound: 0
     });
 
-    if (!latest) {
+    if (!found.ok) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }
+    const latest = found.attempt;
+
     if (latest.initialWrongQuestionIds === null || latest.initialWrongQuestionIds === undefined) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }
     if (!isSubsetOf(latest.initialWrongQuestionIds, group.questionIds)) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }
-    if (!isValidIsoTimestamp(latest.completedAt)) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
 
-    normalCompletedAtList.push(latest.completedAt);
     results.push({
       fieldId: group.fieldId,
       correct: latest.score,
@@ -132,37 +143,28 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
     return { ok: false, errorMessage: REJECT_MESSAGE };
   }
 
-  // STEP96/229/230: 過去run混入を実用上抑制するための時間窓の境界値を検証する。
-  const normalRunCompletedAt = normalCompletedAtList.reduce((max, value) => (value > max ? value : max));
-  if (!isValidIsoTimestamp(normalRunCompletedAt) || !isValidIsoTimestamp(progress.startedAt)) {
-    return { ok: false, errorMessage: REJECT_MESSAGE };
-  }
-
   // STEP36-40/83-90: currentReviewIndexより前のreviewGroup全件について、
-  // 完了済みreview Attemptを1件ずつ復元する。1件でも不足・不整合があれば復元不能。
+  // 完了済みreview Attemptを1件ずつ復元する（同一runId・同一reviewRound内の他fieldの結果）。
+  // 1件でも不足・重複・不整合があれば復元不能。
   const reviewResults = [];
 
   for (let i = 0; i < currentReviewIndex; i += 1) {
     const reviewGroup = reviewBuild.groups[i];
 
-    // STEP236: time windowで先に候補を絞り込んでから、既存helperで最新1件を選ぶ
-    // （helper自体をreview専用条件で複雑化しない）。
-    const windowedAttempts = attempts.filter(
-      (attempt) =>
-        isValidIsoTimestamp(attempt?.completedAt) &&
-        attempt.completedAt >= normalRunCompletedAt &&
-        attempt.completedAt <= progress.startedAt
-    );
-
-    const latestReview = findLatestCompletedAttemptForGroup(windowedAttempts, {
-      sourceType: "testset_review",
+    const foundReview = findAttemptForRunRound(attempts, {
+      studentId,
       testSetId,
-      fieldId: reviewGroup.fieldId
+      runId,
+      sourceType: "testset_review",
+      fieldId: reviewGroup.fieldId,
+      reviewRound
     });
 
-    if (!latestReview) {
+    if (!foundReview.ok) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }
+    const latestReview = foundReview.attempt;
+
     if (latestReview.initialWrongQuestionIds === null || latestReview.initialWrongQuestionIds === undefined) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }
@@ -194,7 +196,9 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
       results,
       reviewGroups: reviewBuild.groups,
       currentReviewIndex,
-      reviewResults
+      reviewResults,
+      runId,
+      currentReviewRound: reviewRound
     }
   };
 }

@@ -112,7 +112,11 @@ export function syncStartAttempt(attempt, fieldId) {
     // 空文字列へ正規化するため、そのままJSON送信してよい（gas-api-contract-v1.md §5.1、
     // 既にGAS側で実装済みのvalidationと整合することをテストで確認する）。
     sourceType: attempt.sourceType,
-    testSetId: attempt.testSetId
+    testSetId: attempt.testSetId,
+    // Phase4E-0A: testSetIdと同じ扱い（nullは空文字列正規化に委ねる、ローカル実装のみ・
+    // 本番GAS未反映のためデプロイ後に実際の送信が始まる）。
+    runId: attempt.runId,
+    reviewRound: attempt.reviewRound
   }).catch((error) => {
     console.error("learning-record-service startAttempt error（MemoryStorageには影響しません）:", error);
     throw error; // rejected状態を保持し、依存するsaveAnswerRecord/completeAttempt側が判定できるようにする

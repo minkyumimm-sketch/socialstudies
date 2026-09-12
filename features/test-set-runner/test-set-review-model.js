@@ -105,6 +105,13 @@ export function findReviewGroupIndex(reviewGroups, fieldId) {
  * 指定した条件（sourceType・testSetId・fieldId）に一致する完了済みAttemptのうち、
  * 最も新しく完了した1件を返す。
  *
+ * 【Phase4E-0A時点の位置づけ】restoreRunnerState()・prepareTestSetReviewResumePlan()は
+ * いずれも、この関数のcompletedAt推測選択ではなく、test-set-run-identity.jsの
+ * findAttemptForRunRound()（studentId/testSetId/runId/fieldId/reviewRoundの完全一致、
+ * 0件・複数件はfail-closed）を使うよう置き換え済み。本関数は「既存契約を壊さない」という
+ * Phase4E-0A監査の指示により、シグネチャ・挙動を一切変更せずそのまま残しているが、
+ * 現時点でこのファイル外から呼び出している箇所は無い（削除はしない）。
+ *
  * features/test-set-runner/test-set-runner.js の restoreRunnerState() が持っていた
  * 候補選択ロジック（Phase3C）をそのままpure関数として切り出したもの。fieldIdの判定は
  * Attempt自体にfieldId列が無いため、questionSetIdの既定形式`<fieldId>__<coursePurposeId>__<slug>`

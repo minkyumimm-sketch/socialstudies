@@ -229,8 +229,18 @@ Phase3D-4（学校別TestSet、全group通常問題完了後の誤答自動復�
 | `initialWrongQuestionIds` | 通常のAttemptと同じ仕組みでこのAttempt自身にも保存される。復習中に再度誤答した問題の集合＝「復習後も間違えた問題」の正本となる。 |
 | Phase3D-1/3D-2対象 | **対象外**（`features/history/history-renderer.js`の`RETRY_ELIGIBLE_SOURCE_TYPES`へ追加しない。`testset`と同じ扱い）。 |
 | Phase3D-3対象 | 詳細閲覧は対象（sourceTypeを問わない既存仕様のまま）。表示上の特別な注記（「学校のテスト対策・間違い直し」等）はPhase3D-4Bで追加検討する。 |
-| run識別 | 専用のrun ID等は追加しない。既存`restoreRunnerState()`が採用している「resume対象より前のgroupについて、同一testSetId・同一fieldId・completed=trueのAttemptのうち最新completedAtの1件を採用する」というヒューリスティックを、復習フェーズの再構築へも同じ精度で拡張する（Phase3D-4Bで実装）。 |
+| run識別 | **Phase4E-0/4E-0Aで方針変更**。本節記載の「専用run IDを追加せずcompletedAtヒューリスティックで拡張する」方針は、Phase4E監査（TestSet誤答復習「全問正解まで自動反復」の実装可否監査）で、同一run・同一fieldIdに複数のtestset_review Attemptが存在し得る（review周を複数回行う）場合に安全に判別できないと判明したため撤回した。Phase4E-0で`runId`+`reviewRound`の2属性を追加する設計を確定し、Phase4E-0Aでローカル実装・契約検証を完了した（3.11.4節参照。本番未反映）。 |
 | Web実装状況 | **Phase3D-4A時点ではこのsourceTypeを実際に送信するWeb側の経路は存在しない**（GAS/契約/docs側の受け入れ基盤のみ）。復習フロー本体（runner拡張・UI・resume・summary）はPhase3D-4Bで実装する。 |
+
+#### 3.11.4 `runId` / `reviewRound`（オプション属性、Phase4E-0A前提で確定・ローカル実装のみ・本番未反映）
+
+| 属性 | 内容 |
+|---|---|
+| `runId` | TestSet実行1回（通常group開始〜全review周〜任意反復）を一意に識別するID（クライアント発行、`attemptId`と同じ生成方式）。`sourceType="testset"`/`"testset_review"`のときのみ値を持つ、それ以外は`null`。同一TestSet実行中は通常group・全review周を通じて同一値を維持する。同一TestSetの再実行（生徒が最初からやり直す等）は新しい`runId`になる。 |
+| `reviewRound` | TestSet誤答復習の周数。`sourceType="testset"`（通常group）は`0`固定、`sourceType="testset_review"`は`1`以上の整数（1周目=1、2周目=2…、任意反復にも対応）。それ以外のsourceTypeは`null`。`attempt_progress.retryRound`（1 Attempt内の「間違えた問題を最後にもう一度出す」巡数）とは別概念であり、意味を混同しない。 |
+| resume判定 | `studentId`+`testSetId`+`runId`+`fieldId`+`reviewRound`の完全一致で対象Attemptを一意に選ぶ（`features/test-set-runner/test-set-run-identity.js`の`findAttemptForRunRound()`）。0件・複数件のいずれもfail-closedで復元不能として扱い、`completedAt`の新しさによる推測選択は一切行わない（3.11.3節の旧方針を置き換え）。 |
+| 旧データ | `runId`が空のAttempt（本番反映前に保存された全Attempt）は、履歴閲覧（History/Weakness）では引き続き利用できるが、新しい複数周resumeの対象にはならない。過去データへの推測`runId`付与は行わない。 |
+| 本番反映状況 | **ローカル実装・契約検証のみ完了（Phase4E-0A/0B、2026-09-12実施）。本番Spreadsheet/GAS/Web deployは未実施。** 反映用ソース・手順は`docs/operations/learning-record-gas/RunIdentity.gs`参照。Phase4E-0Bで、GAS側に移行期間限定の許容ルール（`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`、旧Web＝`runId`/`reviewRound`を両方省略したlegacy payloadを正常系として受け付ける）を追加し、GAS deployとWeb deployの間にTestSet実行が完全停止する制約を解消した（詳細は同ファイル末尾の互換性マトリクス参照）。Web側は常にnew payload（両方指定）のみを送信し、legacy payload送信ロジックは持たない。 |
 
 #### 3.11.2 `initialWrongQuestionIds`（オプション属性、Phase3D-2前提で確定）
 
@@ -278,7 +288,7 @@ AnswerRecordの一意キーは前項のとおり`attemptId` + `questionId`の複
 |---|---|
 | 役割 | 未完了Attemptを「続きから」再開するために必要な進行状態。中断・ブラウザ終了後の再開基盤（Phase3A設計、Phase3B-1でGAS側保存基盤を確定） |
 | 一意なID | `attemptId`（`attempts.attemptId`と同一。主キー） |
-| 主な属性 | `studentId`, `fieldId`, `unit`（任意）, `sourceType`, `testSetId`, `questionIds`（開始時点の出題順snapshot、JSON配列）, `currentQuestionIndex`（0-based、次に表示すべき問題のindex）, `wrongQuestionIds`（retry対象の順序付き配列、JSON配列）, `retryRound`（0=通常、1以上=retry巡数）, `retryWrongEnabled`（開始時点のretry可否設定のsnapshot、boolean、Phase3C前提で追加）, `status`（`in_progress`/`abandoned`）, `startedAt`, `updatedAt` |
+| 主な属性 | `studentId`, `fieldId`, `unit`（任意）, `sourceType`, `testSetId`, `questionIds`（開始時点の出題順snapshot、JSON配列）, `currentQuestionIndex`（0-based、次に表示すべき問題のindex）, `wrongQuestionIds`（retry対象の順序付き配列、JSON配列）, `retryRound`（0=通常、1以上=retry巡数）, `retryWrongEnabled`（開始時点のretry可否設定のsnapshot、boolean、Phase3C前提で追加）, `status`（`in_progress`/`abandoned`）, `startedAt`, `updatedAt`, `runId`/`reviewRound`（Phase4E-0A前提で追加、3.11.4節と同じ意味・**ローカル実装のみ・本番未反映**） |
 | 他概念との関係 | Attemptに1:1で対応する。Attempt/AnswerRecordの内容は一切変更・重複保存しない（`completed`・`score`等はAttempt側を正とし、AttemptProgress側には持たない） |
 | 管理場所 | Attempt/AnswerRecord専用GAS Web App＋専用Google Spreadsheet内の新規シート`attempt_progress`（Phase3B-1確定、`docs/operations/learning-record-gas/README.md`参照。**2026-09-01時点で本番Spreadsheet・本番GASへは未反映**、ローカルNode vmサンドボックスでの検証のみ完了） |
 | 更新主体 | 学習アプリ（自動記録。Phase3B-1時点ではGAS側APIのみ確定、Web側からの送信配線はPhase3B-2で実施予定） |

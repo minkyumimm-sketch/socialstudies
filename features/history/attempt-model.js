@@ -37,6 +37,13 @@
  * @property {string[]|null} initialWrongQuestionIds - そのAttemptの通常ラウンド（retryMode===false の間）で
  *   一度でも isCorrect!==true となった問題のquestionId配列（Phase3D-2前提で追加）。retry結果で書き換えない。
  *   null＝情報が記録されていない（旧Attempt・GAS側で列が空欄）、[]＝記録済みで誤答0件、を明確に区別する。
+ * @property {string|null} runId - TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するID
+ *   （Phase4E-0A前提で追加・ローカル実装のみ・本番未反映）。`sourceType==="testset"`/`"testset_review"`
+ *   のときのみ値を持つ、それ以外はnull。同一TestSet実行中は通常group・全review周で同一値を維持する。
+ * @property {number|null} reviewRound - TestSet誤答復習の周数（Phase4E-0A前提で追加・ローカル実装のみ・
+ *   本番未反映）。`sourceType==="testset"`（通常group）は0固定、`sourceType==="testset_review"`は
+ *   1以上（1周目=1、2周目=2…）。それ以外のsourceTypeはnull。retryWrongEnabled起点の
+ *   「間違えた問題を最後にもう一度出す」機能のretryRound（1 Attempt内の巡数）とは別概念、意味を混同しない。
  */
 
 import { toTrimmedString, toBooleanFlag, toNullableNumber } from "../common/field-helpers.js";
@@ -100,7 +107,9 @@ export function createAttempt(input = {}) {
     penalizedTimeSeconds: toNullableNumber(input.penalizedTimeSeconds),
     sourceType: input.sourceType ?? null,
     testSetId: input.testSetId ?? null,
-    initialWrongQuestionIds: normalizeQuestionIdList(input.initialWrongQuestionIds)
+    initialWrongQuestionIds: normalizeQuestionIdList(input.initialWrongQuestionIds),
+    runId: input.runId ?? null,
+    reviewRound: toNullableNumber(input.reviewRound)
   };
 }
 

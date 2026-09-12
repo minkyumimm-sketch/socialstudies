@@ -25,6 +25,13 @@ export function createRunnerState() {
     phase: "groups", // "groups" | "review"
     reviewGroups: /** @type {TestSetGroup[]} */ ([]),
     currentReviewIndex: -1,
-    reviewResults: [] // [{fieldId, correct, total, initialWrongQuestionIds}] 復習グループ完了ごとに追加
+    reviewResults: [], // [{fieldId, correct, total, initialWrongQuestionIds}] 復習グループ完了ごとに追加
+    // Phase4E-0A: TestSet実行1回を一意に識別するID（ローカル実装のみ・本番未反映）。
+    // startTestSetRun()で1回だけ発行し、通常group・全review周で維持する。
+    runId: "",
+    // Phase4E-0A: 現在の復習周数（0=通常group中、1=review1周目…）。
+    // startReviewPhase()で1へ設定する。「次周へ進むAPI」自体は準備するが、
+    // Phase4E本体（全問正解まで自動反復）は本タスクではまだ配線しない。
+    currentReviewRound: 0
   };
 }

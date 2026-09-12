@@ -4,6 +4,8 @@
 - 位置づけ: Attempt/AnswerRecord専用GAS（学習記録GAS、`docs/specification/gas-api-contract-v1.md` 5章）へ追加する、進行中学習状態（`attempt_progress`）保存基盤の正本コピー。本ファイル自体はこのリポジトリの実行環境からは一切参照されない（ビルド・アプリ本体のどこからもimportされない）。あくまで、別プロジェクトの学習記録Apps Scriptへ手動で反映するためのソースを、このリポジトリで版管理しておくための保管場所（`docs/operations/learning-summary/`と同じ位置づけ）。
 - **本番反映状況（2026-09-01（火）時点）: 反映済み・本番実API試験完了。** 詳細は6.1節参照。
 - **Phase3D-4A前提での更新（ローカル実装・未反映）**: `SOURCE_TYPE_VALUES`（0節参照）へ`testset_review`を追加し、`AttemptProgress.gs`の`validateSaveAttemptProgressPayload_`のtestSetId必須/禁止ルールを`testset`/`testset_review`両対応へ拡張した。0節の「4値」という記載は本番導入前の時点の記録であり、Phase3D-4A本番反映後は5値（`normal`/`weak_review`/`dormant_review`/`testset`/`testset_review`）となる。詳細は`docs/operations/learning-record-gas/TestSetReviewSourceType.gs`参照。
+- **Phase4E-0A前提での更新（ローカル実装・契約検証のみ完了、本番未反映、2026-09-12実施）**: TestSet誤答復習「全問正解まで自動反復」の実装基盤として、`attempts`/`attempt_progress`両シートへ`runId`（TestSet実行1回の識別子）・`reviewRound`（復習周数）の2列を追加する（13→15列／14→16列）。`handleStartAttempt`・`handleCompleteAttempt`・`validateSaveAttemptProgressPayload_`・`handleSaveAttemptProgress`・`handleAbandonAttemptProgress`の貼り替え用完成版は`docs/operations/learning-record-gas/RunIdentity.gs`参照。Web側の対応する変更（`features/test-set-runner/test-set-run-identity.js`新設、`attempt-model.js`/`quiz-start-integration.js`/`progress-model.js`/`test-set-runner*.js`/`app.js`の配線）はこのリポジトリの通常のcommit対象（別途`git diff`で確認可能）。
+- **Phase4E-0B前提での更新（ローカル設計・契約検証のみ完了、本番未反映、2026-09-12実施）**: 4E-0A時点の`validateRunIdentity_()`は`testset`/`testset_review`で`runId`/`reviewRound`を常に必須としており、このままGAS先行deployすると、まだ両方を送らない現行公開Webの通常TestSet実行・既存1巡reviewが全滅すると判明した（4E-0A契約テストで再現）。`RunIdentity.gs`へ移行期間限定の`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`フラグ（既定true）を追加し、legacy payload（旧Web、`runId`/`reviewRound`を両方省略）を正常系として許容（`runId`/`reviewRound`は空文字列で保存）、new payload（新Web、両方指定）は既存strict契約のまま検証する3分岐へ拡張した。片方だけの指定は常にエラー。これにより「GAS deployとWeb deployの間の完全停止時間帯」は解消される。詳細な互換性マトリクス・rollout順序は`RunIdentity.gs`末尾参照。Web側（`features/test-set-runner/test-set-run-identity.js`含む）は無変更（新Webは常にnew payloadのみ送信する）。
 
 ---
 
@@ -63,7 +65,7 @@ Web側（`app.js`等）からのprogress送信・中断ボタン・続きからU
 
 **安全性の根拠**: `writeRow_`は、書き込み対象シートの`headers`引数（例：`ATTEMPTS_HEADERS`）に実際に含まれる列名についてのみ`DATE_HEADERS`との一致を確認して`setNumberFormat`を適用する。`attempts`/`answer_records`の`headers`には`updatedAt`という列名自体が存在しないため、`DATE_HEADERS`へ`updatedAt`を追加しても、既存2シートへの書込み時にこの列名が一致することはなく、既存の書込み挙動（フォーマット適用箇所）は一切変化しない。`SHEET_NAMES`への追加も、既存の`SHEET_NAMES.ATTEMPTS`/`SHEET_NAMES.ANSWER_RECORDS`参照箇所には影響しない末尾追加のみ。
 
-## 3. `attempt_progress`シート正式列（14列、Phase3C前提で13列から拡張）
+## 3. `attempt_progress`シート正式列（本番14列。Phase4E-0A前提で追加した#15/#16はローカル実装のみ・本番未反映）
 
 既存`attempts`/`answer_records`の列命名規則（`docs/specification/data-schema-v1.md` 10.1/10.2節）に合わせ、camelCaseで統一。
 
@@ -83,6 +85,8 @@ Web側（`app.js`等）からのprogress送信・中断ボタン・続きからU
 | 12 | `status` | string | 必須 | `in_progress` / `abandoned`の2値のみ。 |
 | 13 | `startedAt` | ISO8601文字列 | 必須 | 初回保存時のみ確定。以降のupdateで書き換えない。`DATE_HEADERS`対象（既存）。 |
 | 14 | `updatedAt` | ISO8601文字列 | 必須 | 常にGASサーバー時刻で上書き（クライアント指定値は無視）。`DATE_HEADERS`対象（2.1節の追加により）。 |
+| 15 | `runId` | string | `sourceType="testset"/"testset_review"`のみ必須 | それ以外は**指定禁止**。Phase4E-0A前提で追加・**ローカル実装のみ・本番未反映**。詳細は`docs/operations/learning-record-gas/RunIdentity.gs`。 |
+| 16 | `reviewRound` | 整数 | `sourceType="testset"/"testset_review"`のみ必須 | `testset`は0固定、`testset_review`は1以上。それ以外は**指定禁止**。Phase4E-0A前提で追加・**ローカル実装のみ・本番未反映**。 |
 
 `Attempt.completed`は`attempt_progress`へ重複保存しない（`attempts`シートを都度参照する）。
 

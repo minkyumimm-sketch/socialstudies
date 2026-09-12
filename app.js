@@ -95,6 +95,8 @@ import {
   isRunnerActive,
   getCurrentGroup,
   getRunnerTestSetId,
+  getRunnerRunId,
+  getCurrentReviewRound,
   recordCurrentGroupResult,
   hasNextGroup,
   advanceToNextGroup,
@@ -639,14 +641,32 @@ async function executeStartQuiz() {
 // Phase3C前提: retryWrongEnabledは、この時点で既にstate.session.retryWrongEnabledへ
 // 呼び出し元（startQuiz/startPracticeSession/startTestSetGroupQuiz）が正しい実効値を
 // 設定済みのため、ここで直接読むだけでよい（新しい引数を各呼び出し元へ増やさない）。
+// Phase4E-0A: sourceTypeからrunId/reviewRoundを決める（resolveUnitForSourceType()と同じ
+// 「呼び出し元へ新しい引数を増やさず、beginAttemptAndShowQuiz内部でsourceType起点に決定する」
+// 設計方針）。testset/testset_reviewのみrunner側（test-set-runner.js）の現在値を使い、
+// それ以外は常にnull（normal/weak_review/dormant_reviewではrunId/reviewRoundを一切送らない、
+// Phase4E-0A正式契約どおり）。
+function resolveRunIdentityForSourceType(sourceType) {
+  if (sourceType === "testset") {
+    return { runId: getRunnerRunId(), reviewRound: 0 };
+  }
+  if (sourceType === "testset_review") {
+    return { runId: getRunnerRunId(), reviewRound: getCurrentReviewRound() };
+  }
+  return { runId: null, reviewRound: null };
+}
+
 async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter = "") {
   try {
+    const { runId, reviewRound } = resolveRunIdentityForSourceType(sourceType);
     const domainAttemptResult = await startAttemptForQuiz({
       quizQuestions: state.quiz.quizQuestions,
       subject: state.session.subject,
       studentId: state.session.studentId,
       sourceType,
       testSetId,
+      runId,
+      reviewRound,
       unit: resolveUnitForSourceType(sourceType, unitFilter),
       retryWrongEnabled: state.session.retryWrongEnabled
     });
@@ -1655,7 +1675,11 @@ async function resumeQuiz(progress) {
       testSet: testSetData.testSet,
       questions: testSetData.questions,
       resumeFieldId: progress.fieldId,
-      priorAttempts
+      priorAttempts,
+      // Phase4E-0A: progress.runIdが空（旧データ・本番GAS未反映）の場合はrestoreRunnerState内で
+      // fail-closedとなり、completedAtでの推測復元へは一切フォールバックしない。
+      runId: progress.runId,
+      studentId: state.session.studentId
     });
 
     if (!runnerResult.ok) {

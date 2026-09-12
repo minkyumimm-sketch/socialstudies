@@ -62,6 +62,10 @@ const TEMPORARY_DEFAULT_COURSE_PURPOSE_ID = "regular_exam";
  *   `dormant_review`/`testset`）。呼び出し元（app.js）が明示的に渡す。省略時はcreateAttempt()の
  *   デフォルト（null＝起点不明）に委ねる（勝手にnormalへfallbackしない）。
  * @param {string|null} [params.testSetId] - `sourceType==="testset"`のときのみ値を持つ
+ * @param {string|null} [params.runId] - TestSet実行1回を識別するID（Phase4E-0A前提で追加・
+ *   ローカル実装のみ・本番未反映）。`sourceType==="testset"/"testset_review"`のときのみ値を持つ。
+ * @param {number|null} [params.reviewRound] - TestSet誤答復習の周数（Phase4E-0A前提で追加）。
+ *   `sourceType==="testset"`は0、`"testset_review"`は1以上。それ以外はnull。
  * @param {string} [params.unit] - attempt_progress.unitへ送る値（Phase3B-2、
  *   features/progress/progress-model.jsのresolveUnitForSourceType()で呼び出し元が
  *   決定済みの値をそのまま渡す想定。省略時は空文字）
@@ -70,7 +74,17 @@ const TEMPORARY_DEFAULT_COURSE_PURPOSE_ID = "regular_exam";
  *   省略時はtrue、既存createSessionState()のデフォルトと合わせる）
  * @returns {Promise<{ questionSet: import("../question-set/question-set-model.js").QuestionSet, attempt: import("./attempt-model.js").Attempt, questionIds: string[] } | null>}
  */
-export async function startAttemptForQuiz({ quizQuestions, subject, studentId, sourceType, testSetId, unit = "", retryWrongEnabled = true }) {
+export async function startAttemptForQuiz({
+  quizQuestions,
+  subject,
+  studentId,
+  sourceType,
+  testSetId,
+  runId = null,
+  reviewRound = null,
+  unit = "",
+  retryWrongEnabled = true
+}) {
   try {
     const questionIds = (Array.isArray(quizQuestions) ? quizQuestions : [])
       .map((question) => question?.questionId)
@@ -99,7 +113,9 @@ export async function startAttemptForQuiz({ quizQuestions, subject, studentId, s
       totalCount: questionSet.questionIds.length,
       startedAt: new Date().toISOString(),
       sourceType,
-      testSetId
+      testSetId,
+      runId,
+      reviewRound
     });
 
     saveAttempt(attempt);

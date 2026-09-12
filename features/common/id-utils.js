@@ -7,11 +7,23 @@
 // 設計判断（仮決定）に基づく。ここではフォールバック込みで1箇所に実装し、
 // 各モデルが個別に乱数生成ロジックを持たないようにする。
 
-export function generateAttemptId() {
+function generateUuid_() {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }
 
   // フォールバック: crypto.randomUUID が使えない環境向け（設計書2.1節の代替形式）
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function generateAttemptId() {
+  return generateUuid_();
+}
+
+// Phase4E-0A: TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するrunId。
+// attemptIdと生成方式は同じ（crypto.randomUUID()推奨・フォールバックあり）だが、
+// 意味の異なる別種のIDのため、生成関数自体は共有ロジック（generateUuid_）のみ再利用し、
+// 公開関数は分ける（呼び出し側が「これはrunIdである」と明示できるようにするため）。
+export function generateRunId() {
+  return generateUuid_();
 }

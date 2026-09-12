@@ -69,7 +69,11 @@ export function initAttemptProgressContext({ attempt, fieldId, unit, questionIds
     wrongQuestionIds: [],
     retryRound: 0,
     retryWrongEnabled: Boolean(retryWrongEnabled),
-    startedAt: attempt.startedAt
+    startedAt: attempt.startedAt,
+    // Phase4E-0A: sourceType/testSetIdと同じく、attempt自身が既に持つ値をそのまま引き継ぐ
+    // （呼び出し元に新しい引数を増やさない）。normal/weak_review/dormant_reviewではnullのまま。
+    runId: attempt.runId,
+    reviewRound: attempt.reviewRound
   });
 }
 
@@ -94,7 +98,10 @@ export function restoreAttemptProgressContext(progress) {
     wrongQuestionIds: [...(progress.wrongQuestionIds || [])],
     retryRound: progress.retryRound,
     retryWrongEnabled: Boolean(progress.retryWrongEnabled),
-    startedAt: progress.startedAt
+    startedAt: progress.startedAt,
+    // Phase4E-0A: 中断前のrunId/reviewRoundをそのまま復元する（再計算・推測しない）。
+    runId: progress.runId ?? null,
+    reviewRound: progress.reviewRound ?? null
   });
 }
 
@@ -152,6 +159,9 @@ export function buildAttemptProgressPayload(attemptId, currentQuestionIndex) {
     retryRound: context.retryRound,
     retryWrongEnabled: context.retryWrongEnabled,
     status: "in_progress",
-    startedAt: context.startedAt
+    startedAt: context.startedAt,
+    // Phase4E-0A: testSetIdと同じ位置づけ（testset/testset_reviewのみ値を持つ、それ以外はnull）。
+    runId: context.runId,
+    reviewRound: context.reviewRound
   };
 }
