@@ -114,6 +114,8 @@ import {
   hasNextReviewGroup,
   advanceToNextReviewGroup,
   finishReviewRun,
+  getReviewRestartSnapshot,
+  restartReviewFromSnapshot,
   restoreReviewRunnerState
 } from "./features/test-set-runner/test-set-runner.js";
 import { getReviewQuestionCount } from "./features/test-set-runner/test-set-review-model.js";
@@ -336,7 +338,11 @@ const tssElements = {
   confirmMessage: document.getElementById("tss-confirm-message"),
   startButton: document.getElementById("tss-start-button"),
   completeStep: document.getElementById("tss-complete-step"),
-  completeInfo: document.getElementById("tss-complete-info")
+  completeInfo: document.getElementById("tss-complete-info"),
+  // Phase4E-2: 完了画面の「もう一度復習する」「テスト対策へ戻る」。
+  completeMessage: document.getElementById("tss-complete-message"),
+  completeRestartButton: document.getElementById("tss-complete-restart-button"),
+  completeBackButton: document.getElementById("tss-complete-back-button")
 };
 
 // Phase3D-4B-2: TestSet全group誤答復習（review phase）の開始案内。
@@ -1207,8 +1213,15 @@ async function finishCurrentTestSetReviewGroupAndAdvance() {
   if (!nextReview.available || nextReview.groups.length === 0) {
     // 全field誤答0（全問正解）、または情報不明（旧Attempt混在等）の場合は、
     // 既存どおりTestSet全体を完了とする（Phase3D-4B-2と同じフォールバック方針）。
+    //
+    // Phase4E-2: このうち「全問正解（available===true かつ groups0件）」のときだけ、
+    // 完了画面で「もう一度復習する」を選べるようにする。情報不明（available===false）は
+    // 初回誤答集合を正確に特定できないため、従来どおり完了のみとする（安全側）。
+    // snapshotはrunnerStateをresetするfinishReviewRun()より【前】に取得する。
+    const masteredAll = nextReview.available && nextReview.groups.length === 0;
+    const restartSnapshot = masteredAll ? getReviewRestartSnapshot() : null;
     const summary = finishReviewRun();
-    showTestSetCompletion(tssElements, summary);
+    showTestSetCompletion(tssElements, summary, buildReviewRestartOption(restartSnapshot));
     showTestSetStudentScreen(testSetStudentScreen, allScreens);
     return;
   }
@@ -1229,6 +1242,43 @@ async function finishCurrentTestSetReviewGroupAndAdvance() {
   // Phase3D-4B-2確定方針のまま。round2以降は自動遷移のみで、途中summaryも表示しない）。
   startNextReviewRound(nextReview.groups);
   await startTestSetReviewGroup();
+}
+
+// Phase4E-2: 完了画面の「もう一度復習する」へ渡すオプションを組み立てる。
+// snapshotがnull（再復習できない）の場合はnullを返し、ボタン自体を表示させない。
+function buildReviewRestartOption(restartSnapshot) {
+  if (!restartSnapshot) return null;
+  return { snapshot: restartSnapshot, onRestart: restartTestSetReview };
+}
+
+// Phase4E-2: 完了画面「もう一度復習する」の実処理。初回誤答集合（snapshot.reviewGroups、
+// 最終roundの誤答集合ではない）で新しいreviewRoundの復習を開始する。runIdは維持したまま
+// reviewRoundだけを単調増加させるため、既存のresume（runId+reviewRound厳密一致）・
+// History/Weaknessの経路はいずれも無改修のまま通る。
+//
+// 開始前のpreflight検証（問題データの実在確認）は、既存のvalidateReviewGroups()を
+// そのまま再利用する（round1開始時・round2以降の自動反復時と同じ検証、部分実行を防ぐ）。
+// 連打対策はtest-set-student-controller.js側のボタンdisable＋処理中フラグで行う
+// （既存handleStartRequest()と同じ方式）。
+async function restartTestSetReview(restartSnapshot) {
+  const preflight = await validateReviewGroups(
+    restartSnapshot?.reviewGroups,
+    filterManager.getNormalizedQuestionsForSubject
+  );
+
+  if (!preflight.ok) {
+    console.error("再復習の開始に失敗（これまでの結果には影響しません）:", preflight.errorMessage);
+    return { ok: false, errorMessage: "間違い直しの問題を準備できませんでした。テスト対策画面からもう一度お試しください。" };
+  }
+
+  const restarted = restartReviewFromSnapshot(restartSnapshot);
+  if (!restarted.ok) {
+    console.error("再復習の開始に失敗（これまでの結果には影響しません）:", restarted.errorMessage);
+    return { ok: false, errorMessage: restarted.errorMessage };
+  }
+
+  await startTestSetReviewGroup();
+  return { ok: true };
 }
 
 // Phase3D-4B-2: 復習開始案内（一度きり）。Attempt/progressは表示前に既に開始済みのため、

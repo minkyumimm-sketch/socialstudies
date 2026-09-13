@@ -28,6 +28,15 @@ let tssState = createTestSetStudentState();
 let wired = false;
 let startTestSetCallback = null;
 
+// Phase4E-2: 完了画面の「もう一度復習する」用。showTestSetCompletion()の呼び出しごとに
+// 差し替え、押下時にそのまま呼び出し側（app.js）のコールバックへ渡すだけの保持であり、
+// このモジュールはrunnerState・Attempt・runId/reviewRoundの意味を一切知らない
+// （snapshotの中身を解釈しない、plain dataとしてそのまま往復させる）。
+let completionRestart = null;
+// 「もう一度復習する」連打で再復習が二重に開始されないための処理中フラグ
+// （handleStartRequest()の既存disable方式と同じ考え方。押下直後に同期的に立てる）。
+let restartInFlight = false;
+
 /**
  * test-set-student-screen表示時に呼ぶ唯一のエントリポイント。
  * 呼ばれるたびにstate・表示stepをリセットする（誤操作防止、teacher-screenと同じ方針）。
@@ -52,6 +61,9 @@ export function initTestSetStudentScreen(elements, onStartTestSet) {
   elements.confirmInfo.innerHTML = "";
   elements.confirmMessage.textContent = "";
   elements.completeInfo.innerHTML = "";
+  elements.completeMessage.textContent = "";
+  completionRestart = null;
+  elements.completeRestartButton.classList.add("hidden");
 
   loadSchools()
     .then((schools) => {
@@ -72,11 +84,23 @@ export function initTestSetStudentScreen(elements, onStartTestSet) {
 
 /**
  * TestSet全体完了後の表示（Task55）。app.js側で全fieldIdグループが完了した際に呼ぶ。
+ *
+ * Phase4E-2: 復習が全問正解で終わった場合のみ、「もう一度復習する」（初回誤答集合での
+ * 再復習）を選べるようにする。restartが未指定・nullの場合はボタンを表示しない
+ * （初回から全問正解でreview自体が0回だった場合、旧データ等で初回誤答集合を特定できない
+ * 場合、review途中の異常終了の場合。判定自体はapp.js/runner側の責務）。
+ *
  * @param {Object} elements
  * @param {{label:string, totalQuestions:number, totalCorrect:number, totalIncorrect:number}} summary
+ * @param {{snapshot:Object, onRestart:(snapshot:Object)=>Promise<{ok:boolean, errorMessage?:string}>}|null} [restart]
  */
-export function showTestSetCompletion(elements, summary) {
+export function showTestSetCompletion(elements, summary, restart = null) {
   renderCompletionSummary(elements.completeInfo, summary);
+
+  elements.completeMessage.textContent = "";
+  completionRestart = restart && restart.snapshot && typeof restart.onRestart === "function" ? restart : null;
+  elements.completeRestartButton.classList.toggle("hidden", !completionRestart);
+
   showStep(elements, "complete");
 }
 
@@ -90,6 +114,51 @@ function showStep(elements, step) {
 function wireEvents(elements) {
   elements.searchButton.addEventListener("click", () => handleSearch(elements));
   elements.startButton.addEventListener("click", () => handleStartRequest(elements));
+  elements.completeRestartButton.addEventListener("click", () => handleRestartReviewRequest(elements));
+  elements.completeBackButton.addEventListener("click", () => handleBackToTestSetsRequest(elements));
+}
+
+// Phase4E-2: 完了画面「もう一度復習する」。初回誤答集合での再復習の実処理（runner state・
+// Attempt生成・quiz画面表示）はapp.js側のコールバックに委ね、このモジュールはsnapshotを
+// そのまま渡して結果表示だけを行う（handleStartRequest()と同じ責務分担）。
+async function handleRestartReviewRequest(elements) {
+  if (!completionRestart || restartInFlight) return;
+
+  // 押下直後（await前）に同期的にガードすることで、連打しても再復習開始は1回に限られる。
+  restartInFlight = true;
+  const restart = completionRestart;
+
+  elements.completeMessage.textContent = "";
+  elements.completeRestartButton.disabled = true;
+  elements.completeBackButton.disabled = true;
+  elements.completeRestartButton.textContent = "開始中...";
+
+  try {
+    const result = await restart.onRestart(restart.snapshot);
+    if (!result || !result.ok) {
+      elements.completeMessage.textContent = result?.errorMessage || "もう一度復習するを開始できませんでした。";
+      return;
+    }
+    // 成功時はapp.js側でquiz画面へ遷移済み。同じsnapshotで二重に開始できないよう破棄する。
+    completionRestart = null;
+  } finally {
+    restartInFlight = false;
+    elements.completeRestartButton.disabled = false;
+    elements.completeBackButton.disabled = false;
+    elements.completeRestartButton.textContent = "もう一度復習する";
+  }
+}
+
+// Phase4E-2: 完了画面「テスト対策へ戻る」。TestSet選択（select step）へ戻るだけで、
+// 学習記録・runId等には一切影響しない。
+function handleBackToTestSetsRequest(elements) {
+  if (restartInFlight) return;
+
+  completionRestart = null;
+  elements.completeRestartButton.classList.add("hidden");
+  elements.completeMessage.textContent = "";
+  showTssError(elements.selectError, "");
+  showStep(elements, "select");
 }
 
 async function handleSearch(elements) {

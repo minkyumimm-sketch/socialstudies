@@ -25,7 +25,11 @@
 // 一切行わない（loadValidatedReviewResult()参照）。
 
 import { groupQuestionsByField } from "./test-set-runner.js";
-import { buildTestSetReviewGroups, findReviewGroupIndex } from "./test-set-review-model.js";
+import {
+  buildTestSetReviewGroups,
+  findReviewGroupIndex,
+  resolveReviewGroupsForRound
+} from "./test-set-review-model.js";
 import { findAttemptForRunRound } from "./test-set-run-identity.js";
 
 const REJECT_MESSAGE = "前回の間違い直しの続きを再開できませんでした。テスト対策画面からもう一度お試しください。";
@@ -182,16 +186,29 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
     });
   }
 
+  // Phase4E-2: 初回誤答集合（通常group結果resultsから組み立てたもの）は、round1の対象で
+  // あると同時に、「もう一度復習する」によるcycle境界roundの対象でもある正本。
+  // 最終roundのreviewResultsからは絶対に組み立てない（Phase4E-2の正式UXどおり）。
+  const initialReview = buildTestSetReviewGroups(results);
+  if (!initialReview.available || initialReview.groups.length === 0) {
+    return { ok: false, errorMessage: REJECT_MESSAGE };
+  }
+
   // Phase4E-1: round1のreviewGroupsは通常group結果（results、周0の誤答）から、
   // round2以降のreviewGroupsは直前roundの「全field」の完了済みreview結果から、
   // 順に導出する（round2はround1結果から、round3はround2結果から…と完全に連鎖させる。
   // 「最新のcompletedAt」等での推測は一切行わない）。resume対象がround1なら
   // このループは1回のみ実行され、Phase4E-0A時点の挙動と完全に同じになる。
+  //
+  // Phase4E-2: 直前roundが全問正解（誤答0）だったroundは「もう一度復習する」による
+  // cycle境界であり、その場合だけ初回誤答集合へ戻る（resolveReviewGroupsForRound）。
+  // 周チェーン自体は途切れず、runId・reviewRoundの単調増加もそのまま維持される
+  // （過去cycle・過去roundのAttemptはreviewRound完全一致条件により混入しない）。
   let chainResults = results; // 直前round（最初はround0=通常group）の結果
   let currentRoundGroups = null;
 
   for (let round = 1; round <= reviewRound; round += 1) {
-    const reviewBuild = buildTestSetReviewGroups(chainResults);
+    const reviewBuild = resolveReviewGroupsForRound(chainResults, initialReview.groups);
     if (!reviewBuild.available || reviewBuild.groups.length === 0) {
       return { ok: false, errorMessage: REJECT_MESSAGE };
     }

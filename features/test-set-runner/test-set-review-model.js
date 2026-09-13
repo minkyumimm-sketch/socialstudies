@@ -197,3 +197,113 @@ export function computeReviewCompletionSummary(results, reviewResults, label) {
     review
   };
 }
+
+/**
+ * Phase4E-2: 指定roundのreviewGroupsを決める共通ルール。
+ *
+ * Phase4E-1までは「roundNのreviewGroups＝round(N-1)の誤答」という連鎖のみだったが、
+ * Phase4E-2で「全問正解後に『もう一度復習する』を選ぶと初回誤答集合へ戻る」導線が
+ * 加わったため、周の境目（cycle境界）を判別する必要が生じた。
+ *
+ * 判別は保存済みデータだけから決定的に行える（新しい列・新しいschemaを一切追加しない）：
+ * 「もう一度復習する」は完了画面（＝直前roundが全問正解＝誤答0）でしか押せないため、
+ *   - 直前roundに誤答が残っている → 4E-1の連続周（その誤答がそのまま次roundの対象）
+ *   - 直前roundの誤答が0件         → cycle境界（＝「もう一度」による再復習開始）であり、
+ *                                    対象は必ず初回誤答集合（initialReviewGroups）
+ * のいずれかに必ず一致する。「最新のcompletedAt」等による推測は一切行わない。
+ *
+ * @param {TestSetGroupResult[]} previousRoundResults - 直前round（round1の場合は通常group）の結果
+ * @param {TestSetReviewGroup[]} initialReviewGroups - 初回誤答集合（通常group結果から組み立てたもの）
+ * @returns {{available:boolean, groups:TestSetReviewGroup[], cycleRestart:boolean}}
+ *   available=false: 直前roundの結果に情報不明（initialWrongQuestionIds===null）が混在し、
+ *   対象を正確に特定できない（buildTestSetReviewGroups()と同じ意味）。
+ */
+export function resolveReviewGroupsForRound(previousRoundResults, initialReviewGroups) {
+  const build = buildTestSetReviewGroups(previousRoundResults);
+
+  if (!build.available) {
+    return { available: false, groups: [], cycleRestart: false };
+  }
+  if (build.groups.length > 0) {
+    return { available: true, groups: build.groups, cycleRestart: false };
+  }
+
+  // 直前roundが全問正解＝cycle境界。初回誤答集合へ戻る（最終roundの誤答集合ではない）。
+  return {
+    available: true,
+    groups: Array.isArray(initialReviewGroups) ? initialReviewGroups : [],
+    cycleRestart: true
+  };
+}
+
+function copyReviewGroups_(groups) {
+  return (Array.isArray(groups) ? groups : []).map((group) => ({
+    fieldId: group?.fieldId,
+    questionIds: Array.isArray(group?.questionIds) ? [...group.questionIds] : []
+  }));
+}
+
+function copyGroupResults_(results) {
+  return (Array.isArray(results) ? results : []).map((result) => ({
+    fieldId: result?.fieldId,
+    correct: result?.correct,
+    total: result?.total,
+    initialWrongQuestionIds: Array.isArray(result?.initialWrongQuestionIds)
+      ? [...result.initialWrongQuestionIds]
+      : result?.initialWrongQuestionIds ?? null
+  }));
+}
+
+/**
+ * Phase4E-2: 復習が全問正解で終わった時点のrunner stateから、完了画面の
+ * 「もう一度復習する」に必要な最小データだけを抜き出したplain snapshotを組み立てる。
+ *
+ * finishReviewRun()はrunnerStateをreset（createRunnerState）する契約であり、それを
+ * 変更しないまま再復習を可能にするため、「resetの直前にsnapshotを取り出して完了画面へ
+ * 渡す」方式にする（runner側にグローバルな持ち越しstateを増やさない）。
+ *
+ * reviewGroupsは【初回誤答集合】（通常group結果resultsから組み立てたもの）であり、
+ * 最終roundのreviewResultsからは組み立てない（Phase4E-2の正式UXどおり）。
+ *
+ * @param {{testSetLabel:string, testSetId:string, runId:string,
+ *   groups:TestSetReviewGroup[], results:TestSetGroupResult[], currentReviewRound:number}} input
+ * @returns {Object|null} 再復習開始に必要な最小データ。再復習できない場合（初回誤答が
+ *   特定できない・runId/testSetIdが無い・review未実施等）はnullを返し、呼び出し側は
+ *   「もう一度復習する」を表示しない。
+ */
+export function buildReviewRestartSnapshot({
+  testSetLabel,
+  testSetId,
+  runId,
+  groups,
+  results,
+  currentReviewRound
+} = {}) {
+  const trimmedTestSetId = String(testSetId || "");
+  const trimmedRunId = String(runId || "");
+  const lastReviewRound = Number(currentReviewRound);
+
+  if (!trimmedTestSetId || !trimmedRunId) return null;
+  if (!Number.isInteger(lastReviewRound) || lastReviewRound < 1) return null;
+
+  let initial;
+  try {
+    initial = buildTestSetReviewGroups(results);
+  } catch (error) {
+    // 旧データ・不完全stateは「再復習できない」として安全側へ倒す（例外を外へ出さない）。
+    console.error("buildReviewRestartSnapshot: 初回誤答集合を組み立てられません:", error);
+    return null;
+  }
+
+  if (!initial.available || initial.groups.length === 0) return null;
+
+  return {
+    testSetLabel: String(testSetLabel || ""),
+    testSetId: trimmedTestSetId,
+    runId: trimmedRunId,
+    lastReviewRound,
+    groups: copyReviewGroups_(groups),
+    results: copyGroupResults_(results),
+    reviewGroups: initial.groups
+  };
+}

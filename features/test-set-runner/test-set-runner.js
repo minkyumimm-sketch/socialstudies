@@ -17,7 +17,8 @@
 import { createRunnerState } from "./test-set-runner-state.js";
 import {
   buildTestSetReviewGroups,
-  computeReviewCompletionSummary
+  computeReviewCompletionSummary,
+  buildReviewRestartSnapshot
 } from "./test-set-review-model.js";
 import { findAttemptForRunRound } from "./test-set-run-identity.js";
 import { generateRunId } from "../common/id-utils.js";
@@ -524,6 +525,84 @@ export async function validateReviewGroups(reviewGroups, getActiveQuestionsForFi
       return { ok: false, errorMessage: "復習問題のデータに不整合があります。先生に確認してください。" };
     }
   }
+
+  return { ok: true };
+}
+
+/**
+ * Phase4E-2: 完了画面の「もう一度復習する」に必要な最小データ（plain snapshot）を返す。
+ * runnerStateをreset（finishReviewRun）する【前】に呼ぶこと。
+ *
+ * 中身の組み立ては純粋関数（buildReviewRestartSnapshot、test-set-review-model.js）へ
+ * 委譲し、ここではrunnerStateの現在値を渡すだけにする（runner側に持ち越し用の
+ * グローバルstateを増やさない、finishReviewRun()のreset契約も変更しない）。
+ *
+ * @returns {Object|null} 再復習できない場合はnull（呼び出し側はボタンを表示しない）
+ */
+export function getReviewRestartSnapshot() {
+  return buildReviewRestartSnapshot({
+    testSetLabel: runnerState.testSetLabel,
+    testSetId: runnerState.testSetId,
+    runId: runnerState.runId,
+    groups: runnerState.groups,
+    results: runnerState.results,
+    currentReviewRound: runnerState.currentReviewRound
+  });
+}
+
+/**
+ * Phase4E-2: 完了画面の「もう一度復習する」から、初回誤答集合での再復習を開始する
+ * （状態管理のみ。Attemptの生成・quiz画面表示は行わない、startReviewPhase()と同じ設計方針）。
+ *
+ * - runIdはsnapshotの値をそのまま維持する（再生成しない）
+ * - currentReviewRoundは直前の最終round + 1（1へ戻さない、単調増加）
+ * - reviewGroupsはsnapshotの初回誤答集合（最終roundの誤答集合ではない）
+ * - 通常group結果（results）は完了画面のsummary表示に必要なためそのまま引き継ぐ
+ *   （再復習で上書き・加算しない）
+ *
+ * @param {Object} snapshot - getReviewRestartSnapshot()が返したplain snapshot
+ * @returns {{ok:true}|{ok:false, errorMessage:string}}
+ */
+export function restartReviewFromSnapshot(snapshot) {
+  const testSetId = String(snapshot?.testSetId || "");
+  const runId = String(snapshot?.runId || "");
+  const lastReviewRound = Number(snapshot?.lastReviewRound);
+
+  if (!testSetId || !runId || !Number.isInteger(lastReviewRound) || lastReviewRound < 1) {
+    return { ok: false, errorMessage: "もう一度復習するためのデータがありません。テスト対策画面からもう一度お試しください。" };
+  }
+
+  const reviewGroups = (Array.isArray(snapshot?.reviewGroups) ? snapshot.reviewGroups : [])
+    .map((group) => ({
+      fieldId: group?.fieldId,
+      questionIds: Array.isArray(group?.questionIds) ? [...group.questionIds] : []
+    }))
+    .filter((group) => group.fieldId && group.questionIds.length > 0);
+
+  if (reviewGroups.length === 0) {
+    return { ok: false, errorMessage: "もう一度復習するためのデータがありません。テスト対策画面からもう一度お試しください。" };
+  }
+
+  const groups = (Array.isArray(snapshot?.groups) ? snapshot.groups : []).map((group) => ({
+    fieldId: group?.fieldId,
+    questionIds: Array.isArray(group?.questionIds) ? [...group.questionIds] : []
+  }));
+
+  runnerState = {
+    ...createRunnerState(),
+    active: true,
+    phase: "review",
+    testSetLabel: String(snapshot?.testSetLabel || ""),
+    testSetId,
+    groups,
+    currentGroupIndex: groups.length - 1,
+    results: Array.isArray(snapshot?.results) ? snapshot.results.map((result) => ({ ...result })) : [],
+    reviewGroups,
+    currentReviewIndex: 0,
+    reviewResults: [],
+    runId,
+    currentReviewRound: lastReviewRound + 1
+  };
 
   return { ok: true };
 }
