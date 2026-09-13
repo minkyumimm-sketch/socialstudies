@@ -162,19 +162,19 @@ data/
 | `completed` | 完了フラグ（true/false） | 同上 |
 | `score` | 正解数 | 同上 |
 | `totalCount` | 出題数 | 同上 |
-| `initialWrongQuestionIds` | 通常ラウンドで一度でも誤答した問題のquestionId配列（JSON配列文字列。未記録は空文字列） | 3.11.2節（Phase3D-2前提で追加確定・末尾追加・本番未反映） |
-| `runId` | TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するID。`sourceType`が`testset`/`testset_review`のときのみ値あり、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加・**ローカル実装のみ・本番未反映**） |
-| `reviewRound` | TestSet誤答復習の周数。`sourceType="testset"`（通常group）は`0`固定、`sourceType="testset_review"`は`1`以上の整数（1周目=1、2周目=2…）、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加・**ローカル実装のみ・本番未反映**）。`attempt_progress.retryRound`（1 Attempt内の「間違えた問題を最後にもう一度出す」巡数）とは別概念、意味を混同しない |
+| `initialWrongQuestionIds` | 通常ラウンドで一度でも誤答した問題のquestionId配列（JSON配列文字列。未記録は空文字列） | 3.11.2節（Phase3D-2前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） |
+| `runId` | TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するID。`sourceType`が`testset`/`testset_review`のときのみ値あり、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） |
+| `reviewRound` | TestSet誤答復習の周数。`sourceType="testset"`（通常group）は`0`固定、`sourceType="testset_review"`は`1`以上の整数（1周目=1、2周目=2…）、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**）。`attempt_progress.retryRound`（1 Attempt内の「間違えた問題を最後にもう一度出す」巡数）とは別概念、意味を混同しない |
 
 主キー: `attemptId`。
 
-**Phase4E-0A前提（`runId`/`reviewRound`追加、ローカル実装のみ・本番未反映）**: 本番反映手順・GAS側実装は`docs/operations/learning-record-gas/RunIdentity.gs`参照。
+**Phase4E-0A実施時点（2026-09-12、ローカル実装完了時点の記録）**: `runId`/`reviewRound`追加はこの時点ではローカル実装のみで本番未反映だった。本番反映手順・GAS側実装は`docs/operations/learning-record-gas/RunIdentity.gs`参照。**現在状態（2026-09-13時点）**: 本番Spreadsheet/GASへ反映済みであることを実測確認済み（Phase4E-0B本番API検証、および2026-09-13の教室PC実機確認の双方で確認）。
 
-**Phase4E-0B前提（無停止移行、ローカル設計のみ・本番未反映）**: 4E-0A時点は「GAS deployとWeb deployの間、TestSet実行が完全停止する」という制約があったが、GAS側に移行期間限定の許容ルール（`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`フラグ）を追加し解消した。移行期間中のGASは、new payload（`runId`/`reviewRound`を両方指定、新Web契約）とlegacy payload（両方省略、旧Web互換。`runId`/`reviewRound`は空文字列で保存）の両方を受け付ける（片方のみの指定は常にエラー）。詳細・rollout順序は`RunIdentity.gs`末尾の互換性マトリクス参照。
+**Phase4E-0B実施時点（2026-09-12、無停止移行のためのローカル設計完了時点の記録）**: 4E-0A時点は「GAS deployとWeb deployの間、TestSet実行が完全停止する」という制約があったが、GAS側に移行期間限定の許容ルール（`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`フラグ）を追加し解消した。移行期間中のGASは、new payload（`runId`/`reviewRound`を両方指定、新Web契約）とlegacy payload（両方省略、旧Web互換。`runId`/`reviewRound`は空文字列で保存）の両方を受け付ける（片方のみの指定は常にエラー）。詳細・rollout順序は`RunIdentity.gs`末尾の互換性マトリクス参照。**現在状態（2026-09-13時点）**: このフラグはtrueを維持したまま本番反映済み（strict化への切替は未実施）。
 
 **Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`, `rawTimeSeconds`, `penalizedTimeSeconds`等のタイマー・ペナルティ関連列。Phase7（スピードラン＋ランキング）で必要になった時点で追加を検討する。
 
-**`initialWrongQuestionIds`列について（Phase3D-2前提）**: 空文字列＝未記録（旧Attempt、null相当）、`"[]"`＝記録済みで誤答0件、`'["Q2","Q4"]'`のようなJSON配列文字列＝記録済みの誤答、の3状態を区別する。既存行への機械的な値補完はしない。本番反映時は既存の`retryWrongEnabled`列追加（10.3節）と同じ手順（コードdeploy前に本番Spreadsheetへ手動で列を追加）を踏む。詳細は`docs/operations/learning-record-gas/AttemptInitialWrongQuestionIds.gs`参照。
+**`initialWrongQuestionIds`列について（Phase3D-2前提）**: 空文字列＝未記録（旧Attempt、null相当）、`"[]"`＝記録済みで誤答0件、`'["Q2","Q4"]'`のようなJSON配列文字列＝記録済みの誤答、の3状態を区別する。既存行への機械的な値補完はしない。本番反映時は既存の`retryWrongEnabled`列追加（10.3節）と同じ手順（コードdeploy前に本番Spreadsheetへ手動で列を追加）を踏んで反映済み（2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認）。詳細は`docs/operations/learning-record-gas/AttemptInitialWrongQuestionIds.gs`参照。
 
 ### 10.2 `answer_records`シート
 
@@ -194,7 +194,7 @@ data/
 
 **Phase5では追加しない列**: `responseTimeSeconds`, `timedOut`。Phase7以降で再検討する。
 
-### 10.3 `attempt_progress`シート（本番14列。Phase4E-0A前提で`runId`/`reviewRound`を追加した16列版はローカル実装のみ・本番未反映）
+### 10.3 `attempt_progress`シート（本番16列。Phase4E-0A前提で追加した`runId`/`reviewRound`を含め、2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み）
 
 管理場所は`attempts`/`answer_records`と同じAttempt/AnswerRecord専用Spreadsheet。詳細な実装・テスト結果・本番反映時の注意は`docs/operations/learning-record-gas/README.md`参照。
 
@@ -214,8 +214,8 @@ data/
 | `status` | `in_progress` / `abandoned`の2値のみ | 同上 |
 | `startedAt` | このprogressの開始日時（初回保存時のみ確定、以降書き換えない） | 同上 |
 | `updatedAt` | 最終更新日時（GASサーバー時刻を正本とする） | 同上 |
-| `runId` | `attempts.runId`と同じ意味（Phase4E-0A前提で追加確定・末尾追加・**ローカル実装のみ・本番未反映**） | 3.12.2節 |
-| `reviewRound` | `attempts.reviewRound`と同じ意味（Phase4E-0A前提で追加確定・末尾追加・**ローカル実装のみ・本番未反映**） | 3.12.2節 |
+| `runId` | `attempts.runId`と同じ意味（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） | 3.12.2節 |
+| `reviewRound` | `attempts.reviewRound`と同じ意味（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） | 3.12.2節 |
 
 主キー: `attemptId`。冪等upsert（`saveAttemptProgress`）。`Attempt.completed`は重複保存しない。
 

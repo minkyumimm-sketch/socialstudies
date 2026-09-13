@@ -89,7 +89,7 @@
 | 項目 | 内容 |
 |---|---|
 | 目的 | Attemptの開始をサーバに記録し、途中終了も検知できるようにする |
-| リクエスト | `POST { action:"startAttempt", attemptId, studentId, questionSetId, questionSetVersion, fieldId, sourceType, testSetId, startedAt, runId, reviewRound }`（`runId`/`reviewRound`はPhase4E-0A前提で追加・**ローカル実装のみ・本番未反映**） |
+| リクエスト | `POST { action:"startAttempt", attemptId, studentId, questionSetId, questionSetVersion, fieldId, sourceType, testSetId, startedAt, runId, reviewRound }`（`runId`/`reviewRound`はPhase4E-0A前提で追加。**2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み**） |
 | レスポンス | `{ ok: true }` または `{ ok: false, error }` |
 | 必須項目 | `attemptId`, `studentId`, `questionSetId`, `questionSetVersion`, `fieldId` |
 | 任意項目 | `sourceType`（`normal`/`weak_review`/`dormant_review`/`testset`/`testset_review`、未送信時はサーバ側で起点不明として扱う。`testset_review`はPhase3D-4A前提で追加、domain-model-v1.md 3.11.3節参照）, `testSetId`（`sourceType="testset"`または`sourceType="testset_review"`のときのみ値を持つ、それ以外は`null`）, `runId`/`reviewRound`（`sourceType="testset"`/`"testset_review"`のときのみ必須、それ以外は指定禁止。domain-model-v1.md 3.11.4節参照。本番反映手順は`docs/operations/learning-record-gas/RunIdentity.gs`）。**Phase4E-0B前提**: GAS側は無停止移行のため、移行期間限定で「new payload」（`runId`/`reviewRound`を両方指定、新Web契約）と「legacy payload」（両方省略、旧Web互換）の両方を受け付ける（`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`フラグ、片方のみの指定は常にエラー）。Web側は常にnew payloadのみを送信し、legacy payload送信ロジックは持たない |
@@ -119,7 +119,7 @@
 | リクエスト | `POST { action:"completeAttempt", attemptId, completedAt, score, totalCount, initialWrongQuestionIds }` |
 | レスポンス | `{ ok: true }` または `{ ok: false, error }` |
 | 必須項目 | `attemptId`, `completedAt`, `score`, `totalCount` |
-| 任意項目 | `initialWrongQuestionIds`（Phase3D-2前提で追加、本番未反映）: JSON配列文字列、または未記録を表す空文字列。省略（キー自体が無い）も許容し、その場合は空文字列を保存したものとして扱う（旧Webとの互換性のため必須にしない）。非空の場合は空でない一意な文字列の配列であることをJSON.parse後に検証し、不正な場合はエラーとする。詳細は`docs/operations/learning-record-gas/AttemptInitialWrongQuestionIds.gs`参照 |
+| 任意項目 | `initialWrongQuestionIds`（Phase3D-2前提で追加。**2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み**）: JSON配列文字列、または未記録を表す空文字列。省略（キー自体が無い）も許容し、その場合は空文字列を保存したものとして扱う（旧Webとの互換性のため必須にしない）。非空の場合は空でない一意な文字列の配列であることをJSON.parse後に検証し、不正な場合はエラーとする。詳細は`docs/operations/learning-record-gas/AttemptInitialWrongQuestionIds.gs`参照 |
 | エラー | 該当`attemptId`なし（`startAttempt`未実施）、既に完了済み |
 | 冪等性 | 冪等（同じ`attemptId`への2回目の完了リクエストは何もしない、または同じ結果を返す） |
 | 認証・本人確認 | `startAttempt`時の`studentId`と一致するかの確認が望ましい |
@@ -158,14 +158,16 @@
 | リクエスト（旧・仮） | `GET ?action=getLearningSummary&studentId=...` |
 | レスポンス（旧・仮） | `{ ok: true, summaries: [{ fieldId, unit, attemptedCount, correctCount, correctRate, lastAnsweredAt }] }` |
 
-### 5.7 `saveAttemptProgress`（書込み・確定、Phase3B-1で新設・本番未反映）
+### 5.7 `saveAttemptProgress`（書込み・確定、Phase3B-1で新設）
 
-**本節はPhase3B-1（2026-09-01）のGAS側設計確定・ローカルNode vmサンドボックス検証のみであり、本番未反映（実装は`docs/operations/learning-record-gas/AttemptProgress.gs`参照、反映方法は同ディレクトリのREADME参照）。**
+**Phase3B-1確定時点（2026-09-01）の記録**: 本節はPhase3B-1のGAS側設計確定・ローカルNode vmサンドボックス検証のみであり、本番未反映（実装は`docs/operations/learning-record-gas/AttemptProgress.gs`参照、反映方法は同ディレクトリのREADME参照）。
+
+**現在状態（2026-09-13時点）**: 本番Spreadsheet・本番GASへの反映を実測確認済み（`runId`/`reviewRound`を含む、Phase4E-0B本番API検証で確認）。
 
 | 項目 | 内容 |
 |---|---|
 | 目的 | 未完了Attemptの進行状態（`attempt_progress`シート、`domain-model-v1.md` 3.12.2節）をupsertする |
-| リクエスト | `POST { action:"saveAttemptProgress", attemptId, studentId, fieldId, unit, sourceType, testSetId, questionIds, currentQuestionIndex, wrongQuestionIds, retryRound, retryWrongEnabled, status, startedAt, updatedAt, runId, reviewRound }`（`questionIds`/`wrongQuestionIds`はJSON配列文字列、`retryWrongEnabled`はboolean。`runId`/`reviewRound`はPhase4E-0A前提で追加・**ローカル実装のみ・本番未反映**） |
+| リクエスト | `POST { action:"saveAttemptProgress", attemptId, studentId, fieldId, unit, sourceType, testSetId, questionIds, currentQuestionIndex, wrongQuestionIds, retryRound, retryWrongEnabled, status, startedAt, updatedAt, runId, reviewRound }`（`questionIds`/`wrongQuestionIds`はJSON配列文字列、`retryWrongEnabled`はboolean。`runId`/`reviewRound`はPhase4E-0A前提で追加。**2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み**） |
 | レスポンス | `{ ok: true }` または `{ ok: false, error }` |
 | 必須項目 | `attemptId`, `studentId`, `fieldId`, `sourceType`, `questionIds`（1件以上、重複不可）, `retryWrongEnabled`（boolean、Phase3C前提で必須化）。`sourceType="testset"`または`sourceType="testset_review"`のときのみ`testSetId`も必須。`unit`は任意（`weak_review`/`dormant_review`等、単一unitで表現できない起点では空欄許容） |
 | `sourceType`/`testSetId`のルール | 既存`handleStartAttempt`と同じルールを踏襲：`sourceType="testset"`または`sourceType="testset_review"`のときのみ`testSetId`必須、それ以外では`testSetId`の指定自体を禁止（エラー）。`sourceType`は`attempt_progress`では省略不可（既存`Attempt.sourceType`は後方互換のため省略可だが、`attempt_progress`はレガシーデータを持たない新設テーブルのため、再開候補の判定を単純化する目的で必須とする、Phase3B-1確定）。`testset_review`はPhase3D-4A前提で追加（domain-model-v1.md 3.11.3節）、Phase3D-4A時点ではこのsourceTypeを実際に送信するWeb側の経路はまだ存在しない |
@@ -177,7 +179,7 @@
 | `startedAt`の扱い | 初回保存時のみ確定し、以降の更新で書き換えない |
 | 認証・本人確認 | `studentId`の自己申告に依存（既存4APIと同水準） |
 
-### 5.8 `getAttemptProgress`（読み取り・確定、Phase3B-1で新設・本番未反映）
+### 5.8 `getAttemptProgress`（読み取り・確定、Phase3B-1で新設。**2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み**）
 
 | 項目 | 内容 |
 |---|---|
@@ -190,7 +192,7 @@
 | 冪等性 | 冪等（GET・副作用なし） |
 | 認証・本人確認 | 本人以外の学習履歴を取得できないようにする認可チェックを推奨（既存`getStudentHistory`と同じ要確認事項） |
 
-### 5.9 `abandonAttemptProgress`（書込み・確定、Phase3B-1で新設・本番未反映）
+### 5.9 `abandonAttemptProgress`（書込み・確定、Phase3B-1で新設。**2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み**）
 
 | 項目 | 内容 |
 |---|---|

@@ -1,6 +1,8 @@
 // RunIdentity.gs
 //
-// Phase4E-0A: TestSet誤答復習の「全問正解まで自動反復」（Phase4E本体、まだ未実装）を
+// Phase4E-0A: TestSet誤答復習の「全問正解まで自動反復」（Phase4E本体、本ファイル作成時点では
+// まだ未実装。2026-09-13時点ではPhase4E-1「全問正解まで自動反復」・Phase4E-2「もう一度復習する」
+// とも実装・Git main反映済み。docs/specification/domain-model-v1.md 3.11.5節参照）を
 // 安全に実現するための基盤として、TestSet実行1回を一意に識別する runId と、
 // 復習の周数を表す reviewRound を、学習記録GAS（コード.gs/SheetHelpers.gs/
 // AttemptProgress.gs）へ追加する。
@@ -17,7 +19,12 @@
 // （コード.gs/SheetHelpers.gs/AttemptProgress.gs）へユーザーが手動で反映するための、
 // 版管理用の正本コピーである。本ファイル自体はこのリポジトリの実行環境からは一切参照されない。
 //
-// 【本番反映範囲（今回はローカル実装のみ、本番未反映）】
+// 【本番反映範囲（本ファイル作成時点はローカル実装のみ・本番未反映の記録。
+//   現在状態（2026-09-13時点）：本番Spreadsheet/GASへの反映を実測確認済み。
+//   ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_ はtrueを維持したまま本番稼働中（strict化は未実施）。
+//   さらに、本番GASは既存attemptId/既存progressに対しrunId/reviewRoundが異なる値で
+//   再送された場合を拒否するfail-closed検証を実施していることをPhase4E-0B本番API検証で
+//   確認し、本ファイルの実装も追随済み（下記の互換性マトリクス・validateRunIdentity_参照）】
 // 1. SheetHelpers.gs: ATTEMPTS_HEADERSの末尾へ 'runId', 'reviewRound' を追加（13→15列）。
 // 2. AttemptProgress.gs: ATTEMPT_PROGRESS_HEADERSの末尾へ 'runId', 'reviewRound' を追加（14→16列）。
 // 3. コード.gs: handleStartAttempt を本ファイルの完成版へ差し替え。
