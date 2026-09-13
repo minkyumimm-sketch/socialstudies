@@ -50,6 +50,18 @@
 //   test-set-review-resume.jsが、runId空のprogressをvalidationで拒否する設計のため、
 //   GAS側での特別な互換処理・推測migrationは不要）。
 //
+// 【暗記モード-0での拡張（2026-09-13、MemorizeSourceType.gs参照）】
+// - sourceType="memorize"を、runId/reviewRoundを再利用する3つ目のsourceTypeとして追加。
+//   TestSet（testset/testset_review）とは無関係の別系統。runId必須（空文字不可）、
+//   reviewRoundは1以上の整数必須（0固定という概念はない、1 Round = 1 Attemptの想定）。
+//   testSetIdは指定禁止（既存のtestset/testset_review専用ルールを維持）。
+// - 既存の本番トラフィックが一切存在しない新規sourceTypeのため、
+//   ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_によるlegacy payload許容（下記参照）は
+//   testset/testset_reviewのみに適用され、memorizeには適用しない（初日からstrict契約）。
+// - 本拡張はrun identity契約（validateRunIdentity_・SOURCE_TYPE_VALUES）のみを確立する。
+//   UI・runner・Round反復・resume・「もう一度」機能は今回一切実装しない
+//   （暗記モード-0のスコープ、暗記モード-1以降で別途対応）。
+//
 // 【Phase4E-0B追加: 無停止移行（旧Web → 新GAS → 新Web）のためのlegacy/new payload契約】
 // 4E-0A時点のvalidateRunIdentity_()は「testset/testset_reviewは常にrunId/reviewRoundを
 // 必須とする」strict契約のみだった。この契約のままGASを先行deployすると、まだrunId/
@@ -150,6 +162,11 @@
 //   ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_ をfalseへ変更する1箇所の修正だけで、
 //   legacy payload（両方省略）を全面rejectするstrict契約へ切り替えられる
 //   （validation関数の呼び出し元・分岐構造は変更不要）。
+//
+// 【暗記モード-0（sourceType="memorize"）について】
+// Web側validateRunIdentity()・GAS側validateRunIdentity_()の両方に同時にmemorize分岐を
+// 追加しており、legacy/new payloadという区別自体が存在しない（既存の本番トラフィックが
+// 無いため、両側とも常にrunId/reviewRoundを必須とするstrict契約のみ）。
 // ---------------------------------------------------------------------------
 
 // Phase4E-0B: 移行期間フラグ。旧Web（公開中、runId/reviewRoundを一切送らない）からの
@@ -196,6 +213,21 @@ function validateRunIdentity_(sourceType, rawRunId, rawReviewRound) {
     // testset_review
     if (reviewRoundNum === null || reviewRoundNum < 1 || Math.floor(reviewRoundNum) !== reviewRoundNum) {
       throw new Error('sourceType=testset_reviewの場合、reviewRoundは1以上の整数である必要があります。');
+    }
+    return { runId: runId, reviewRound: reviewRoundNum };
+  }
+
+  // 暗記モード-0（2026-09-13、MemorizeSourceType.gs参照）: TestSet（testset/testset_review）
+  // とは無関係の別系統のsourceTypeだが、runId/reviewRoundの2属性を再利用する。
+  // testset/testset_reviewと異なり、既存の本番トラフィックが一切存在しない新規sourceTypeの
+  // ため、ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_によるlegacy payload許容は適用しない
+  // （runId/reviewRoundを省略したpayloadは常にreject、初日からstrict契約のみ）。
+  if (sourceType === 'memorize') {
+    if (!runId) {
+      throw new Error('sourceType=memorizeの場合、runIdは必須です。');
+    }
+    if (reviewRoundNum === null || reviewRoundNum < 1 || Math.floor(reviewRoundNum) !== reviewRoundNum) {
+      throw new Error('sourceType=memorizeの場合、reviewRoundは1以上の整数である必要があります。');
     }
     return { runId: runId, reviewRound: reviewRoundNum };
   }
@@ -691,4 +723,11 @@ function handleAbandonAttemptProgress(payload) {
 // 確認できたら）は、ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_をfalseへ変更し、legacy payload
 // （両方省略）も含めてstrict契約のみを受け付けるよう切り替えることを推奨する
 // （切替後の互換性はA/Dのみに縮退し、B/Cは旧Web/旧GASそのものが無くなった前提で無関係になる）。
+//
+// E. sourceType="memorize"（暗記モード-0、Web/GAS双方が同時にstrict契約のみ持つため
+//    A〜Dのような新旧世代の組み合わせは存在しない）: 本ファイル反映後のGASは
+//    memorizeをSOURCE_TYPE_VALUESの正規値として受理するが、Web側UI/runnerは
+//    今回未実装のため、実際にsourceType=memorizeのstartAttempt/saveAttemptProgress
+//    リクエストが送信されることは無い（契約のみが先行して整う状態、C.と同種の
+//    「機能未接続だが安全」な状態）。
 // ---------------------------------------------------------------------------

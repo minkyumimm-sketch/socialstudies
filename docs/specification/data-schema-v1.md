@@ -155,16 +155,16 @@ data/
 | `questionSetId` | 問題セットID | 同上 |
 | `questionSetVersion` | 問題セットバージョン | 同上 |
 | `fieldId` | 科目キー | 同上 |
-| `sourceType` | Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`/`testset_review`） | 3.11.1節（Phase5-0で追加確定）・3.11.3節（`testset_review`、Phase3D-4A前提で追加） |
-| `testSetId` | `testset`/`testset_review`起点のみ値あり、それ以外は空 | 同上 |
+| `sourceType` | Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`/`testset_review`/`memorize`） | 3.11.1節（Phase5-0で追加確定）・3.11.3節（`testset_review`、Phase3D-4A前提で追加）・3.11.6節（`memorize`、暗記モード-0前提で追加。UI/runner/resumeは未実装） |
+| `testSetId` | `testset`/`testset_review`起点のみ値あり、それ以外（`memorize`含む）は空 | 同上 |
 | `startedAt` | 開始日時（ISO 8601） | 3.11節 |
 | `completedAt` | 完了日時（ISO 8601、未完了は空） | 同上 |
 | `completed` | 完了フラグ（true/false） | 同上 |
 | `score` | 正解数 | 同上 |
 | `totalCount` | 出題数 | 同上 |
 | `initialWrongQuestionIds` | 通常ラウンドで一度でも誤答した問題のquestionId配列（JSON配列文字列。未記録は空文字列） | 3.11.2節（Phase3D-2前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） |
-| `runId` | TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するID。`sourceType`が`testset`/`testset_review`のときのみ値あり、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**） |
-| `reviewRound` | TestSet誤答復習の周数。`sourceType="testset"`（通常group）は`0`固定、`sourceType="testset_review"`は`1`以上の整数（1周目=1、2周目=2…）、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**）。`attempt_progress.retryRound`（1 Attempt内の「間違えた問題を最後にもう一度出す」巡数）とは別概念、意味を混同しない |
+| `runId` | TestSet実行1回（通常group〜全review周〜任意反復）、または暗記モードの実行1回を一意に識別するID。`sourceType`が`testset`/`testset_review`/`memorize`のときのみ値あり、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**）・3.11.6節（`memorize`、暗記モード-0前提でrun identity契約のみ追加。本番未反映） |
+| `reviewRound` | TestSet誤答復習の周数、または暗記モードのRound番号。`sourceType="testset"`（通常group）は`0`固定、`sourceType="testset_review"`/`"memorize"`は`1`以上の整数（1周目/1 Round目=1、2周目/2 Round目=2…）、それ以外は空文字列 | 3.11.3節（Phase4E-0A前提で追加確定・末尾追加。**2026-09-13時点で本番Spreadsheet/GASへ反映済みを実測確認**）・3.11.6節（`memorize`、暗記モード-0前提でrun identity契約のみ追加。本番未反映）。`attempt_progress.retryRound`（1 Attempt内の「間違えた問題を最後にもう一度出す」巡数）とは別概念、意味を混同しない |
 
 主キー: `attemptId`。
 
@@ -204,8 +204,8 @@ data/
 | `studentId` | 生徒ID（`attempts.studentId`と一致必須） | 同上 |
 | `fieldId` | 科目キー | 同上 |
 | `unit` | 単元（任意。`weak_review`/`dormant_review`等では空欄許容） | 同上 |
-| `sourceType` | `normal`/`testset`/`weak_review`/`dormant_review`/`testset_review`のいずれか（`testset_review`はPhase3D-4A前提で追加） | 同上 |
-| `testSetId` | `sourceType="testset"`または`sourceType="testset_review"`のときのみ必須、それ以外は空 | 同上 |
+| `sourceType` | `normal`/`testset`/`weak_review`/`dormant_review`/`testset_review`/`memorize`のいずれか（`testset_review`はPhase3D-4A前提で追加、`memorize`は暗記モード-0前提で追加） | 同上 |
+| `testSetId` | `sourceType="testset"`または`sourceType="testset_review"`のときのみ必須、それ以外（`memorize`含む）は空 | 同上 |
 | `questionIds` | 開始時点の出題順snapshot（JSON配列文字列、順序保持） | 同上 |
 | `currentQuestionIndex` | 次に表示すべき問題のindex（0-based、整数） | 同上 |
 | `wrongQuestionIds` | retry対象の順序付き配列（JSON配列文字列、空配列可） | 同上 |

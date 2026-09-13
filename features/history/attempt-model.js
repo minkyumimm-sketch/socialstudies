@@ -31,19 +31,25 @@
  * @property {number} totalCount - 出題数
  * @property {number|null} rawTimeSeconds - ペナルティを含まない実測タイム
  * @property {number|null} penalizedTimeSeconds - ペナルティ込みタイム
- * @property {string|null} sourceType - Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`、
- *   Phase5-6で追加。省略時・旧データはnull＝起点不明として扱う。domain-model-v1.md 3.11.1節参照）
- * @property {string|null} testSetId - `sourceType==="testset"`のときのみ値を持つ、それ以外はnull
+ * @property {string|null} sourceType - Attemptの起点（`normal`/`weak_review`/`dormant_review`/`testset`/
+ *   `testset_review`/`memorize`。Phase5-6で追加、Phase3D-4Aで`testset_review`追加、
+ *   暗記モード-0（2026-09-13）で`memorize`追加。省略時・旧データはnull＝起点不明として扱う。
+ *   domain-model-v1.md 3.11.1節参照）
+ * @property {string|null} testSetId - `sourceType==="testset"`または`"testset_review"`のときのみ値を持つ、
+ *   それ以外（`memorize`含む）はnull
  * @property {string[]|null} initialWrongQuestionIds - そのAttemptの通常ラウンド（retryMode===false の間）で
  *   一度でも isCorrect!==true となった問題のquestionId配列（Phase3D-2前提で追加）。retry結果で書き換えない。
  *   null＝情報が記録されていない（旧Attempt・GAS側で列が空欄）、[]＝記録済みで誤答0件、を明確に区別する。
- * @property {string|null} runId - TestSet実行1回（通常group〜全review周〜任意反復）を一意に識別するID
- *   （Phase4E-0A前提で追加・ローカル実装のみ・本番未反映）。`sourceType==="testset"`/`"testset_review"`
- *   のときのみ値を持つ、それ以外はnull。同一TestSet実行中は通常group・全review周で同一値を維持する。
- * @property {number|null} reviewRound - TestSet誤答復習の周数（Phase4E-0A前提で追加・ローカル実装のみ・
- *   本番未反映）。`sourceType==="testset"`（通常group）は0固定、`sourceType==="testset_review"`は
- *   1以上（1周目=1、2周目=2…）。それ以外のsourceTypeはnull。retryWrongEnabled起点の
- *   「間違えた問題を最後にもう一度出す」機能のretryRound（1 Attempt内の巡数）とは別概念、意味を混同しない。
+ * @property {string|null} runId - TestSet実行1回（通常group〜全review周〜任意反復）、または暗記モードの
+ *   実行1回を一意に識別するID（Phase4E-0A前提で追加、2026-09-13時点で本番Spreadsheet/GASへの
+ *   反映を実測確認済み）。`sourceType==="testset"`/`"testset_review"`/`"memorize"`（暗記モード-0で追加）
+ *   のときのみ値を持つ、それ以外はnull。同一実行中は通常group・全review周・全Roundで同一値を維持する。
+ * @property {number|null} reviewRound - TestSet誤答復習の周数、または暗記モードのRound番号
+ *   （Phase4E-0A前提で追加、2026-09-13時点で本番Spreadsheet/GASへの反映を実測確認済み）。
+ *   `sourceType==="testset"`（通常group）は0固定、`sourceType==="testset_review"`/`"memorize"`
+ *   （暗記モード-0で追加）は1以上（1周目/1 Round目=1、2周目/2 Round目=2…）。それ以外のsourceTypeはnull。
+ *   retryWrongEnabled起点の「間違えた問題を最後にもう一度出す」機能のretryRound
+ *   （1 Attempt内の巡数）とは別概念、意味を混同しない。
  */
 
 import { toTrimmedString, toBooleanFlag, toNullableNumber } from "../common/field-helpers.js";

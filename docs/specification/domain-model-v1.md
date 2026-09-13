@@ -254,7 +254,7 @@ Phase4E-0/0Aのrunid/reviewRound基盤を用いて、TestSet誤答復習（`sour
 | `buildReviewRestartSnapshot({testSetLabel, testSetId, runId, groups, results, currentReviewRound})` | `test-set-review-model.js`。`finishReviewRun()`によるrunner状態リセットが行われる**前**に、再復習に必要な情報（元TestSet・runId・group構成・直前周の結果・直前周番号）をプレーンデータとしてsnapshot化する。 |
 | `getReviewRestartSnapshot()` / `restartReviewFromSnapshot(snapshot)` | `test-set-runner.js`。前者はコントローラーから現在のsnapshotを取得するための読み出し専用アクセサ、後者はsnapshotを受け取り新しい復習周（`reviewRound`は前回最終周+1、`runId`は同一維持）を実際に開始する。 |
 | UI表示条件 | 「もう一度復習する」ボタンは、直前に完了した周が全問正解だった場合にのみ表示される（`test-set-student-controller.js`の`completionRestart`/`restartInFlight`モジュール変数で二重押下・表示状態を管理）。「ホームへ戻る」（`handleBackToTestSetsRequest`）を選んだ場合はsnapshotを破棄し通常のTestSet選択画面へ戻る。 |
-| `sourceType="memorize"`との関係 | 本節はTestSet誤答復習（`testset_review`）の反復・再復習機能である。将来検討中の暗記モード（`sourceType="memorize"`）は本節時点では**未決定・未実装**であり、本節の内容が暗記モードの仕様を意味するものではない（2026-09-13 M0-A監査で設計検討のみ実施、実装は着手していない）。 |
+| `sourceType="memorize"`との関係 | 本節はTestSet誤答復習（`testset_review`）の反復・再復習機能である。暗記モード（`sourceType="memorize"`）は、暗記モード-0（2026-09-13）でsourceType許可値・run identity契約（3.11.6節参照）のみが確立された段階であり、本節（TestSet誤答復習のUI・runner・Round反復・resume）の内容が暗記モードの仕様を意味するものではない。暗記モード自体のUI・runner・Round反復・resume・「もう一度」機能は暗記モード-0時点でも未実装（暗記モード-1以降で別途実装予定）。 |
 
 ##### resume時のquestionId集合比較（`982c1af`、順序非依存化）
 
@@ -265,6 +265,22 @@ Phase4E-1実装時点のresume検証は、`reviewGroup.questionIds`と`progress.
 | `isSameQuestionIdSet(groupIds, progressIds)` | 2つのquestionId配列を**集合として**比較する（順序を問わない）。両方が`Array`であること、要素数が一致すること、重複がないこと、空文字列・非string要素を含まないこと、をすべて満たした上で集合として一致する場合のみ`true`を返す。いずれか1つでも満たさなければfail-closedで`false`（resume不可）とする。 |
 | `toUniqueQuestionIdSet(ids)` | `isSameQuestionIdSet`が内部で使う正規化ヘルパー。重複除去・非string/空文字列の検出に用いる。 |
 | 復元後の出題順 | 集合一致の検証方法が変わっても、実際に復元されるquiz内の出題順は従来どおり`progress.questionIds`に保存された順序をそのまま使う（`prepareResumedQuiz()`は無変更）。 |
+
+#### 3.11.6 `sourceType="memorize"`（暗記モード-0、2026-09-13確定。UI/runner/resume/Round反復は未実装）
+
+暗記モード-0で、`sourceType`の許可値へ`memorize`を追加し、`runId`/`reviewRound`（3.11.4節）を再利用するrun identity契約のみを確立した。TestSet（`testset`/`testset_review`）とは無関係の別系統のsourceTypeである。**本節の内容は契約の確立のみを表し、暗記モード機能自体（画面・出題・Round進行・中断復帰）の実装ではない。**
+
+| 項目 | 内容 |
+|---|---|
+| `sourceType`許可値 | `normal`/`weak_review`/`dormant_review`/`testset`/`testset_review`/`memorize`の6値（Web側は明示的なenum実装を持たず、GAS側`SOURCE_TYPE_VALUES`が正本。`docs/operations/learning-record-gas/MemorizeSourceType.gs`参照）。 |
+| `runId` | `sourceType="memorize"`のときも必須（空文字列不可）。TestSetのrunIdとは無関係の別の実行1回を識別する値（暗記モードの1回の学習実行を指す）。 |
+| `reviewRound` | `sourceType="memorize"`のときは1以上の整数が必須（`testset`のような0固定の概念は無い）。暗記モードのRound番号として利用し、1 Round = 1 Attemptを想定する。将来「もう一度」的な機能を追加する場合も、`runId`を維持したまま`reviewRound`を単調増加させる方針（`testset_review`の設計を踏襲、リセットしない）。 |
+| `testSetId` | `memorize`では指定禁止（`testset`/`testset_review`専用ルールをそのまま維持、`memorize`は自動的にこのルールの「禁止」側に該当する）。 |
+| Web側契約実装 | `features/test-set-runner/test-set-run-identity.js`の`validateRunIdentity()`へ`memorize`分岐を追加（runId必須・reviewRound1以上の整数必須）。 |
+| GAS側契約実装 | `docs/operations/learning-record-gas/RunIdentity.gs`の`validateRunIdentity_()`へ`memorize`分岐を追加。`testset`/`testset_review`専用の移行期間フラグ`ALLOW_LEGACY_RUN_IDENTITY_PAYLOAD_`は`memorize`には適用しない（既存の本番トラフィックが存在しない新規sourceTypeのため、初日からstrict契約のみ）。 |
+| Spreadsheet/シート変更 | 0件。既存の`attempts`/`attempt_progress`の`runId`/`reviewRound`列（Phase4E-0A/0Bで追加済み）をそのまま再利用する。新規列・新規シートは追加しない。 |
+| History/Weakness | 今回変更なし。`RETRY_ELIGIBLE_SOURCE_TYPES`（`features/history/history-renderer.js`）へ`memorize`は追加しない。Weakness集計ロジックも無変更。 |
+| 未実装（暗記モード-0のスコープ外） | UI（画面・ボタン）、runner（Round進行の実行ロジック）、resume（続きから復元）、「もう一度」機能。いずれも暗記モード-1以降で別途設計・実装する。本番Spreadsheet/GASへの反映も今回は行っていない（Gitリポジトリ管理側の変更のみ）。 |
 
 #### 3.11.2 `initialWrongQuestionIds`（オプション属性、Phase3D-2前提で確定）
 

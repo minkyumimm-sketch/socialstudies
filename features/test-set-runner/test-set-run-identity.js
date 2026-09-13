@@ -14,6 +14,16 @@
 //   sourceType="testset"/"testset_review"のときのみ必須、それ以外は指定禁止。
 // - reviewRound: sourceType="testset"（通常group）は0固定、"testset_review"は1以上の整数。
 //   それ以外のsourceTypeは指定禁止。
+//
+// 【暗記モード-0（2026-09-13、docs/operations/learning-record-gas/RunIdentity.gs・
+//   MemorizeSourceType.gs参照）で追加した契約】
+// - sourceType="memorize"は、TestSet（testset/testset_review）とは無関係の別系統だが、
+//   同じrunId/reviewRoundの2属性を再利用する。runId必須（空文字不可）、reviewRoundは
+//   1以上の整数必須（0固定という概念を持たない。1 Round = 1 Attemptの想定）。
+// - testSetIdはmemorizeでは指定禁止（既存のtestset/testset_review専用ルールを維持、
+//   本関数の対象外）。
+// - 本追加はrun identity契約のみを確立するものであり、UI・runner・Round反復・resume・
+//   「もう一度」機能は今回一切実装しない（暗記モード-0のスコープ、暗記モード-1以降で対応）。
 
 /**
  * @param {Object} params
@@ -43,6 +53,18 @@ export function validateRunIdentity({ sourceType, runId, reviewRound }) {
     }
     if (!hasReviewRound || !Number.isInteger(Number(reviewRound)) || Number(reviewRound) < 1) {
       return { ok: false, errorMessage: "sourceType=testset_reviewの場合、reviewRoundは1以上の整数である必要があります。" };
+    }
+    return { ok: true };
+  }
+
+  // 暗記モード-0（2026-09-13）: TestSetとは無関係だが、runId必須・reviewRoundは
+  // 1以上の整数必須という点はtestset_reviewと同じ形の契約を持つ（0固定という概念はない）。
+  if (sourceType === "memorize") {
+    if (!hasRunId) {
+      return { ok: false, errorMessage: "sourceType=memorizeの場合、runIdは必須です。" };
+    }
+    if (!hasReviewRound || !Number.isInteger(Number(reviewRound)) || Number(reviewRound) < 1) {
+      return { ok: false, errorMessage: "sourceType=memorizeの場合、reviewRoundは1以上の整数である必要があります。" };
     }
     return { ok: true };
   }
