@@ -39,9 +39,62 @@ function isSubsetOf(ids, allowedIds) {
   return (Array.isArray(ids) ? ids : []).every((id) => allowedSet.has(id));
 }
 
-function arraysEqualInOrder(a, b) {
-  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-  return a.every((value, index) => value === b[index]);
+/**
+ * 全要素が「空でない文字列」で、かつ重複が無い場合のみSetを返す（それ以外はnull）。
+ * 重複・空文字・非stringは「同一集合かどうかを安全に判断できない異常データ」として
+ * 呼び出し側でrejectさせるため、ここで正規化・補完は一切行わない。
+ */
+function toUniqueQuestionIdSet(ids) {
+  const set = new Set();
+
+  for (const id of ids) {
+    if (typeof id !== "string" || id === "") return null;
+    if (set.has(id)) return null;
+    set.add(id);
+  }
+
+  return set;
+}
+
+/**
+ * reviewGroupのquestionIdsと、保存済みprogress.questionIdsが「順序を無視して同一の
+ * questionId集合」かどうかを判定する。
+ *
+ * 【なぜ順序一致を要求しないか】review roundの出題順は開始時にpickQuestions()
+ * （core/question-picker.js、shuffleArray）でシャッフルされ、progress.questionIdsには
+ * そのシャッフル後の順序が保存される。一方reviewGroup.questionIdsの順序は直前roundの
+ * 誤答順であり、両者は正常データでも一致しない。順序一致まで要求していた旧実装では、
+ * 2問以上の復習groupは正常な中断であっても必ずresume不能になっていた（本修正の対象）。
+ *
+ * 【安全性は落とさない】順序以外の不整合はすべてfail-closedでfalseを返す：
+ * 非Array・件数不一致（欠落／余分）・別questionIdの混入・重複・空文字・非string。
+ * sort+joinのような単純比較にせず、重複を明示的に拒否する（TestSet定義変更・
+ * 問題の非active化の検知能力は、集合比較でもそのまま維持される）。
+ *
+ * 【出題順の扱い】resume後に実際に出題される順序は、この判定結果に関わらず
+ * prepareResumedQuiz()（core/quiz-controller.js）がprogress.questionIdsの保存順を
+ * そのまま使う。reviewGroup.questionIdsの順へ並べ替えないため、中断前後で出題順は
+ * 変わらない（検証＝集合の同一性、復元＝保存順の維持、という責務分離）。
+ *
+ * @param {unknown} groupIds - reviewGroup.questionIds
+ * @param {unknown} progressIds - progress.questionIds（保存済みの出題順）
+ * @returns {boolean}
+ */
+function isSameQuestionIdSet(groupIds, progressIds) {
+  if (!Array.isArray(groupIds) || !Array.isArray(progressIds)) return false;
+  if (groupIds.length === 0 || groupIds.length !== progressIds.length) return false;
+
+  const groupSet = toUniqueQuestionIdSet(groupIds);
+  const progressSet = toUniqueQuestionIdSet(progressIds);
+
+  if (groupSet === null || progressSet === null) return false;
+
+  // 件数一致＋双方に重複なし＋progress ⊆ group が成り立てば、集合として完全一致する。
+  for (const id of progressSet) {
+    if (!groupSet.has(id)) return false;
+  }
+
+  return true;
 }
 
 /**
@@ -216,12 +269,15 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
 
     if (round === reviewRound) {
       // resume対象のround自身: progress.fieldIdの位置を特定し、questionIdsが
-      // 完全一致（順序・件数・ID）することを確認する（TestSet定義変更検知、STEP33/34/81/82）。
+      // 「順序を無視して同一集合」であることを確認する（TestSet定義変更検知、
+      // STEP33/34/81/82の目的はそのまま維持する）。出題順はpickQuestions()により
+      // シャッフルされるため順序一致は要求しない（isSameQuestionIdSet参照）。
+      // resume後の出題順はprogress.questionIdsの保存順がそのまま使われる。
       const currentReviewIndex = findReviewGroupIndex(currentRoundGroups, progress.fieldId);
       if (currentReviewIndex === -1) {
         return { ok: false, errorMessage: REJECT_MESSAGE };
       }
-      if (!arraysEqualInOrder(currentRoundGroups[currentReviewIndex].questionIds, progress.questionIds)) {
+      if (!isSameQuestionIdSet(currentRoundGroups[currentReviewIndex].questionIds, progress.questionIds)) {
         return { ok: false, errorMessage: REJECT_MESSAGE };
       }
 
