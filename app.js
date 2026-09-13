@@ -105,8 +105,10 @@ import {
   restoreRunnerState,
   isReviewPhase,
   buildReviewGroupsFromCurrentResults,
+  buildNextReviewGroupsFromCurrentResults,
   validateReviewGroups,
   startReviewPhase,
+  startNextReviewRound,
   getCurrentReviewGroup,
   recordCurrentReviewResult,
   hasNextReviewGroup,
@@ -1170,6 +1172,13 @@ async function startTestSetReviewGroup() {
 
 // Phase3D-4B-2: 復習グループ完了時の結果記録・次復習グループへの遷移。
 // 既存finishCurrentTestSetGroupAndAdvance()と責務・順序を揃える（Phase3D-4B設計監査STEP49）。
+//
+// Phase4E-1: このroundの全field完了後、無条件にfinishReviewRun()していた分岐を、
+// 「このroundの誤答（runnerState.reviewResults）から次roundのreviewGroupsを組み立て、
+// 残っていれば次roundを自動開始する」よう拡張した（全問正解まで自動反復）。
+// while文で同期的に周回するのではなく、既存の「1問ごとのUI操作→この関数が呼ばれる」
+// イベント駆動の流れへ次roundの開始を1回差し込むだけで、無限走行のリスクを持たない
+// （各roundは必ず生徒の実際の解答操作を経てから次roundへ進む）。
 async function finishCurrentTestSetReviewGroupAndAdvance() {
   const reviewCorrect = state.quiz.retryMode ? state.quiz.firstRoundScore : state.quiz.score;
   const reviewTotal = state.quiz.retryMode ? state.quiz.firstRoundTotal : state.quiz.quizQuestions.length;
@@ -1189,12 +1198,37 @@ async function finishCurrentTestSetReviewGroupAndAdvance() {
     return;
   }
 
-  // Phase3D-4B-3で最終summary UIを拡張するまでは、既存completion screenへ安全に着地する
-  // （summary.reviewは内部的に含まれるが、既存renderCompletionSummaryは未知のキーを
-  // 参照しないため無視される、Phase3D-4B設計監査STEP62で実コード確認済み）。
-  const summary = finishReviewRun();
-  showTestSetCompletion(tssElements, summary);
-  showTestSetStudentScreen(testSetStudentScreen, allScreens);
+  // Phase4E-1: このroundの全field完了。直前roundの誤答（reviewResults）だけから
+  // 次roundのreviewGroupsを組み立てる（通常group結果=runnerState.resultsは一切参照しない、
+  // 過去roundの上書きもしない）。誤答0のfieldは既存buildTestSetReviewGroups()の
+  // 判定ロジックにより自動的に除外される（新しい判定基準を持ち込まない）。
+  const nextReview = buildNextReviewGroupsFromCurrentResults();
+
+  if (!nextReview.available || nextReview.groups.length === 0) {
+    // 全field誤答0（全問正解）、または情報不明（旧Attempt混在等）の場合は、
+    // 既存どおりTestSet全体を完了とする（Phase3D-4B-2と同じフォールバック方針）。
+    const summary = finishReviewRun();
+    showTestSetCompletion(tssElements, summary);
+    showTestSetStudentScreen(testSetStudentScreen, allScreens);
+    return;
+  }
+
+  // Phase4E-1: 次roundを開始する前に、既存のpreflight検証（startTestSetRun/
+  // 3D-4B-2のvalidateReviewGroups()）を必ず通す（部分実行を防ぐ、既存方針の踏襲）。
+  const preflight = await validateReviewGroups(nextReview.groups, filterManager.getNormalizedQuestionsForSubject);
+
+  if (!preflight.ok) {
+    console.error("次roundの復習フェーズの開始に失敗（このroundまでの結果には影響しません）:", preflight.errorMessage);
+    abortRun();
+    goToTestSetStudentScreen();
+    showTssError(tssElements.selectError, "間違い直しの問題を準備できませんでした。テスト対策画面からもう一度お試しください。");
+    return;
+  }
+
+  // Phase4E-1: 次roundはbanner表示なし（review開始bannerは最初のround1のみ、
+  // Phase3D-4B-2確定方針のまま。round2以降は自動遷移のみで、途中summaryも表示しない）。
+  startNextReviewRound(nextReview.groups);
+  await startTestSetReviewGroup();
 }
 
 // Phase3D-4B-2: 復習開始案内（一度きり）。Attempt/progressは表示前に既に開始済みのため、

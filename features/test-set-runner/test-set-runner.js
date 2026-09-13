@@ -409,11 +409,45 @@ export function startReviewPhase(reviewGroups) {
  * Phase4E-0A: 復習周を1つ進める（次周のreviewGroups/reviewResultsの切り替え自体は
  * Phase4E本体＝全問正解まで自動反復の実装時に配線する。本関数は「周カウンタを進める」
  * という最小限のAPIのみを先行して用意する、Phase4E-0Aの合意事項どおり）。
- * 現時点ではapp.jsのどこからも呼ばれない（未配線）。
  */
 export function advanceToNextReviewRound() {
   runnerState.currentReviewRound += 1;
   return runnerState.currentReviewRound;
+}
+
+/**
+ * Phase4E-1: 現在の復習周（runnerState.reviewResults、この周の各field完了ごとの結果）から、
+ * 「次の周」の復習グループを組み立てる。buildReviewGroupsFromCurrentResults()が
+ * runnerState.results（通常group＝周0の誤答）から周1を組み立てるのと対になる関数で、
+ * こちらはrunnerState.reviewResults（直前の周の誤答）から周N+1を組み立てる。
+ * 誤答0件のfieldはbuildTestSetReviewGroups()内部の既存ロジックにより自動的に除外される
+ * （新しい判定基準を持ち込まない、Phase3D-4B-1のbuildTestSetReviewGroups()をそのまま再利用）。
+ *
+ * @returns {{available:boolean, groups:Array<{fieldId:string, questionIds:string[]}>}}
+ */
+export function buildNextReviewGroupsFromCurrentResults() {
+  return buildTestSetReviewGroups(runnerState.reviewResults);
+}
+
+/**
+ * Phase4E-1: 次の復習周を開始する（状態管理のみ。Attemptの生成・quiz画面表示は行わない、
+ * startReviewPhase()と同じ設計方針）。startReviewPhase()との違いは、周0→周1の遷移
+ * （currentReviewRoundを1へ固定設定）ではなく、周N→周N+1の遷移（advanceToNextReviewRound()で
+ * 1つ進める）である点のみ。runId・phase（"review"のまま）・runnerState.results（周0の
+ * 誤答、通常groupの結果）はいずれも変更しない。
+ *
+ * @param {Array<{fieldId:string, questionIds:string[]}>} reviewGroups
+ */
+export function startNextReviewRound(reviewGroups) {
+  const safeGroups = (Array.isArray(reviewGroups) ? reviewGroups : []).map((group) => ({
+    fieldId: group?.fieldId,
+    questionIds: Array.isArray(group?.questionIds) ? [...group.questionIds] : []
+  }));
+
+  advanceToNextReviewRound();
+  runnerState.reviewGroups = safeGroups;
+  runnerState.currentReviewIndex = 0;
+  runnerState.reviewResults = [];
 }
 
 /**

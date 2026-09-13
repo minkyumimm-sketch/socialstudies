@@ -16,6 +16,13 @@
 // studentId/testSetId/runId/sourceType/fieldId/reviewRoundの完全一致（findAttemptForRunRound、
 // test-set-run-identity.js）へ置き換えた。0件・複数件はいずれもfail-closedで復元不能とし、
 // completedAtでの推測選択・時間窓での絞り込みは一切行わない。
+//
+// Phase4E-1: 全問正解まで自動反復（round2以降）に対応するため、resume対象がround2以降でも
+// 安全に復元できるよう「周チェーン」の再構築へ拡張した。round1のreviewGroupsは通常group結果
+// （results、周0の誤答）から、roundNのreviewGroupsは必ず「round(N-1)の全fieldの完了済み
+// review結果」から導出する（round1→round2→…→resume対象roundの順に1本の鎖として辿る）。
+// 「直近の」「最新の」completedAtでの推測は、周0→周1の遷移だけでなく周N→周N+1の遷移でも
+// 一切行わない（loadValidatedReviewResult()参照）。
 
 import { groupQuestionsByField } from "./test-set-runner.js";
 import { buildTestSetReviewGroups, findReviewGroupIndex } from "./test-set-review-model.js";
@@ -31,6 +38,54 @@ function isSubsetOf(ids, allowedIds) {
 function arraysEqualInOrder(a, b) {
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
   return a.every((value, index) => value === b[index]);
+}
+
+/**
+ * Phase4E-1: 指定したround・fieldIdの完了済みreview Attemptを1件だけ取得し、
+ * resultsエントリ（{fieldId, correct, total, initialWrongQuestionIds}）として検証・整形する。
+ * studentId/testSetId/runId/reviewRoundの完全一致1件のみを正とし（findAttemptForRunRound、
+ * 0件・複数件はfail-closed）、initialWrongQuestionIdsの情報不明・score範囲外・
+ * totalCount不一致・questionIds外の誤答混入のいずれかがあれば復元不能として{ok:false}を返す。
+ * round1（通常group結果からのreviewGroups生成）・round2以降の周チェーン再構築の両方から
+ * 共通で使う（重複実装をしない）。
+ *
+ * @returns {{ok:true, result:{fieldId:string, correct:number, total:number, initialWrongQuestionIds:string[]}}|{ok:false}}
+ */
+function loadValidatedReviewResult({ attempts, studentId, testSetId, runId, round, reviewGroup }) {
+  const found = findAttemptForRunRound(attempts, {
+    studentId,
+    testSetId,
+    runId,
+    sourceType: "testset_review",
+    fieldId: reviewGroup.fieldId,
+    reviewRound: round
+  });
+
+  if (!found.ok) return { ok: false };
+  const attempt = found.attempt;
+
+  if (attempt.initialWrongQuestionIds === null || attempt.initialWrongQuestionIds === undefined) {
+    return { ok: false };
+  }
+  if (attempt.score < 0 || attempt.score > attempt.totalCount) {
+    return { ok: false };
+  }
+  if (attempt.totalCount !== reviewGroup.questionIds.length) {
+    return { ok: false };
+  }
+  if (!isSubsetOf(attempt.initialWrongQuestionIds, reviewGroup.questionIds)) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    result: {
+      fieldId: reviewGroup.fieldId,
+      correct: attempt.score,
+      total: attempt.totalCount,
+      initialWrongQuestionIds: attempt.initialWrongQuestionIds
+    }
+  };
 }
 
 /**
@@ -127,78 +182,80 @@ export function prepareTestSetReviewResumePlan({ testSet, questions, progress, p
     });
   }
 
-  // STEP32: reviewGroupsを再生成する（3D-4B-1のbuildTestSetReviewGroupsをそのまま利用）。
-  const reviewBuild = buildTestSetReviewGroups(results);
-  if (!reviewBuild.available || reviewBuild.groups.length === 0) {
-    return { ok: false, errorMessage: REJECT_MESSAGE };
+  // Phase4E-1: round1のreviewGroupsは通常group結果（results、周0の誤答）から、
+  // round2以降のreviewGroupsは直前roundの「全field」の完了済みreview結果から、
+  // 順に導出する（round2はround1結果から、round3はround2結果から…と完全に連鎖させる。
+  // 「最新のcompletedAt」等での推測は一切行わない）。resume対象がround1なら
+  // このループは1回のみ実行され、Phase4E-0A時点の挙動と完全に同じになる。
+  let chainResults = results; // 直前round（最初はround0=通常group）の結果
+  let currentRoundGroups = null;
+
+  for (let round = 1; round <= reviewRound; round += 1) {
+    const reviewBuild = buildTestSetReviewGroups(chainResults);
+    if (!reviewBuild.available || reviewBuild.groups.length === 0) {
+      return { ok: false, errorMessage: REJECT_MESSAGE };
+    }
+    currentRoundGroups = reviewBuild.groups;
+
+    if (round === reviewRound) {
+      // resume対象のround自身: progress.fieldIdの位置を特定し、questionIdsが
+      // 完全一致（順序・件数・ID）することを確認する（TestSet定義変更検知、STEP33/34/81/82）。
+      const currentReviewIndex = findReviewGroupIndex(currentRoundGroups, progress.fieldId);
+      if (currentReviewIndex === -1) {
+        return { ok: false, errorMessage: REJECT_MESSAGE };
+      }
+      if (!arraysEqualInOrder(currentRoundGroups[currentReviewIndex].questionIds, progress.questionIds)) {
+        return { ok: false, errorMessage: REJECT_MESSAGE };
+      }
+
+      // currentReviewIndexより前のreviewGroup（このroundの中で先に完了済みのfield）を
+      // 1件ずつ復元する（STEP36-40/83-90と同じ考え方）。1件でも不足・重複・不整合が
+      // あれば復元不能。
+      const reviewResults = [];
+      for (let i = 0; i < currentReviewIndex; i += 1) {
+        const loaded = loadValidatedReviewResult({
+          attempts, studentId, testSetId, runId, round, reviewGroup: currentRoundGroups[i]
+        });
+        if (!loaded.ok) {
+          return { ok: false, errorMessage: REJECT_MESSAGE };
+        }
+        reviewResults.push(loaded.result);
+      }
+
+      return {
+        ok: true,
+        runnerData: {
+          testSetLabel: String(testSet?.label || ""),
+          testSetId,
+          groups,
+          currentGroupIndex: groups.length - 1,
+          results,
+          reviewGroups: currentRoundGroups,
+          currentReviewIndex,
+          reviewResults,
+          runId,
+          currentReviewRound: reviewRound
+        }
+      };
+    }
+
+    // resume対象より前のround: 全fieldが完了済みのはずなので、全件を完全復元して
+    // 次round（round+1）のreviewGroups生成の元データにする。1件でも不足・重複・
+    // 不整合があれば、周チェーン自体が壊れているため復元不能（過去round混入防止）。
+    const fullRoundResults = [];
+    for (const reviewGroup of currentRoundGroups) {
+      const loaded = loadValidatedReviewResult({
+        attempts, studentId, testSetId, runId, round, reviewGroup
+      });
+      if (!loaded.ok) {
+        return { ok: false, errorMessage: REJECT_MESSAGE };
+      }
+      fullRoundResults.push(loaded.result);
+    }
+    chainResults = fullRoundResults;
   }
 
-  // STEP33/34/81/82: progress.fieldIdに一致するreviewGroupを特定し、
-  // questionIdsが完全一致（順序・件数・ID）することを確認する（TestSet定義変更検知）。
-  const currentReviewIndex = findReviewGroupIndex(reviewBuild.groups, progress.fieldId);
-  if (currentReviewIndex === -1) {
-    return { ok: false, errorMessage: REJECT_MESSAGE };
-  }
-  if (!arraysEqualInOrder(reviewBuild.groups[currentReviewIndex].questionIds, progress.questionIds)) {
-    return { ok: false, errorMessage: REJECT_MESSAGE };
-  }
-
-  // STEP36-40/83-90: currentReviewIndexより前のreviewGroup全件について、
-  // 完了済みreview Attemptを1件ずつ復元する（同一runId・同一reviewRound内の他fieldの結果）。
-  // 1件でも不足・重複・不整合があれば復元不能。
-  const reviewResults = [];
-
-  for (let i = 0; i < currentReviewIndex; i += 1) {
-    const reviewGroup = reviewBuild.groups[i];
-
-    const foundReview = findAttemptForRunRound(attempts, {
-      studentId,
-      testSetId,
-      runId,
-      sourceType: "testset_review",
-      fieldId: reviewGroup.fieldId,
-      reviewRound
-    });
-
-    if (!foundReview.ok) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
-    const latestReview = foundReview.attempt;
-
-    if (latestReview.initialWrongQuestionIds === null || latestReview.initialWrongQuestionIds === undefined) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
-    if (latestReview.score < 0 || latestReview.score > latestReview.totalCount) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
-    if (latestReview.totalCount !== reviewGroup.questionIds.length) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
-    if (!isSubsetOf(latestReview.initialWrongQuestionIds, reviewGroup.questionIds)) {
-      return { ok: false, errorMessage: REJECT_MESSAGE };
-    }
-
-    reviewResults.push({
-      fieldId: reviewGroup.fieldId,
-      correct: latestReview.score,
-      total: latestReview.totalCount,
-      initialWrongQuestionIds: latestReview.initialWrongQuestionIds
-    });
-  }
-
-  return {
-    ok: true,
-    runnerData: {
-      testSetLabel: String(testSet?.label || ""),
-      testSetId,
-      groups,
-      currentGroupIndex: groups.length - 1,
-      results,
-      reviewGroups: reviewBuild.groups,
-      currentReviewIndex,
-      reviewResults,
-      runId,
-      currentReviewRound: reviewRound
-    }
-  };
+  // reviewRound>=1が保証されているため、ループは必ず`round === reviewRound`のiterationで
+  // returnする。ここへ到達することはないが、静的解析・将来の変更対策として明示しておく。
+  return { ok: false, errorMessage: REJECT_MESSAGE };
 }
