@@ -39,7 +39,12 @@ import {
   showTestSetStudentScreen
 } from "./core/screen-controller.js";
 import { renderTextQuestion } from "./renderers/text-renderer.js";
-import { renderChoiceQuestion, lockChoiceButtons } from "./renderers/choice-renderer.js";
+import {
+  renderChoiceQuestion,
+  renderChoiceQuestionStem,
+  renderChoiceAnswerButtons,
+  lockChoiceButtons
+} from "./renderers/choice-renderer.js";
 import { renderEraQuestion } from "./renderers/era-renderer.js";
 import { renderSortQuestion, drawSortList } from "./renderers/sort-renderer.js";
 import {
@@ -121,6 +126,17 @@ import {
 } from "./features/test-set-runner/test-set-runner.js";
 import { getReviewQuestionCount } from "./features/test-set-runner/test-set-review-model.js";
 import { prepareTestSetReviewResumePlan } from "./features/test-set-runner/test-set-review-resume.js";
+import {
+  startMemorizeRun,
+  isMemorizeRunnerActive,
+  getCurrentMemorizeRound,
+  getMemorizeRunId,
+  getMemorizeRunnerState,
+  finishMemorizeRound,
+  abortMemorizeRun
+} from "./features/memorize/memorize-runner.js";
+import { resolveMemorizeQuestions } from "./features/memorize/memorize-session-controller.js";
+import { renderMemorizeGate } from "./features/memorize/memorize-gate-renderer.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -662,6 +678,11 @@ function resolveRunIdentityForSourceType(sourceType) {
   if (sourceType === "testset_review") {
     return { runId: getRunnerRunId(), reviewRound: getCurrentReviewRound() };
   }
+  // 暗記モード-1（M1-3）: memorize runner（features/memorize/memorize-runner.js）の
+  // 現在値をそのまま使う。TestSet runnerとは完全に別のsingletonのため相互に影響しない。
+  if (sourceType === "memorize") {
+    return { runId: getMemorizeRunId(), reviewRound: getCurrentMemorizeRound() };
+  }
   return { runId: null, reviewRound: null };
 }
 
@@ -841,11 +862,17 @@ async function renderQuestion() {
     renderEraQuestion,
     renderSortQuestion,
     renderChoiceQuestion,
+    renderChoiceQuestionStem,
+    renderChoiceAnswerButtons,
     renderTextQuestion,
+    renderMemorizeGate,
     ERA_CHOICES,
     handleAnswer,
     swapSortItems,
     hideSubunit: isRunnerActive(),
+    // 暗記モード-1（M1-3）: memorize run実行中のみ想起ゲートを出す。それ以外
+    // （通常学習・TestSet・weak/dormant_review等）はfalseのまま＝M1-2までと完全に同じ挙動。
+    deferAnswerUi: isMemorizeRunnerActive(),
     unknownAnswerButton
   });
 }
@@ -1070,6 +1097,13 @@ function showFinalResult() {
   }
   if (isRunnerActive()) {
     finishCurrentTestSetGroupAndAdvance();
+    return;
+  }
+  // 暗記モード-1（M1-3）: memorize run実行中は、既存result-screenを使わず
+  // Round連鎖（次Round開始 or 完了表示）へ分岐する。TestSet runnerとmemorize runnerは
+  // 別々のsingletonで同時にactiveになる呼び出し経路が無いため、判定順序は影響しない。
+  if (isMemorizeRunnerActive()) {
+    finishCurrentMemorizeRoundAndAdvance();
     return;
   }
 
@@ -1305,6 +1339,158 @@ function showReviewStartBanner(questionCount) {
 
 function hideReviewStartBanner() {
   reviewStartBanner.classList.add("hidden");
+}
+
+// ---------------------------------------------------------------------------
+// 暗記モード-1 STEP M1-3: memorize Round連鎖。
+//
+// TestSet復習ラウンド（finishCurrentTestSetReviewGroupAndAdvance/
+// startTestSetReviewGroup、上記参照）と同じ設計方針を踏襲する：
+// - Round進行の正本（runId/reviewRound/currentRound）はrunner
+//   （features/memorize/memorize-runner.js）が持つ。app.js側で別カウンタを作らない。
+// - 「このRoundの誤答・わからない集合」は既存state.quiz.wrongQuestions（M1-2の
+//   applyAnswerResult()が isCorrect===false のときに積む既存ロジック、無変更）を
+//   そのまま正本として使う。memorize専用の別収集経路を作らない。
+// - 1 Round = 1 Attempt。次Round開始は既存beginAttemptAndShowQuiz()を再利用する
+//   （新しいAttempt発行の仕組みを作らない）。
+// - 0問Roundは開始しない（finishMemorizeRound()がcompleted:trueを返した時点で終了する）。
+// - ホーム/対象選択UIからの入力経路はまだ無い（M1-3では未配線、後続STEPで接続する）。
+// ---------------------------------------------------------------------------
+
+/**
+ * 暗記run全体（Round1）を開始する。
+ *
+ * @param {string} fieldId
+ * @param {string[]} questionIds - Round1の対象questionId
+ * @param {string} [unit]
+ * @returns {Promise<{ok:true}|{ok:false, errorMessage:string}>}
+ */
+async function startMemorizeRunQuiz(fieldId, questionIds, unit = "") {
+  const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
+  const resolved = resolveMemorizeQuestions(questionIds, availableQuestions);
+
+  if (!resolved.ok) {
+    console.error("startMemorizeRunQuiz: 開始できません（fail-closed）:", resolved.errorMessage);
+    return { ok: false, errorMessage: resolved.errorMessage };
+  }
+
+  const started = startMemorizeRun({ fieldId, unit, questionIds });
+
+  if (!started.ok) {
+    console.error("startMemorizeRunQuiz: startMemorizeRun失敗:", started.errorMessage);
+    return { ok: false, errorMessage: started.errorMessage };
+  }
+
+  await startMemorizeRoundQuiz(questionIds);
+  return { ok: true };
+}
+
+/**
+ * 現在の暗記run（既にactive）の、指定questionIdsによる1Round分のQuizを開始する。
+ * runnerが既にactiveであることを前提とする（fieldId/unitはrunner stateから取得する）。
+ *
+ * @param {string[]} questionIds - このRoundの対象questionId
+ */
+async function startMemorizeRoundQuiz(questionIds) {
+  const runnerState = getMemorizeRunnerState();
+  const fieldId = runnerState.fieldId;
+
+  const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(fieldId);
+  const resolved = resolveMemorizeQuestions(questionIds, availableQuestions);
+
+  if (!resolved.ok) {
+    // Round1開始時（startMemorizeRunQuiz）で既に検証済みのはずのため、通常到達しない
+    // 安全側フォールバック。到達した場合はrunを中断する（0問・不正なRoundを開始しない）。
+    console.error("startMemorizeRoundQuiz: 想定外のquestionId不整合のためrunを中断します（fail-closed）:", resolved.errorMessage);
+    abortMemorizeRun();
+    return;
+  }
+
+  state.session.subject = fieldId;
+  state.session.unitFilter = "all";
+  state.session.modeFilter = "all";
+  state.session.subunitFilter = "all";
+  state.session.requestedQuestionCount = resolved.questions.length;
+  // 暗記モードは既存の「間違えた問題を最後にもう一度出す」機能を使わない
+  // （Round自体がその役割を果たすため、既存testset/testset_reviewと同じ安全策）。
+  state.session.retryWrongEnabled = false;
+
+  resetQuizState(state);
+  resetUiState(state);
+
+  state.quiz.allQuestions = resolved.questions;
+  // 暗記モード-1（M1-3修正）: pickQuestions()（シャッフル）を使わない。
+  // Round順序の正本はrunner/selector（features/memorize/memorize-runner.js・
+  // memorize-round-selector.js）が渡すquestionIdsの順序とする。resolveMemorizeQuestions()は
+  // questionIdsの順序を保ったままQuestion objectへ解決するため、そのままの順序で表示する
+  // （session-controller層でも再shuffleしない）。将来selectNextRoundQuestionIds()が
+  // 出題順序自体を決定するようになった際に、この層でのshuffleがその責務分離を壊さないため。
+  state.quiz.quizQuestions = [...resolved.questions];
+
+  await beginAttemptAndShowQuiz("memorize", null, runnerState.unit);
+}
+
+// Round境界（最後の問題で「次へ」）は、次Round開始のためにawaitを挟む非同期処理
+// （filterManager.getNormalizedQuestionsForSubject・beginAttemptAndShowQuiz）を経由するため、
+// この間はstate.quiz.currentIndex/quizQuestions/wrongQuestionsがまだ前Roundの値のまま残る。
+// そのため、goToNextQuestion()の既存currentIndexガードだけではRound境界の二重実行
+// （連打・二重発火）を防げない。handleAnswer側のstate.ui.answeredと同じ「同期的に
+// trueへ倒してから非同期処理に入る」方式の排他フラグで、finishMemorizeRound()の
+// 二重実行・reviewRoundの飛び番を防ぐ。
+let memorizeRoundTransitionInProgress = false;
+
+/**
+ * 現在Roundの結果を記録し、次Roundへ進めるか暗記完了かを判定する。
+ * showFinalResult()からのみ呼ばれる。
+ */
+async function finishCurrentMemorizeRoundAndAdvance() {
+  if (memorizeRoundTransitionInProgress) return;
+  memorizeRoundTransitionInProgress = true;
+
+  try {
+    const wrongQuestionIds = extractQuestionIds(state.quiz.wrongQuestions);
+
+    try {
+      completeAttempt(currentDomainAttemptId, wrongQuestionIds);
+    } catch (domainError) {
+      console.error("completeAttempt error（暗記モードフローには影響しません）:", domainError);
+    }
+
+    const result = finishMemorizeRound({ wrongQuestionIds });
+
+    if (!result.ok) {
+      console.error("finishCurrentMemorizeRoundAndAdvance: finishMemorizeRound失敗:", result.errorMessage);
+      return;
+    }
+
+    if (result.completed) {
+      showMemorizeRunCompletion(result.summary);
+      return;
+    }
+
+    await startMemorizeRoundQuiz(result.questionIds);
+  } finally {
+    memorizeRoundTransitionInProgress = false;
+  }
+}
+
+/**
+ * 暗記run完了時の最小表示。新しい画面遷移は行わず、既存quiz-screenのDOMを
+ * 再利用して完了メッセージへ置き換える（今回大規模な結果画面は新設しない）。
+ *
+ * @param {Object} summary - finishMemorizeRound()のcompleted:true結果に含まれるsummary
+ */
+function showMemorizeRunCompletion(summary) {
+  choicesContainer.innerHTML = "";
+  choicesContainer.className = "choices";
+  unknownAnswerButton.style.display = "none";
+  nextButton.disabled = true;
+  nextButton.style.display = "none";
+  answerResult.classList.remove("correct", "incorrect");
+  answerResult.style.color = "";
+  answerResult.textContent =
+    `暗記モード完了：全${summary.initialQuestionCount}問を習得しました（${summary.roundCount}周）。`;
+  questionElements.questionText.textContent = "暗記モード：完了";
 }
 
 function retryQuiz() {
