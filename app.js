@@ -73,7 +73,12 @@ import { recordAnswerForAttempt } from "./features/history/answer-record-integra
 import { completeAttempt } from "./features/history/attempt-complete-integration.js";
 import { restoreStudentLearningRecords } from "./features/history/learning-record-restore-integration.js";
 import { syncAttemptProgressRetryStart } from "./features/history/learning-record-sync-integration.js";
-import { extractQuestionIds, resolveUnitForSourceType, restoreAttemptProgressContext } from "./features/progress/progress-model.js";
+import {
+  extractQuestionIds,
+  resolveUnitForSourceType,
+  restoreAttemptProgressContext,
+  updateProgressWrongQuestionIds
+} from "./features/progress/progress-model.js";
 import { getAttemptProgress, abandonAttemptProgress } from "./services/learning-record-service.js";
 import { loadAttempt, loadAttemptsByStudent, saveAttempt } from "./features/history/attempt-service.js";
 import { loadAnswerRecordsByAttempt } from "./features/history/answer-record-service.js";
@@ -133,10 +138,15 @@ import {
   getMemorizeRunId,
   getMemorizeRunnerState,
   finishMemorizeRound,
-  abortMemorizeRun
+  abortMemorizeRun,
+  restoreMemorizeRun
 } from "./features/memorize/memorize-runner.js";
 import { resolveMemorizeQuestions } from "./features/memorize/memorize-session-controller.js";
 import { renderMemorizeGate } from "./features/memorize/memorize-gate-renderer.js";
+import {
+  validateMemorizeResumeProgress,
+  buildMemorizeResumeQuestionState
+} from "./features/memorize/memorize-resume-controller.js";
 
 const homeScreen = document.getElementById("home-screen");
 const startScreen = document.getElementById("start-screen");
@@ -1016,6 +1026,15 @@ function handleAnswer(selectedChoice) {
     resultDisplayVariant: isMemorizeUnknown ? "neutral" : undefined
   });
 
+  // 暗記モード-1（M1-4）: Resume用に、現在Round内・現在位置までのwrong/unknown一覧を
+  // AttemptProgressのcontextへ反映する。「思い出した」押下時点では呼ばない（回答確定後のみ）。
+  // state.ui.deferAnswerUiActiveは想起ゲート経由（＝memorize）のときだけtrueになる既存フラグ
+  // （通常学習・TestSet等では常にfalseのまま、無関係）。recordAnswerForAttempt()より前に呼ぶことで、
+  // その内部のsyncAttemptProgress()が最新のwrongQuestionIdsを含めて送信する。
+  if (state.ui.deferAnswerUiActive) {
+    updateProgressWrongQuestionIds(currentDomainAttemptId, extractQuestionIds(state.quiz.wrongQuestions));
+  }
+
   saveAnswerRecord(savePayload);
 
   // Phase2 Task14-2: 裏側でAnswerRecordを生成・保存する（既存の正誤判定・GAS保存には影響しない）
@@ -1491,6 +1510,92 @@ function showMemorizeRunCompletion(summary) {
   answerResult.textContent =
     `暗記モード完了：全${summary.initialQuestionCount}問を習得しました（${summary.roundCount}周）。`;
   questionElements.questionText.textContent = "暗記モード：完了";
+}
+
+// ---------------------------------------------------------------------------
+// 暗記モード-1 STEP M1-4: AttemptProgressからのResume（内部機構）。
+//
+// 今回はホーム/start-screenの「続きから」導線への配線は行わない（既存resumeQuiz()の
+// 分岐へ大きな変更を加えるリスクを避けるため、M1-4では内部機構までに留める）。
+// この関数はgetAttemptProgress()が返すprogress（sourceType="memorize"のもの）を
+// 直接受け取り、現在Roundの現在位置から再開する。
+//
+// 【重要な既存方針の踏襲】
+// - 既存resumeQuiz()（通常学習/TestSet共通）と同じく、startAttemptForQuiz()は
+//   一切呼ばない＝新しいAttemptId・startAttempt再送を行わない。既存attemptIdをそのまま使う
+//   （Memorize-0本番検証で確認済み：同一attemptIdでstartAttemptを再送するとstartedAtが
+//   上書きされてしまうため、再送は避ける）。
+// - 現在問題のUI内部状態（「思い出した」後のchoice表示＝S1）は復元しない。
+//   常にS0（想起ゲート）から再開する（そもそも「思い出した」押下だけではProgressを
+//   保存していないため、S1の情報自体が存在しない＝自然にS0のみが復元対象になる）。
+// - currentQuestionIndex === questionIds.length（Round内全問回答済みだが未完了）は、
+//   既存resumeQuiz()と同じくgoToNextQuestion()の既存Round境界分岐へそのまま合流させる
+//   （memorizeRoundTransitionInProgressガードにより二重complete化はしない）。
+//
+// @param {Object} progress - getAttemptProgress()が返すprogress部分
+// @returns {Promise<{ok:true}|{ok:false, errorMessage:string}>}
+async function resumeMemorizeRunQuiz(progress) {
+  const attempt = loadAttempt(progress?.attemptId);
+  const validation = validateMemorizeResumeProgress(progress, attempt);
+
+  if (!validation.ok) {
+    console.error("resumeMemorizeRunQuiz: 再開できません（fail-closed）:", validation.errorMessage);
+    return { ok: false, errorMessage: validation.errorMessage };
+  }
+
+  const availableQuestions = await filterManager.getNormalizedQuestionsForSubject(progress.fieldId);
+  const resolved = resolveMemorizeQuestions(progress.questionIds, availableQuestions);
+
+  if (!resolved.ok) {
+    console.error("resumeMemorizeRunQuiz: 問題の解決に失敗しました（fail-closed）:", resolved.errorMessage);
+    return { ok: false, errorMessage: resolved.errorMessage };
+  }
+
+  const restored = restoreMemorizeRun({
+    runId: progress.runId,
+    reviewRound: progress.reviewRound,
+    fieldId: progress.fieldId,
+    unit: progress.unit || "",
+    questionIds: progress.questionIds
+  });
+
+  if (!restored.ok) {
+    console.error("resumeMemorizeRunQuiz: restoreMemorizeRun失敗:", restored.errorMessage);
+    return { ok: false, errorMessage: restored.errorMessage };
+  }
+
+  const questionState = buildMemorizeResumeQuestionState(progress, resolved.questions);
+
+  state.session.subject = progress.fieldId;
+  state.session.unitFilter = "all";
+  state.session.modeFilter = "all";
+  state.session.subunitFilter = "all";
+  state.session.requestedQuestionCount = questionState.quizQuestions.length;
+  state.session.retryWrongEnabled = false;
+
+  resetQuizState(state);
+  resetUiState(state);
+
+  state.quiz.allQuestions = resolved.questions;
+  state.quiz.quizQuestions = questionState.quizQuestions;
+  state.quiz.currentIndex = questionState.currentIndex;
+  state.quiz.wrongQuestions = questionState.wrongQuestions;
+
+  // 既存Attemptをそのまま再利用する（startAttemptForQuiz/createAttemptは呼ばない）。
+  currentDomainAttemptId = progress.attemptId;
+  restoreAttemptProgressContext(progress);
+
+  showQuizScreen(quizScreen, allScreens);
+
+  if (state.quiz.currentIndex >= state.quiz.quizQuestions.length) {
+    // 全問回答済みだがRound未完了のまま再起動されたケース。
+    // 既存goToNextQuestion()のRound境界分岐へそのまま合流させる。
+    goToNextQuestion();
+  } else {
+    await renderQuestion();
+  }
+
+  return { ok: true };
 }
 
 function retryQuiz() {

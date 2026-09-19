@@ -122,6 +122,23 @@ export function recordRetryStart(attemptId, wrongQuestionIds) {
 }
 
 /**
+ * 暗記モード-1（M1-4）: 現在Round内で、現在位置までにwrong/unknownになった
+ * questionIdをそのままcontext.wrongQuestionIdsへ反映する。recordRetryStart()とは異なり
+ * retryRoundには一切触れない（通常学習のretry概念とは無関係のため）。
+ * 回答確定のたびに呼ばれる想定（呼び出し側＝app.jsが、その時点の
+ * state.quiz.wrongQuestionsから抽出した配列を渡す）。
+ *
+ * @param {string} attemptId
+ * @param {string[]} wrongQuestionIds - 現在Round内で、現在位置までのwrong/unknown一覧
+ */
+export function updateProgressWrongQuestionIds(attemptId, wrongQuestionIds) {
+  const context = contexts.get(attemptId);
+  if (!context) return;
+
+  context.wrongQuestionIds = [...(Array.isArray(wrongQuestionIds) ? wrongQuestionIds : [])];
+}
+
+/**
  * Attemptのライフサイクル終了時（completeAttempt送信後）に文脈を破棄する。
  * GAS側のattempt_progress行自体は削除しない（Phase3B-1確定仕様）。
  * あくまでこのMapのサイズを、同時進行中のAttempt数程度に抑えるためのクライアント側の
