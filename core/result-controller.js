@@ -68,6 +68,34 @@ export function buildResultMessage(
   return `× 不正解\n正解：${correctAnswer}\n${explanation}`;
 }
 
+// 暗記モード-1（M1-2）: 想起ゲートで「わからない」を選んだ場合専用の結果メッセージ。
+// 保存契約（selectedChoice="__UNKNOWN__"・isCorrect=false）はbuildResultMessageと
+// 完全に同じだが、「わからない」は生徒が回答して間違えたのではなく自己申告のため、
+// 表示文言だけ「× 不正解」ではなく中立的な文言に差し替える。
+// 呼び出し元（app.js handleAnswer）が、通常のunknown（従来どおりbuildResultMessageを使う）
+// とmemorize想起ゲート経由のunknownを明示的に区別して呼び分ける
+// （state.ui.deferAnswerUiActive && isUnknownAnswer(selectedChoice)の両方を満たす場合のみ）。
+// 通常学習でのunknown表示（buildResultMessage側）は一切変更しない。
+export function buildDeferredAnswerUnknownResultMessage(
+  isCorrect,
+  question,
+  correctAnswer,
+  selectedChoice,
+  getMapAreaLabelById
+) {
+  if (isCorrect) {
+    // 想起ゲート経由のunknownは既存契約上常にisCorrect=falseだが、
+    // 万一trueで呼ばれた場合も既存の正解表示と完全に同じ挙動にする（安全側）。
+    return buildResultMessage(isCorrect, question, correctAnswer, selectedChoice, getMapAreaLabelById);
+  }
+
+  const explanation = question.explanation
+    ? `解説：${question.explanation}`
+    : "解説：未設定";
+
+  return `答えを確認しよう\n正解：${correctAnswer}\n${explanation}`;
+}
+
 export function buildSavedSubjectName(state) {
   let result = String(state.session.subject || "").trim();
 

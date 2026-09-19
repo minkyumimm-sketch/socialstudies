@@ -233,6 +233,57 @@ select {
   opacity: 0.5;
 }
 
+/* 暗記モード-1（M1-2）想起ゲート: 思い出した/わからないの2ボタン。
+   既存.choice-button/.unknown-answer-buttonと同じタップしやすさ（min-height 48px）・
+   配色パターンを踏襲しつつ、専用class名で分離する（既存共通classは変更しない）。 */
+.memorize-gate {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.memorize-gate-recalled-button,
+.memorize-gate-unknown-button {
+  width: 100%;
+  min-height: 48px;
+  padding: 14px 18px;
+  font-size: 1rem;
+  text-align: center;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.memorize-gate-recalled-button {
+  background: #2f6fed;
+  color: #fff;
+  border: none;
+}
+
+.memorize-gate-recalled-button:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.memorize-gate-recalled-button:disabled {
+  background: #9fb7eb;
+  cursor: not-allowed;
+}
+
+.memorize-gate-unknown-button {
+  background: #fff;
+  color: #52606d;
+  border: 1px dashed #b8c2d1;
+}
+
+.memorize-gate-unknown-button:hover:not(:disabled) {
+  background: #f3f6fc;
+}
+
+.memorize-gate-unknown-button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
 .result-box {
   min-height: 72px;
   margin-top: 18px;

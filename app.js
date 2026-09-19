@@ -18,6 +18,7 @@ import {
 import { pickQuestions } from "./core/question-picker.js";
 import {
   buildResultMessage,
+  buildDeferredAnswerUnknownResultMessage,
   buildSavedSubjectName,
   renderFinalResult,
   buildQuizMetaText
@@ -844,7 +845,8 @@ async function renderQuestion() {
     ERA_CHOICES,
     handleAnswer,
     swapSortItems,
-    hideSubunit: isRunnerActive()
+    hideSubunit: isRunnerActive(),
+    unknownAnswerButton
   });
 }
 
@@ -951,6 +953,18 @@ function handleAnswer(selectedChoice) {
       ? formatMapClickChoiceForDisplay(selectedChoice, getMapAreaLabelById)
       : judgeTarget;
 
+  // 暗記モード-1（M1-2）: 想起ゲート経由の「わからない」（state.ui.deferAnswerUiActive
+  // かつisUnknownAnswer）の場合だけ、結果メッセージを専用の中立文言へ差し替え、
+  // 結果表示のclass/色も中立（neutral、赤でも緑でもない）にする。
+  // 通常学習・TestSet等の既存unknown表示（buildResultMessage・赤incorrect）は
+  // 一切変更しない（isCorrectだけで判定せず、deferAnswerUiActiveとisUnknownAnswerの
+  // 両方を明示条件にする）。保存契約（selectedChoice/isCorrect/wrongQuestions等）は
+  // applyAnswerResult側のロジックを一切変更していないため無影響。
+  const isMemorizeUnknown = state.ui.deferAnswerUiActive && isUnknownAnswer;
+  const resultMessageBuilder = isMemorizeUnknown
+    ? buildDeferredAnswerUnknownResultMessage
+    : buildResultMessage;
+
   const { savePayload } = applyAnswerResult({
     state,
     question,
@@ -958,7 +972,7 @@ function handleAnswer(selectedChoice) {
     correctAnswer,
     isCorrect,
     getQuestionId,
-    buildResultMessage,
+    buildResultMessage: resultMessageBuilder,
     getMapAreaLabelById,
     buildSavedSubjectName,
     normalizeValue,
@@ -971,7 +985,8 @@ function handleAnswer(selectedChoice) {
     drawSortList,
     swapSortItems,
     lockMapClickVisuals,
-    rawSelectedChoice: selectedChoice
+    rawSelectedChoice: selectedChoice,
+    resultDisplayVariant: isMemorizeUnknown ? "neutral" : undefined
   });
 
   saveAnswerRecord(savePayload);

@@ -33,7 +33,12 @@ function createUiState() {
     selectedChoice: "",
     currentSortOrder: [],
     selectedMapArea: "",
-    selectedMapAreaId: ""
+    selectedMapAreaId: "",
+    // 暗記モード-1（M1-2）: 想起ゲート（deferAnswerUi）が現在の問題に対して
+    // 有効かどうか。core/question-screen-controller.jsのrenderCurrentQuestionが
+    // 問題ごとに設定する。既存のsourceType（normal/testset/weak_review等）では
+    // 常にfalseのまま。
+    deferAnswerUiActive: false
   };
 }
 

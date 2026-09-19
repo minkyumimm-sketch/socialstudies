@@ -55,7 +55,12 @@ export function applyAnswerResult(params) {
     drawSortList,
     swapSortItems,
     lockMapClickVisuals,
-    rawSelectedChoice
+    rawSelectedChoice,
+    // 暗記モード-1（M1-2）: 結果表示のclass/色を、isCorrectからの既定決定
+    // （true→"correct"、false→"incorrect"）ではなく明示的に上書きしたい場合に渡す
+    // 汎用オプション（例："neutral"）。coreはmemorizeという概念を一切知らない
+    // （呼び出し元がどの値を渡すか判断する）。省略時は既存挙動と完全に同じ。
+    resultDisplayVariant
   } = params;
 
   answerResult.classList.remove("correct", "incorrect");
@@ -87,8 +92,6 @@ export function applyAnswerResult(params) {
       messageSelectedAnswer,
       getMapAreaLabelById
     );
-    answerResult.classList.add("correct");
-    answerResult.style.color = "#2e7d32";
   } else {
     answerResult.textContent = buildResultMessage(
       false,
@@ -97,8 +100,6 @@ export function applyAnswerResult(params) {
       messageSelectedAnswer,
       getMapAreaLabelById
     );
-    answerResult.classList.add("incorrect");
-    answerResult.style.color = "#c62828";
 
     if (!state.quiz.retryMode) {
       const currentQuestionId = getQuestionId(question);
@@ -106,6 +107,19 @@ export function applyAnswerResult(params) {
         state.quiz.wrongQuestions.push(question);
       }
     }
+  }
+
+  // 表示class/色の決定。resultDisplayVariantが明示的に渡された場合はそれを優先し、
+  // 省略時はisCorrectから既定どおり決定する（既存の全呼び出し元はこちらのまま）。
+  // "correct"/"incorrect"以外の値（例："neutral"）ではclassList/style.colorに
+  // 一切触れない＝.result-box既定の中立表示のまま（.correct/.incorrectのCSS自体は無変更）。
+  const displayVariant = resultDisplayVariant || (isCorrect ? "correct" : "incorrect");
+  if (displayVariant === "correct") {
+    answerResult.classList.add("correct");
+    answerResult.style.color = "#2e7d32";
+  } else if (displayVariant === "incorrect") {
+    answerResult.classList.add("incorrect");
+    answerResult.style.color = "#c62828";
   }
 
   if (question.mode === "choice" || question.mode === "era") {

@@ -1,14 +1,14 @@
 import { applyFuriganaText } from "../features/furigana/furigana-apply.js";
 
-export function renderChoiceQuestion(question, elements, onSelectChoice) {
-  const {
-    questionText,
-    choicesContainer,
-    answerInput,
-    submitButton,
-    answerResult,
-    questionImage
-  } = elements;
+// 問題文・画像（choice問題の「本体」部分）だけを描画する。choice選択肢ボタンには触れない。
+//
+// 暗記モード-1（M1-2）想起ゲート用に切り出した部分。想起ゲート表示中（S0）は、
+// 選択肢ボタンをまだ生成しないが、問題文・画像は表示する必要があるため、
+// renderChoiceQuestion()からこの部分だけを独立して呼べるようにする。
+// 通常のrenderChoiceQuestion()呼び出し（既存の全呼び出し元）の挙動は
+// 一切変更しない（renderChoiceQuestion()が内部でこの関数を呼ぶだけ）。
+export function renderChoiceQuestionStem(question, elements) {
+  const { questionText, questionImage } = elements;
 
   applyFuriganaText(questionText, question.question || "問題文");
 
@@ -21,6 +21,15 @@ export function renderChoiceQuestion(question, elements, onSelectChoice) {
     questionImage.src = "";
     questionImage.alt = "";
   }
+}
+
+// choice選択肢ボタンだけを描画する（問題文・画像には触れない）。
+//
+// 暗記モード-1（M1-2）: 想起ゲートで「思い出した」が押された後、
+// 既に表示済みの問題文を再描画せずに選択肢ボタンだけを追加生成するために使う
+// （core/question-screen-controller.jsのrenderAnswerUiForCurrentQuestion経由）。
+export function renderChoiceAnswerButtons(question, elements, onSelectChoice) {
+  const { choicesContainer, answerInput, submitButton, answerResult } = elements;
 
   choicesContainer.className = "choices";
   choicesContainer.innerHTML = "";
@@ -55,6 +64,11 @@ export function renderChoiceQuestion(question, elements, onSelectChoice) {
 
     choicesContainer.appendChild(button);
   });
+}
+
+export function renderChoiceQuestion(question, elements, onSelectChoice) {
+  renderChoiceQuestionStem(question, elements);
+  renderChoiceAnswerButtons(question, elements, onSelectChoice);
 }
 
 export function lockChoiceButtons(container, selectedChoice, correctAnswer, normalizeValue) {
