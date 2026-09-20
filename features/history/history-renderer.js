@@ -23,6 +23,11 @@ import {
 } from "./history-service.js";
 import { SUBJECT_CONFIG } from "../../config/subjects.js";
 import { isWrongRetryEligibleAttempt, isRetryEligibleAttempt } from "../../core/quiz-controller.js";
+import {
+  isMemorizeAttempt,
+  groupMemorizeHistoryEntries,
+  compareRecencyKeysDesc
+} from "./memorize-run-group-model.js";
 
 const RECENT_HISTORY_LIMIT = 5;
 
@@ -65,6 +70,73 @@ export function formatPercent(rate) {
 }
 
 /**
+ * 暗記モード-1 STEP M1-12: memorize Run代表entry（表示専用view data）を組み立てる。
+ * grouping・validation本体はmemorize-run-group-model.jsの責務（DOM非依存の純粋関数）とし、
+ * ここではその結果（MemorizeRunGroup）を日本語ラベル・DOM用データへ変換するだけに徹する。
+ *
+ * 日付：Run先頭（reviewRound最小）Attemptのstartedat。
+ * 科目：Run先頭entryをhistory-service.jsの既存優先順位（questionSet.fieldId優先、
+ * 無ければ先頭AnswerRecordのfieldId）で解決する（M1-11確定方針：新しいsubject解決
+ * ロジックを作らない）。
+ *
+ * @param {import("./memorize-run-group-model.js").MemorizeRunGroup} group
+ * @returns {{kind:"memorize_run", recencyKey:string|null, dateLabel:string, subjectLabel:string, statusLabel:string}}
+ */
+function buildMemorizeRunViewItem(group) {
+  const firstEntry = group.entries[0];
+  const fallbackFieldId = Array.isArray(firstEntry.answerRecords) ? firstEntry.answerRecords[0]?.fieldId : undefined;
+  const subjectLabel = getSubjectLabel(firstEntry.questionSet?.fieldId || fallbackFieldId);
+  const statusLabel = group.completed
+    ? `全問習得（${group.roundCount}周）`
+    : `学習中（${group.roundCount}周目）`;
+
+  return {
+    kind: "memorize_run",
+    recencyKey: group.lastAttempt.completedAt || group.lastAttempt.startedAt || group.firstAttempt.startedAt || null,
+    dateLabel: formatDateLabel(group.firstAttempt.startedAt),
+    subjectLabel,
+    statusLabel
+  };
+}
+
+/**
+ * 【非公開】studentIdの学習履歴一覧（AnswerRecord 0件Attempt除外後）から、
+ * memorize AttemptだけをrunId単位でRun代表entryへ統合し、通常entryと統合した
+ * 表示専用view item一覧を新しさ順（desc）で返す。sliceは呼び出し側の責務とする
+ * （M1-10/M1-11確定処理順: grouping → 統合ソート → limit）。
+ *
+ * @param {Array<{attempt:Object, questionSet:Object|null, answerRecords:Array<Object>}>} items
+ * @returns {Array<
+ *   {kind:"attempt", entry:Object, recencyKey:string|null} |
+ *   {kind:"memorize_run", recencyKey:string|null, dateLabel:string, subjectLabel:string, statusLabel:string}
+ * >}
+ */
+function buildRecentHistoryViewItems(items) {
+  const nonMemorizeEntries = [];
+  const memorizeEntries = [];
+
+  items.forEach((entry) => {
+    if (isMemorizeAttempt(entry.attempt)) {
+      memorizeEntries.push(entry);
+    } else {
+      nonMemorizeEntries.push(entry);
+    }
+  });
+
+  const { validRunGroups, fallbackEntries } = groupMemorizeHistoryEntries(memorizeEntries);
+
+  const attemptViewItems = [...nonMemorizeEntries, ...fallbackEntries].map((entry) => ({
+    kind: "attempt",
+    entry,
+    recencyKey: entry.attempt?.completedAt || entry.attempt?.startedAt || null
+  }));
+
+  const runViewItems = validRunGroups.map(buildMemorizeRunViewItem);
+
+  return [...attemptViewItems, ...runViewItems].sort((a, b) => compareRecencyKeysDesc(a.recencyKey, b.recencyKey));
+}
+
+/**
  * 【非公開・唯一のHistoryService入口】history-screenが必要とするデータをまとめて取得する。
  *
  * 使用するのは以下の4つのみ:
@@ -103,10 +175,13 @@ function getHistoryScreenData(studentId) {
   const answeredItems = allHistory.items.filter(
     (entry) => Array.isArray(entry.answerRecords) && entry.answerRecords.length > 0
   );
+  // 暗記モード-1 STEP M1-12: memorizeのみRun grouping→通常entryと統合ソート→最後にlimitを
+  // 適用する（grouping前にsliceすると、1 Runが複数Attemptを消費して表示件数が実質減って
+  // しまうため。M1-10/M1-11で確定済みの処理順）。
   const recentHistory = {
     studentId: allHistory.studentId,
     totalCount: allHistory.totalCount,
-    items: answeredItems.slice(0, RECENT_HISTORY_LIMIT)
+    items: buildRecentHistoryViewItems(answeredItems).slice(0, RECENT_HISTORY_LIMIT)
   };
 
   return { dashboard, summary, fieldDashboards, recentHistory };
@@ -222,7 +297,7 @@ function renderSubjectList(fieldDashboards, listElement) {
  * 対象外にする理由がない）に「詳細」ボタンを追加する。押下時の実処理は
  * onOpenDetailコールバックへ丸ごと委譲する（app.js側の責務）。
  *
- * @param {ReturnType<typeof getStudentHistoryList>["items"]} items
+ * @param {ReturnType<typeof buildRecentHistoryViewItems>} items
  * @param {HTMLElement} listElement
  * @param {(entry: Object) => void} [onRetryAttempt] - 「もう一度やる」押下時のコールバック
  * @param {(entry: Object) => void} [onRetryWrongAttempt] - 「間違えたN問をやり直す」押下時のコールバック
@@ -231,17 +306,44 @@ function renderSubjectList(fieldDashboards, listElement) {
 function renderRecentList(items, listElement, onRetryAttempt, onRetryWrongAttempt, onOpenDetail) {
   listElement.innerHTML = "";
 
-  const entries = Array.isArray(items) ? items : [];
-  if (entries.length === 0) return;
+  const viewItems = Array.isArray(items) ? items : [];
+  if (viewItems.length === 0) return;
 
   const title = document.createElement("p");
   title.className = "history-section-title";
   title.textContent = "最近の学習履歴";
   listElement.appendChild(title);
 
-  entries.forEach((entry) => {
+  viewItems.forEach((viewItem) => {
     const item = document.createElement("div");
     item.className = "history-recent-item";
+
+    // 暗記モード-1 STEP M1-12: memorize Run代表カードはactionを一切持たない
+    // （詳細・もう一度やる・間違えたN問をやり直す・続きから、いずれも表示しない。
+    // M1-11 Design Gateで確定済みの方針）。既存history-recent-item系CSSクラスを
+    // そのまま再利用し、新規CSSは追加しない。
+    if (viewItem.kind === "memorize_run") {
+      const date = document.createElement("span");
+      date.className = "history-recent-item-date";
+      date.textContent = viewItem.dateLabel || "-";
+
+      const subject = document.createElement("span");
+      subject.className = "history-recent-item-subject";
+      subject.textContent = `${viewItem.subjectLabel}　暗記モード`;
+
+      const status = document.createElement("span");
+      status.className = "history-recent-item-count";
+      status.textContent = viewItem.statusLabel;
+
+      item.appendChild(date);
+      item.appendChild(subject);
+      item.appendChild(status);
+
+      listElement.appendChild(item);
+      return;
+    }
+
+    const entry = viewItem.entry;
 
     const dateLabel = formatDateLabel(entry.attempt?.completedAt || entry.attempt?.startedAt);
     const fallbackFieldId = Array.isArray(entry.answerRecords) ? entry.answerRecords[0]?.fieldId : undefined;
