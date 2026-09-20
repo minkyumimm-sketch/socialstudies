@@ -16,6 +16,7 @@ import {
   isWrongRetryEligibleAttempt
 } from "./core/quiz-controller.js";
 import { pickQuestions } from "./core/question-picker.js";
+import { filterQuestions } from "./core/question-filters.js";
 import {
   buildResultMessage,
   buildDeferredAnswerUnknownResultMessage,
@@ -404,6 +405,7 @@ const subunitFilterSelect = document.getElementById("subunit-filter-select");
 const questionCountSelect = document.getElementById("question-count");
 const retryWrongOnlyCheckbox = document.getElementById("retry-wrong-only");
 const startButton = document.getElementById("start-button");
+const startMemorizeButton = document.getElementById("start-memorize-button");
 const startHomeBackButton = document.getElementById("start-home-back-button");
 const startError = document.getElementById("start-error");
 
@@ -501,6 +503,7 @@ reviewStartBannerCloseButton.addEventListener("click", hideReviewStartBanner);
 startHomeBackButton.addEventListener("click", returnToHome);
 
 startButton.addEventListener("click", startQuiz);
+startMemorizeButton.addEventListener("click", startMemorizeQuiz);
 resumeContinueButton.addEventListener("click", handleResumeContinueClick);
 resumeDiscardButton.addEventListener("click", handleResumeDiscardClick);
 tssResumeContinueButton.addEventListener("click", handleTestSetResumeContinueClick);
@@ -659,6 +662,79 @@ async function executeStartQuiz() {
   } finally {
     startButton.disabled = false;
     startButton.textContent = "開始";
+  }
+}
+
+// 暗記モード-1 STEP M1-5: 正式な暗記モード新規開始導線。
+//
+// 既存start-screenの科目/単元/分野選択（subjectSelect/unitFilterSelect/subunitFilterSelect）を
+// そのまま再利用する。出題形式選択（modeFilterSelect）・問題数選択（questionCountSelect）・
+// 「間違えた問題を最後にもう一度出す」（retryWrongOnlyCheckbox）は暗記モードの概念に
+// 対応しないため使用しない（Round対象は選択式問題の全件、出題順はrunner/selectorが正本）。
+//
+// 既存executeStartQuiz()と同じ検証文言・同じconfirmAndAbandonResumeBeforeNewAttempt()経由の
+// resume候補競合ガードを踏襲する。core/quiz-controller.jsのprepareQuizStart()は
+// pickQuestions()（シャッフル）を内部で呼ぶため、M1-3の「shuffleしない」方針上ここでは
+// 使わず、同じ検証・同じfilterQuestions()（既存core/question-filters.js、無変更）を
+// 直接呼ぶ薄い専用パスとする。
+async function startMemorizeQuiz() {
+  await confirmAndAbandonResumeBeforeNewAttempt(executeStartMemorizeQuiz);
+}
+
+async function executeStartMemorizeQuiz() {
+  const studentName = String(studentNameInput.value || "").trim();
+  const studentId = String(studentIdInput.value || "").trim();
+  const subject = String(subjectSelect.value || "").trim();
+  const unitFilter = String(unitFilterSelect.value || "all").trim();
+  const subunitFilter = String(subunitFilterSelect.value || "all").trim();
+
+  startError.textContent = "";
+
+  if (!studentId || !studentName) {
+    startError.textContent = "候補から生徒を選んでください。";
+    return;
+  }
+
+  if (!subject || !SUBJECT_CONFIG[subject]) {
+    startError.textContent = "科目を選んでください。";
+    return;
+  }
+
+  try {
+    startMemorizeButton.disabled = true;
+    startMemorizeButton.textContent = "読込中...";
+
+    const normalizedQuestions = await filterManager.getNormalizedQuestionsForSubject(subject);
+
+    // 暗記モードVer.1はchoice形式のみ対応。既存mode-filter-selectの値に関わらず、
+    // 対象決定の時点でchoiceだけに絞る（memorize-session-controller.jsの
+    // fail-closed検証は維持しつつ、開始前に安全側へ倒す）。
+    const filtered = filterQuestions(
+      normalizedQuestions,
+      { unitFilter, modeFilter: "choice", subunitFilter },
+      normalizeValue
+    );
+
+    if (!filtered.length) {
+      startError.textContent = "条件に合う問題がありません。";
+      return;
+    }
+
+    state.session.studentName = studentName;
+    state.session.studentId = studentId;
+
+    const questionIds = filtered.map((question) => question.questionId);
+    const result = await startMemorizeRunQuiz(subject, questionIds, unitFilter !== "all" ? unitFilter : "");
+
+    if (!result.ok) {
+      startError.textContent = result.errorMessage || "暗記モードを開始できませんでした。";
+    }
+  } catch (error) {
+    console.error("startMemorizeQuiz error:", error);
+    startError.textContent = "開始に失敗しました。GAS URLやCSVを確認してください。";
+  } finally {
+    startMemorizeButton.disabled = false;
+    startMemorizeButton.textContent = "暗記モードで開始";
   }
 }
 
