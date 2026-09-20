@@ -22,6 +22,9 @@ function formatSourceBadge(record) {
   if (record.sourceType === "weak_review") return "苦手復習";
   if (record.sourceType === "dormant_review") return "復習（久しぶり）";
   if (record.sourceType === "normal") return "通常学習";
+  // 暗記モード-1（M1-8）: sourceType==="memorize"は既存のfallback「起点不明」に落ちていた
+  // （M1-6 Research Gateで確認済みの表示欠落）。他sourceTypeの表示・fallback自体は変更しない。
+  if (record.sourceType === "memorize") return "暗記モード";
   return "起点不明";
 }
 
