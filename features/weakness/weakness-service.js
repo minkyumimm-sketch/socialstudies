@@ -45,6 +45,84 @@ function isNewerAnsweredAt(candidate, current) {
 }
 
 /**
+ * 暗記モード-1（M1-7）・非公開: 学習履歴のうちsourceType==="memorize"のAttempt群から、
+ * 「同一runId×questionIdにおける最初の回答（reviewRoundが最小のAnswerRecord）」だけを
+ * Weakness正誤統計の対象として選び出す。
+ *
+ * 設計方針（M1-6 Research Gate・M1-7確定ポリシー）：
+ * - memorizeは1 Run内で同じ問題に複数回（Round単位）回答するため、全件をそのまま
+ *   正誤統計へ入れると「1 Runで習得しただけ」でもincorrectCountが積み上がってしまう。
+ * - 既存Weaknessは「学習を始めた時点でその問題を覚えていたか」を評価するものと位置づけ、
+ *   memorizeの後続Round（＝その場で覚え直す過程）は正誤統計から除外する。
+ * - ただし後続Roundの回答も含め、AnswerRecord自体は一切変更・削除しない
+ *   （features/history/answer-record-service.js・answer-record-repository.jsは無変更）。
+ * - 「最初」の判定は、生徒の全期間で最初ではなく、同一runId×questionIdごとに独立して行う
+ *   （別runId＝別イベントとして扱う）。
+ * - 判定にはreviewRound（memorize正式契約でRound番号として単調増加、1始まり）を正本とする。
+ *   answeredAt（端末時計・保存順序に依存しうる）は使わない。
+ * - runId/reviewRoundが安全に使えないmemorize Attempt（レガシー・不正データ）は、
+ *   通常回答として扱うと過剰カウントが復活してしまうため、fail-closedでWeakness集計から
+ *   完全に除外する（console.errorで診断可能にするが、例外は投げずWeakness画面自体は壊さない）。
+ *
+ * @param {Array<{attempt: import("../history/attempt-model.js").Attempt, answerRecords: Array<Object>}>} history
+ * @returns {{
+ *   weaknessEligibleRecords: Array<Object>,
+ *   allTouchRecords: Array<Object>
+ * }} weaknessEligibleRecords: 正誤統計（answeredCount/correctCount/incorrectCount/lastIsCorrect）の母集団。
+ *    allTouchRecords: lastAnsweredAt（Dormant判定用）の母集団。fail-closedで除外されたAttempt由来の
+ *    AnswerRecordはどちらにも含まれない（正誤統計にもDormant判定にも一切使わない）。
+ */
+function collectWeaknessAnswerRecords(history) {
+  const weaknessEligibleRecords = [];
+  const allTouchRecords = [];
+  const memorizeInitialCandidateByGroup = new Map();
+
+  history.forEach(({ attempt, answerRecords }) => {
+    const records = Array.isArray(answerRecords) ? answerRecords : [];
+
+    if (attempt?.sourceType !== "memorize") {
+      // normal/weak_review/dormant_review/testset/testset_reviewは既存どおり全件を対象にする
+      // （M1-7で変更しない）。
+      records.forEach((record) => {
+        if (!record?.questionId) return;
+        weaknessEligibleRecords.push(record);
+        allTouchRecords.push(record);
+      });
+      return;
+    }
+
+    const runId = typeof attempt.runId === "string" ? attempt.runId.trim() : "";
+    const reviewRound = attempt.reviewRound;
+    const hasValidRunIdentity = runId !== "" && Number.isInteger(reviewRound) && reviewRound >= 1;
+
+    if (!hasValidRunIdentity) {
+      console.error(
+        "weakness-service: memorize Attemptのrun識別情報が不正なため、Weakness集計から除外します（fail-closed）:",
+        { attemptId: attempt?.attemptId, runId: attempt?.runId, reviewRound: attempt?.reviewRound }
+      );
+      return;
+    }
+
+    records.forEach((record) => {
+      if (!record?.questionId) return;
+      allTouchRecords.push(record);
+
+      const groupKey = `${runId}::${record.questionId}`;
+      const existingCandidate = memorizeInitialCandidateByGroup.get(groupKey);
+      if (!existingCandidate || reviewRound < existingCandidate.reviewRound) {
+        memorizeInitialCandidateByGroup.set(groupKey, { record, reviewRound });
+      }
+    });
+  });
+
+  memorizeInitialCandidateByGroup.forEach(({ record }) => {
+    weaknessEligibleRecords.push(record);
+  });
+
+  return { weaknessEligibleRecords, allTouchRecords };
+}
+
+/**
  * 【Task18-2・非公開】studentIdに紐づく学習履歴（HistoryService.getStudentHistory）から、
  * questionId単位に解答統計（QuestionStats）を集約する。
  *
@@ -53,6 +131,13 @@ function isNewerAnsweredAt(candidate, current) {
  * 収束済みである。複数のAttemptにまたがって同じquestionIdが解答された場合のみ、
  * ここでanswered Count等が積み上がる（design doc10.1「累計出題◯回」はこの意味で扱う）。
  *
+ * 暗記モード-1（M1-7）: sourceType==="memorize"のAttemptだけは、answeredCount/correctCount/
+ * incorrectCount/lastIsCorrectの母集団を「同一runId×questionIdの最初の回答のみ」に絞る
+ * （collectWeaknessAnswerRecords()参照）。一方、lastAnsweredAt（Dormant判定が使う「最後に
+ * 学習接触した日時」）は、memorizeの後続Roundも含めた実際の最終回答時刻を反映する
+ * （正誤統計とlastAnsweredAtは、memorize後続Roundについては異なるAnswerRecordから
+ * 導出されうる。これは今回のM1-7確定ポリシーであり、QuestionStatsの型自体は変更しない）。
+ *
  * fieldId/unitはAnswerRecord自身が持つ値をそのまま使う（features/history/
  * answer-record-model.js参照。QuestionSetを別途取得する必要が無いため取得しない）。
  *
@@ -60,44 +145,62 @@ function isNewerAnsweredAt(candidate, current) {
  * 一切直接アクセスしない。
  *
  * @param {string} studentId
- * @returns {QuestionStats[]} questionIdの出現順（Attempt取得順→AnswerRecord取得順）
+ * @returns {QuestionStats[]}
  */
 function buildQuestionStatsList(studentId) {
   const history = getStudentHistory(studentId);
+  const { weaknessEligibleRecords, allTouchRecords } = collectWeaknessAnswerRecords(history);
+
   const statsByQuestion = new Map();
 
-  history.forEach(({ answerRecords }) => {
-    (Array.isArray(answerRecords) ? answerRecords : []).forEach((record) => {
-      const questionId = record?.questionId;
-      if (!questionId) return;
+  function ensureStats(questionId, record) {
+    if (!statsByQuestion.has(questionId)) {
+      statsByQuestion.set(questionId, {
+        questionId,
+        fieldId: record.fieldId || "",
+        unit: record.unit || "",
+        answeredCount: 0,
+        correctCount: 0,
+        incorrectCount: 0,
+        lastAnsweredAt: null,
+        lastIsCorrect: null
+      });
+    }
+    return statsByQuestion.get(questionId);
+  }
 
-      if (!statsByQuestion.has(questionId)) {
-        statsByQuestion.set(questionId, {
-          questionId,
-          fieldId: record.fieldId || "",
-          unit: record.unit || "",
-          answeredCount: 0,
-          correctCount: 0,
-          incorrectCount: 0,
-          lastAnsweredAt: null,
-          lastIsCorrect: null
-        });
-      }
+  // 正誤統計・lastIsCorrect: Weakness対象イベント（memorizeは初回のみ、他は全件）だけを母集団とする。
+  const latestEligibleAnsweredAtByQuestion = new Map();
+  weaknessEligibleRecords.forEach((record) => {
+    const questionId = record.questionId;
+    if (!questionId) return;
 
-      const stats = statsByQuestion.get(questionId);
-      stats.answeredCount += 1;
+    const stats = ensureStats(questionId, record);
+    stats.answeredCount += 1;
 
-      if (record.isCorrect) {
-        stats.correctCount += 1;
-      } else {
-        stats.incorrectCount += 1;
-      }
+    if (record.isCorrect) {
+      stats.correctCount += 1;
+    } else {
+      stats.incorrectCount += 1;
+    }
 
-      if (isNewerAnsweredAt(record.answeredAt ?? null, stats.lastAnsweredAt)) {
-        stats.lastAnsweredAt = record.answeredAt ?? null;
-        stats.lastIsCorrect = Boolean(record.isCorrect);
-      }
-    });
+    const currentLatestEligible = latestEligibleAnsweredAtByQuestion.get(questionId) ?? null;
+    if (isNewerAnsweredAt(record.answeredAt ?? null, currentLatestEligible)) {
+      latestEligibleAnsweredAtByQuestion.set(questionId, record.answeredAt ?? null);
+      stats.lastIsCorrect = Boolean(record.isCorrect);
+    }
+  });
+
+  // lastAnsweredAt（Dormant判定用）: fail-closedで除外された分を除く実回答全件を母集団とする。
+  // 上のlastIsCorrectとは独立した「最新」判定であり、memorize後続Roundの回答時刻も反映する。
+  allTouchRecords.forEach((record) => {
+    const questionId = record.questionId;
+    if (!questionId) return;
+
+    const stats = ensureStats(questionId, record);
+    if (isNewerAnsweredAt(record.answeredAt ?? null, stats.lastAnsweredAt)) {
+      stats.lastAnsweredAt = record.answeredAt ?? null;
+    }
   });
 
   return Array.from(statsByQuestion.values()).map((stats) => ({
