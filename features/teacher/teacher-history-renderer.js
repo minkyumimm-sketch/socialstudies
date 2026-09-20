@@ -19,6 +19,14 @@ function formatSourceBadge(record) {
   if (record.sourceType === "testset") {
     return record.testSetId ? `テストセット（${record.testSetId}）` : "テストセット";
   }
+  // STEP M1-9: sourceType==="testset_review"は既存のfallback「起点不明」に落ちていた。
+  // 「間違い直し」は既存の実UI文言（app.js内のResume候補文言「前回の間違い直しの続き」・
+  // 「${TestSet名} の間違い直しの続き」、および復習フェーズ開始バナー・エラー文言で一貫して
+  // 使われている既存の表示用語をそのまま採用（新規に用語を作らない）。testSetIdの表示形式も
+  // 直前のtestset分岐と同じ形式に合わせる（testset_reviewもtestSetIdを持つため）。
+  if (record.sourceType === "testset_review") {
+    return record.testSetId ? `間違い直し（${record.testSetId}）` : "間違い直し";
+  }
   if (record.sourceType === "weak_review") return "苦手復習";
   if (record.sourceType === "dormant_review") return "復習（久しぶり）";
   if (record.sourceType === "normal") return "通常学習";
