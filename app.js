@@ -1877,6 +1877,20 @@ function showResumeCandidate(progress) {
     return;
   }
 
+  // 暗記モード-1（M1-4B）: memorizeは既存start-screenの「続きから」パネル
+  // （#resume-progress、既存の汎用DOM/CSSをそのまま再利用）に表示する。
+  // TestSet系と異なり専用runner画面を持たないため、testset/testset_reviewと同じ
+  // 「専用パネルへ切り替える」方式ではなく、文言だけを暗記モード向けに調整する。
+  if (progress.sourceType === "memorize") {
+    const subjectLabel = SUBJECT_CONFIG[progress.fieldId]?.label || progress.fieldId;
+    resumeProgressText.textContent = `暗記モードの続き：${subjectLabel}（Round ${progress.reviewRound}）`;
+
+    resumeProgressError.textContent = "";
+    closeGlobalConfirm();
+    resumeProgressBlock.classList.remove("hidden");
+    return;
+  }
+
   const subjectLabel = SUBJECT_CONFIG[progress.fieldId]?.label || progress.fieldId;
   const unitLabel = progress.unit && progress.unit !== "all" ? ` / ${progress.unit}` : "";
   resumeProgressText.textContent = `前回の続き：${subjectLabel}${unitLabel}`;
@@ -2010,6 +2024,23 @@ async function performResumeContinue(buttonsToDisable) {
 
   buttonsToDisable.forEach((button) => { button.disabled = true; });
   try {
+    // 暗記モード-1（M1-4B）: sourceType==="memorize"だけ、M1-4で完成済みの
+    // resumeMemorizeRunQuiz()へ振り分ける（既存resumeQuiz()の内部分岐は一切変更しない）。
+    // validation失敗時も既存resumeQuiz()失敗時と同じ規約（該当エラー要素へ表示、
+    // 画面遷移なし、「この続きはやめる」は引き続き利用可能）に合わせる。
+    // 失敗時に既存resumeQuiz()へフォールバックすることは絶対にしない
+    // （sourceTypeの異なるResume処理へ誤って流さないため）。
+    if (resumeCandidate.sourceType === "memorize") {
+      const result = await resumeMemorizeRunQuiz(resumeCandidate);
+      if (!result.ok) {
+        getResumeErrorElement(resumeCandidate).textContent =
+          result.errorMessage || "前回の暗記モードの続きを再開できませんでした。";
+        return;
+      }
+      hideResumeCandidate();
+      return;
+    }
+
     await resumeQuiz(resumeCandidate);
   } finally {
     buttonsToDisable.forEach((button) => { button.disabled = false; });
