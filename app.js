@@ -1714,6 +1714,14 @@ function backToStart() {
     abortRun();
   }
 
+  // 暗記モード-1 STEP M1-20: 未完了memorize Runから離脱する場合も、TestSet runnerと
+  // 同じ責務でローカルRunnerだけを終了する（Attempt/AttemptProgressは変更しない、
+  // 中断であり破棄ではない。M1-19確定方針）。TestSet runnerとmemorize runnerは
+  // 同時にactiveにならないため、wasTestSetRunの判定とは独立して行ってよい。
+  if (isMemorizeRunnerActive()) {
+    abortMemorizeRun();
+  }
+
   if (wasTestSetRun) {
     // 既存のgoToTestSetStudentScreen()をそのまま再利用する（studentIdガード込み）。
     // initTestSetStudentScreen()が呼ばれるため、school/grade選択・currentIndex・
