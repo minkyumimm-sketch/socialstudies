@@ -35,6 +35,11 @@ function renderChoiceAnswerUi({ question, state, renderers, callbacks, extra }) 
  * 既にchoice-buttonがDOM上に存在する場合も、二重生成を避けるため何もしない
  * （同一問題に対して複数回呼ばれても安全）。
  *
+ * 暗記モード-1 STEP M1-16: 選択肢UIの生成に合わせて、想起ゲート専用の初期ガイド
+ * （「思い出せるか考えてみよう。」）を既存choice用ガイドへ戻す（extra.answerResultが
+ * 渡された場合のみ。呼び出し元＝onRecalledコールバック以外から呼ばれた場合に
+ * answerResultが無くても安全に何もしない）。
+ *
  * @param {Object} params - renderCurrentQuestion内部のchoiceハンドラと同じ形
  *   （{question, state, renderers, callbacks, extra}）。
  */
@@ -64,6 +69,10 @@ export function renderAnswerUiForCurrentQuestion(params) {
       callbacks.handleAnswer(choice);
     }
   );
+
+  if (extra?.answerResult) {
+    extra.answerResult.textContent = getInitialGuideMessage(question);
+  }
 }
 
 const QUESTION_MODE_HANDLERS = {
@@ -213,6 +222,11 @@ export async function renderCurrentQuestion(params) {
 
   if (state.quiz.retryMode) {
     answerResult.textContent = "復習モード：間違えた問題です。";
+  } else if (state.ui.deferAnswerUiActive) {
+    // 暗記モード-1 STEP M1-16: 想起ゲート表示中はまだ選択肢が無いため、
+    // 既存choice用ガイド「選択肢を1つ選んでください。」ではなく専用の初期ガイドを表示する
+    // （renderAnswerUiForCurrentQuestion()が「思い出した」押下時に既存ガイドへ戻す）。
+    answerResult.textContent = "思い出せるか考えてみよう。";
   } else {
     answerResult.textContent = getInitialGuideMessage(question);
   }
@@ -258,7 +272,8 @@ export async function renderCurrentQuestion(params) {
     },
     extra: {
       questionElements,
-      ERA_CHOICES
+      ERA_CHOICES,
+      answerResult
     }
   });
 
