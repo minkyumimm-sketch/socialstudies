@@ -367,6 +367,17 @@ select {
   color: #1e3a8a;
 }
 
+.start-memorize-hint {
+  margin: 12px 0 18px;
+  padding: 12px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  color: #2f4d8f;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
 .global-confirm-modal {
   position: fixed;
   inset: 0;
