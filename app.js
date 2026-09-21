@@ -144,6 +144,7 @@ import {
 } from "./features/memorize/memorize-runner.js";
 import { resolveMemorizeQuestions } from "./features/memorize/memorize-session-controller.js";
 import { renderMemorizeGate } from "./features/memorize/memorize-gate-renderer.js";
+import { buildMemorizeMasteryDisplayText } from "./features/memorize/memorize-progress-view.js";
 import {
   validateMemorizeResumeProgress,
   buildMemorizeResumeQuestionState
@@ -961,6 +962,43 @@ async function renderQuestion() {
     deferAnswerUi: isMemorizeRunnerActive(),
     unknownAnswerButton
   });
+
+  // 暗記モード-2 STEP M2-3: renderCurrentQuestion()が全mode共通で書き込んだ
+  // quizScore「正解数：N」を、暗記モード実行中だけ「習得：X / Y」へ上書きする
+  // （Round境界でstate.quiz.scoreが0へresetされても、Run全体のmastered数を維持して見せるため）。
+  updateMemorizeMasteryDisplay();
+}
+
+// 暗記モード-2 STEP M2-3: quiz-scoreへ「習得：X / Y」を表示する（Run全体でmasteredに
+// なったquestion数 / Run開始時のinitial question総数）。isMemorizeRunnerActive()が
+// falseの間は何もしない（renderCurrentQuestion()/applyAnswerResult()が書いた
+// 「正解数：N」をそのまま残す）。M2 state自体は保存せず、既存Attempt/AnswerRecordから
+// 毎回deriveする（features/memorize/memorize-progress-view.jsのbuildMemorizeMasteryDisplayText()、
+// 内部でfeatures/memorize/memorize-question-state.jsのderiveMemorizeQuestionStates()を呼ぶ）。
+// derive失敗時はfail-soft（quizScoreを上書きしない、学習・回答・Round進行には一切影響しない）。
+function updateMemorizeMasteryDisplay() {
+  if (!isMemorizeRunnerActive()) return;
+
+  const studentId = state.session.studentId;
+  const runnerState = getMemorizeRunnerState();
+  const runId = runnerState.runId;
+
+  const attempts = loadAttemptsByStudent(studentId).filter(
+    (attempt) => attempt.sourceType === "memorize" && attempt.runId === runId
+  );
+  const answerRecords = attempts.flatMap((attempt) => loadAnswerRecordsByAttempt(attempt.attemptId));
+
+  const result = buildMemorizeMasteryDisplayText({
+    studentId,
+    runId,
+    runnerInitialQuestionIds: runnerState.initialQuestionIds,
+    attempts,
+    answerRecords
+  });
+
+  if (result.ok) {
+    quizScore.textContent = result.text;
+  }
 }
 
 function resetQuestionArea() {
@@ -1140,6 +1178,10 @@ function handleAnswer(selectedChoice) {
   } catch (domainError) {
     console.error("recordAnswerForAttempt error（既存の回答フローには影響しません）:", domainError);
   }
+
+  // 暗記モード-2 STEP M2-3: recordAnswerForAttempt()がMemoryStorageへ同期保存した直後
+  // （GAS送信の完了は待たない）に、回答直後の最新state込みでquiz-scoreを更新する。
+  updateMemorizeMasteryDisplay();
 }
 
 function formatMapClickChoiceForDisplay(selectedChoice, getMapAreaLabelById) {
