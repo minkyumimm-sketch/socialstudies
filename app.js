@@ -985,6 +985,13 @@ function resetQuestionArea() {
   answerResult.classList.remove("correct", "incorrect");
   answerResult.style.color = "";
 
+  // 暗記モード-1 STEP M1-18: showMemorizeRunCompletion()が完了時にnoneへ設定した
+  // quizProgress/quizScoreを、次の問題render開始時に必ず再表示へ戻す
+  // （全モード共通でこの関数を通るため、暗記Run完了後に通常学習・新しい暗記Runの
+  // いずれへ進んでも復元される）。
+  quizProgress.style.display = "";
+  quizScore.style.display = "";
+
   questionElements.questionImage.classList.add("hidden");
   questionElements.questionImage.src = "";
   questionElements.questionImage.alt = "";
@@ -1581,11 +1588,21 @@ function showMemorizeRunCompletion(summary) {
   unknownAnswerButton.style.display = "none";
   nextButton.disabled = true;
   nextButton.style.display = "none";
-  answerResult.classList.remove("correct", "incorrect");
+  // 暗記モード-1 STEP M1-18: 完了メッセージへ既存の成功色（#answer-result.correct）を
+  // そのまま流用する（新規CSS・新規classは追加しない）。resetQuestionArea()が既に
+  // "correct"/"incorrect"の両方を無条件でremoveしているため、次の問題render時に
+  // 自動的に解除される（追加の解除コードは不要）。
+  answerResult.classList.remove("incorrect");
+  answerResult.classList.add("correct");
   answerResult.style.color = "";
   answerResult.textContent =
     `暗記モード完了：全${summary.initialQuestionCount}問を習得しました（${summary.roundCount}周）。`;
   questionElements.questionText.textContent = "暗記モード：完了";
+  // 暗記モード-1 STEP M1-18: 完了時点では直前Roundの「進行：N/N」「正解数：N」が
+  // 残留し視覚的に紛らわしいため非表示にする（単元表示quizUnitは「何を暗記したか」の
+  // 情報として維持するため変更しない）。resetQuestionArea()で必ず再表示へ戻す。
+  quizProgress.style.display = "none";
+  quizScore.style.display = "none";
 }
 
 // ---------------------------------------------------------------------------
