@@ -169,6 +169,24 @@ function selectValidAttemptsInScope_(attempts, studentId) {
 }
 
 /**
+ * question group（{fieldId, questionId, ...}）2件を、fieldId昇順→questionId昇順で
+ * 比較する。M3-2/M3-2B共通の正式ordering contract（2026-09-22確定）。
+ * OS locale・localeCompare()に依存しない、単純なcode-unit順の文字列比較のみを使う
+ * （input配列の走査順に依存しないdeterministic outputを保証するため）。
+ *
+ * @param {{fieldId:string, questionId:string}} a
+ * @param {{fieldId:string, questionId:string}} b
+ * @returns {number}
+ */
+function compareQuestionGroups_(a, b) {
+  if (a.fieldId < b.fieldId) return -1;
+  if (a.fieldId > b.fieldId) return 1;
+  if (a.questionId < b.questionId) return -1;
+  if (a.questionId > b.questionId) return 1;
+  return 0;
+}
+
+/**
  * 生徒の複数runIdにまたがるmemorize Attempt/AnswerRecordから、
  * studentId + fieldId + questionId単位で「各Runの初回recall結果（reviewRound===1の
  * AnswerRecordのoutcome）」を時系列に再構築する。
@@ -182,10 +200,14 @@ function selectValidAttemptsInScope_(attempts, studentId) {
  *   一度に処理できる）。
  *
  * 【出力】
- * { studentId, fieldId, questionId, events } の配列。events内はeventAt昇順
- * （同一eventAtはrunId昇順でtie-break、入力順に依存しないdeterministicな順序）。
- * 各eventは { runId, firstRecallOutcome, eventAt, calendarDate } のみ
- * （scheduleに関するfield・reviewRound自体（常に1のため冗長）は含めない）。
+ * { studentId, fieldId, questionId, events } の配列。questions配列自体は
+ * fieldId昇順→questionId昇順（compareQuestionGroups_、2026-09-22確定の正式
+ * ordering contract）で並べる。入力attempts/answerRecordsの走査順には一切依存しない
+ * （複数question groupを跨ぐ入力shuffleでもJSON全体が完全に一致するdeterministic
+ * output）。events内はeventAt昇順（同一eventAtはrunId昇順でtie-break、
+ * こちらも入力順に依存しない）。各eventは { runId, firstRecallOutcome, eventAt,
+ * calendarDate } のみ（scheduleに関するfield・reviewRound自体（常に1のため冗長）は
+ * 含めない）。
  *
  * 【fail-closedの方針】
  * 対象生徒のmemorize履歴内での構造矛盾（Attempt側の不正・reviewRound===1の
@@ -295,6 +317,12 @@ export function deriveMemorizeLongTermEvents({ studentId, attempts = [], answerR
       events: sortedEvents
     };
   });
+
+  // questions配列自体は、入力の走査順（groupOrder）に依存させず、正式ordering
+  // contract（fieldId昇順→questionId昇順）で並べ替える。これにより、複数question
+  // groupを跨いでattempts/answerRecordsの入力順序が変わっても、出力JSON全体が
+  // 完全に一致するdeterministic outputになる（2026-09-22確定）。
+  questions.sort(compareQuestionGroups_);
 
   return { ok: true, questions };
 }
