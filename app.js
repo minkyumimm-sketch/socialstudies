@@ -83,6 +83,7 @@ import {
 import { getAttemptProgress, abandonAttemptProgress } from "./services/learning-record-service.js";
 import { loadAttempt, loadAttemptsByStudent, saveAttempt } from "./features/history/attempt-service.js";
 import { loadAnswerRecordsByAttempt } from "./features/history/answer-record-service.js";
+import { getStudentHistory } from "./features/history/history-service.js";
 import { loadTestSet } from "./services/test-set-service.js";
 import { SUBJECT_CONFIG } from "./config/subjects.js";
 import { renderHomeForStudent, toggleHomeDetail } from "./features/home/home-renderer.js";
@@ -143,6 +144,7 @@ import {
   restoreMemorizeRun
 } from "./features/memorize/memorize-runner.js";
 import { resolveMemorizeQuestions } from "./features/memorize/memorize-session-controller.js";
+import { deriveTodaysMemorizeReview } from "./features/memorize/memorize-review-run-controller.js";
 import { renderMemorizeGate } from "./features/memorize/memorize-gate-renderer.js";
 import { buildMemorizeMasteryDisplayText } from "./features/memorize/memorize-progress-view.js";
 import {
@@ -1527,6 +1529,86 @@ async function startMemorizeRunQuiz(fieldId, questionIds, unit = "") {
 
   await startMemorizeRoundQuiz(questionIds);
   return { ok: true };
+}
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * 現在時刻を日本標準時（Asia/Tokyo、UTC+9固定・DSTなし）基準の"YYYY-MM-DD"へ変換する。
+ * features/memorize/配下のM3-2/M3-2B/M3-3のtoJstCalendarDate_と同一の変換ロジックだが、
+ * それらは「与えられたUTC timestampを変換するだけ」のpure helperであり現在時刻を
+ * 取得しない。現在時刻の取得自体（Date.now()）は、M3系pure moduleが一切行わない
+ * 契約になっているため、この呼び出し境界（app.js）で1箇所だけ行う
+ * （暗記モード-3 STEP M3-5）。
+ *
+ * @returns {string}
+ */
+function getJstTodayDateString_() {
+  const jst = new Date(Date.now() + JST_OFFSET_MS);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}`;
+}
+
+// 暗記モード-3 STEP M3-5: M3-4までで確定した「今日の長期復習対象」を、既存の
+// 暗記モード実行系（Runner/Attempt/Progress/Resume/abandon）へ最小変更で接続する入口。
+//
+// 【設計方針（M3-5 Research / Design Gate確定）】
+// - 呼び出しのたびに生徒の学習履歴（getStudentHistory）からfresh deriveする
+//   （UIが以前表示したquestionIdsをキャッシュとして受け取らない。stale ID対策）。
+// - due 0件ならunfinished Run確認ダイアログを一切出さずに終了する（無駄な確認を
+//   避けるため、derive→due判定→unfinished gateの順で処理する）。
+// - unfinished Run確認は既存confirmAndAbandonResumeBeforeNewAttempt()をそのまま
+//   再利用する（sourceType/fieldIdを問わず、既存の「studentにつき未解決Attemptは
+//   最大1件」という契約をそのまま踏襲し、独自のfield単位blockingを新設しない）。
+// - 実際のRun開始は既存startMemorizeRunQuiz()をそのまま呼ぶ（新しいquestion解決・
+//   Runner初期化・Attempt開始ロジックを作らない）。unitは常に空文字を渡す
+//   （Today's Reviewは元のunit分割を横断するため特定のunitを持たない。
+//   resolveUnitForSourceType()がsourceType!=="normal"のunitを常に空文字へ
+//   正規化する既存契約により、実データへの影響は無い）。
+//
+// @param {string} fieldId
+// @returns {Promise<{ok:true, status:"started", questionCount:number}
+//   |{ok:true, status:"empty"}
+//   |{ok:true, status:"cancelled"}
+//   |{ok:false, errorMessage:string}>}
+async function startTodaysMemorizeReview(fieldId) {
+  const studentId = state.session.studentId;
+  const trimmedFieldId = String(fieldId || "").trim();
+
+  if (!studentId || !trimmedFieldId) {
+    return { ok: false, errorMessage: "生徒または科目が選択されていません。" };
+  }
+
+  const today = getJstTodayDateString_();
+  const history = getStudentHistory(studentId);
+
+  const derived = deriveTodaysMemorizeReview({ studentId, fieldId: trimmedFieldId, history, today });
+
+  if (!derived.ok) {
+    console.error("startTodaysMemorizeReview: derive失敗（fail-closed）:", derived.errorMessage);
+    return { ok: false, errorMessage: derived.errorMessage };
+  }
+
+  if (derived.questionIds.length === 0) {
+    return { ok: true, status: "empty" };
+  }
+
+  return confirmAndAbandonResumeBeforeNewAttempt(
+    async () => {
+      const started = await startMemorizeRunQuiz(trimmedFieldId, derived.questionIds, "");
+      if (!started.ok) {
+        return { ok: false, errorMessage: started.errorMessage };
+      }
+      return { ok: true, status: "started", questionCount: derived.questionIds.length };
+    },
+    {
+      cancelResult: { ok: true, status: "cancelled" },
+      abandonFailResult: {
+        ok: false,
+        errorMessage: "前回の続きの削除に失敗しました。通信環境を確認して、もう一度お試しください。"
+      }
+    }
+  );
 }
 
 /**
