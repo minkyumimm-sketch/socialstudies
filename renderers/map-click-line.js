@@ -168,6 +168,118 @@ visualNodes.forEach((node) => {
 });
 }
 
+// 複数targetのhit corridorが同一地点で重なる場合(例: kiso/akaishi、shinano/tone)、
+// クリック地点でhitしている.map-hit要素をすべて取得し、対応する.map-line祖先へ
+// 正規化してdedupeする。候補が0/1件のときはここで確定し、後続のnearest計算は
+// 呼び出し側で行わない(pointer-events:noneの要素はelementsFromPointの結果に
+// 現れないため、40px hit corridor外は自然に0件となりfail-closedを維持する)。
+function getCandidateLineGroups(clientX, clientY) {
+  const hitElements = document.elementsFromPoint(clientX, clientY);
+  const groups = [];
+
+  hitElements.forEach((el) => {
+    if (!(el instanceof Element) || !el.classList.contains("map-hit")) return;
+
+    const lineGroup = el.closest(".map-line");
+    if (lineGroup && !groups.includes(lineGroup)) groups.push(lineGroup);
+  });
+
+  return groups;
+}
+
+// 1つのvisual shape(path等)について、クリック地点(client座標=画面px空間)からの
+// 最短距離の二乗を近似計算する。shape自身のgetScreenCTM()(=そのshapeのuser空間から
+// 画面px空間への変換行列。responsive scaling・viewBox・nested transformをすべて
+// 反映済み)でサンプリング点を画面px空間へ変換してから、同じ画面px空間にある
+// クリック座標と比較する(クリック座標側は変換不要)。
+// クリック座標とサンプリング点を異なる基準空間のまま比較しないよう、
+// 常にこの「画面px空間」に統一している点が重要(getCTM()はnested要素では
+// 期待通りの共通空間を返さないことを実機で確認済みのため使用しない)。
+// geometry未対応・取得不能な場合はInfinityを返し、呼び出し側でそのcandidateを
+// 除外できるようにする(fail-closed)。
+function getShapeMinDistanceSq(shape, clientX, clientY) {
+  if (typeof shape.getTotalLength !== "function" || typeof shape.getPointAtLength !== "function") {
+    return Infinity;
+  }
+
+  let total;
+  try {
+    total = shape.getTotalLength();
+  } catch {
+    return Infinity;
+  }
+  if (!(total > 0)) return Infinity;
+
+  const screenCtm = typeof shape.getScreenCTM === "function" ? shape.getScreenCTM() : null;
+  if (!screenCtm) return Infinity;
+
+  // サンプリング粒度: 20 shapeローカル単位おきを目安に4〜40点の範囲で分散させる
+  // (Research prototypeと同一の粒度基準。粗すぎる誤判定・過剰samplingのどちらも避ける)。
+  const steps = Math.min(40, Math.max(4, Math.round(total / 20)));
+  let minDistSq = Infinity;
+
+  for (let i = 0; i <= steps; i++) {
+    const localPoint = shape.getPointAtLength((i / steps) * total);
+    const transformed = new DOMPoint(localPoint.x, localPoint.y).matrixTransform(screenCtm);
+    const dx = transformed.x - clientX;
+    const dy = transformed.y - clientY;
+    const distSq = dx * dx + dy * dy;
+
+    if (distSq < minDistSq) minDistSq = distSq;
+  }
+
+  return minDistSq;
+}
+
+// lineGroup(.map-line、例: <g id="shinano">)配下の実visual geometry全体
+// (370/251等の複数pathを含む)のうち、クリック地点に最も近いものとの距離の二乗を返す。
+// 既存のgetLineVisualNodes()をそのまま再利用するため、setupSvgForLineMap()が
+// 判定に使うのと同一のgeometry解決ロジックで一貫性を保つ。
+function getLineGroupMinDistanceSq(lineGroup, clientX, clientY) {
+  const visualNodes = getLineVisualNodes(lineGroup);
+  let minDistSq = Infinity;
+
+  visualNodes.forEach((shape) => {
+    const distSq = getShapeMinDistanceSq(shape, clientX, clientY);
+    if (distSq < minDistSq) minDistSq = distSq;
+  });
+
+  return minDistSq;
+}
+
+// 距離が同値(実質的なtie)の場合のdeterministic rule。DOM順序に暗黙依存しないよう、
+// areaId(code-unit)昇順のものを優先する。通常データでtieはほぼ発生しない想定。
+function candidateWinsTie(candidateId, currentBestId) {
+  return candidateId < currentBestId;
+}
+
+// candidateが2件以上のときだけ呼ばれる。各candidateの実visual geometryとの
+// 最短距離を比較し、最も近いlineGroupを返す。どのcandidateからも有効な
+// geometry距離を得られなかった場合はnullを返し、誤ったtargetを推測しない(fail-closed)。
+function resolveNearestLineGroup(candidates, clientX, clientY) {
+  let best = null;
+  let bestDistSq = Infinity;
+  let bestAreaId = "";
+
+  candidates.forEach((candidate) => {
+    const distSq = getLineGroupMinDistanceSq(candidate, clientX, clientY);
+    if (!Number.isFinite(distSq)) return;
+
+    const candidateAreaId = String(candidate.dataset.areaId || "");
+
+    if (
+      distSq < bestDistSq ||
+      (distSq === bestDistSq && candidateWinsTie(candidateAreaId, bestAreaId))
+    ) {
+      best = candidate;
+      bestDistSq = distSq;
+      bestAreaId = candidateAreaId;
+    }
+  });
+
+  return best;
+}
+
 export function bindLineEvents(container, state) {
   const svgRoot = container.querySelector("svg");
   if (!svgRoot) return;
@@ -175,11 +287,21 @@ export function bindLineEvents(container, state) {
   svgRoot.addEventListener("click", (event) => {
     if (state.ui.answered) return;
 
-    const target = event.target;
-    if (!(target instanceof Element)) return;
+    const candidateGroups = getCandidateLineGroups(event.clientX, event.clientY);
 
-    const lineGroup = target.closest(".map-line");
-    if (!lineGroup) return;
+    let lineGroup;
+    if (candidateGroups.length === 0) {
+      // hit corridor外(fail-closed、既存挙動のまま)。
+      return;
+    } else if (candidateGroups.length === 1) {
+      // 従来通り即採用。nearest計算は行わない。
+      lineGroup = candidateGroups[0];
+    } else {
+      // 複数targetのhit corridorが重なる場合のみ、実visual geometryへの
+      // 距離が最も近いtargetを選ぶ。
+      lineGroup = resolveNearestLineGroup(candidateGroups, event.clientX, event.clientY);
+      if (!lineGroup) return;
+    }
 
     const selectedId = String(lineGroup.dataset.areaId || "").trim();
     const selectedLabel = String(lineGroup.dataset.areaLabel || "").trim();

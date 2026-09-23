@@ -1361,32 +1361,39 @@
      style="fill:none;fill-opacity:1;stroke-width:21.9685;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
      d="m 1743.8362,1512.8929 c 2.0261,12.8296 -2.1414,24.776 -3.9143,37.1862 -0.8899,6.2292 1.5214,13.4863 0,19.5717 -0.3538,1.4153 -1.6033,2.4991 -1.9572,3.9144 -0.4746,1.8987 0.8753,4.1209 0,5.8715 -0.4126,0.8252 -1.6654,1.0819 -1.9571,1.9571 -1.3485,4.0455 1.0308,9.577 0,13.7002 -0.2238,0.8951 -1.6654,1.0819 -1.9572,1.9572 -1.6496,4.9487 -0.1709,12.0847 -3.9143,19.5717 -1.3328,2.6656 -11.0443,22.7873 -11.743,23.486 -1.0961,1.0961 -2.9844,1.1245 -3.9144,3.9144 -0.4126,1.2378 0.5835,2.7473 0,3.9143 -0.2919,0.5835 -1.3048,0 -1.9572,0 -0.6524,0.6524 -1.5445,1.132 -1.9571,1.9572 -0.7829,1.5657 0.7828,4.3058 0,5.8715 -0.2919,0.5835 -1.4959,-0.4613 -1.9572,0 -1.2658,1.2658 -3.1163,8.5887 -3.9144,9.7859 -0.3618,0.5428 -1.6654,-0.5836 -1.9571,0 -0.5835,1.167 0.4126,2.6765 0,3.9143 -1.0022,3.0064 -4.273,1.5165 -5.8715,3.9143 -0.7238,1.0857 0.5835,2.7474 0,3.9144 -2.6096,5.2191 -1.9572,-5.8715 -1.9572,1.9572"
      id="path195" />
-  <path
+  <g id="kiso"><g id="kiso_hit"><path
      style="fill:#800000;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 1786.8941,1632.2803 c -5.5374,38.1146 -13.2755,52.0687 -37.1863,76.3296"
-     id="kiso" />
-  <path
+     d="m 1786.8941,1632.2803 c -5.5374,38.1146 -13.2755,52.0687 -37.1863,76.3296" /></g><g id="kiso_visual"><path
+     style="fill:#800000;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="m 1786.8941,1632.2803 c -5.5374,38.1146 -13.2755,52.0687 -37.1863,76.3296" /></g></g>
+  <g id="hida"><g id="hida_hit"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 1743.8363,1512.8929 c 4.0558,71.1461 -21.1572,131.8074 -41.1006,152.6592"
-     id="hida" />
-  <path
+     d="m 1743.8363,1512.8929 c 4.0558,71.1461 -21.1572,131.8074 -41.1006,152.6592" /></g><g id="hida_visual"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 1853.4379,1659.6807 c -32.2531,26.8597 -56.6291,59.6272 -64.5867,113.5159"
-     id="akaishi" />
-  <path
+     d="m 1743.8363,1512.8929 c 4.0558,71.1461 -21.1572,131.8074 -41.1006,152.6592" /></g></g>
+  <g id="akaishi"><g id="akaishi_hit"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 2258.5721,908.12714 c -2.0495,204.90676 -55.3555,379.13436 -215.2888,520.60746"
-     id="ouu" />
-  <path
+     d="m 1853.4379,1659.6807 c -32.2531,26.8597 -56.6291,59.6272 -64.5867,113.5159" /></g><g id="akaishi_visual"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="M 771.12247,1937.5989 C 879.821,1812.3429 1042.6924,1764.4677 1225.1861,1773.1966"
-     id="chugoku" />
-  <path
+     d="m 1853.4379,1659.6807 c -32.2531,26.8597 -56.6291,59.6272 -64.5867,113.5159" /></g></g>
+  <g id="ouu"><g id="ouu_hit"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 925.73897,2080.4723 c 51.0716,-63.1935 139.70463,-85.7429 221.16023,-82.2011"
-     id="shikoku" />
-  <path
+     d="m 2258.5721,908.12714 c -2.0495,204.90676 -55.3555,379.13436 -215.2888,520.60746" /></g><g id="ouu_visual"><path
      style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
-     d="m 714.36454,2147.0161 c -56.69319,44.5849 -83.49171,95.7622 -105.68723,150.7022"
-     id="kyushu" />
+     d="m 2258.5721,908.12714 c -2.0495,204.90676 -55.3555,379.13436 -215.2888,520.60746" /></g></g>
+  <g id="chugoku"><g id="chugoku_hit"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="M 771.12247,1937.5989 C 879.821,1812.3429 1042.6924,1764.4677 1225.1861,1773.1966" /></g><g id="chugoku_visual"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="M 771.12247,1937.5989 C 879.821,1812.3429 1042.6924,1764.4677 1225.1861,1773.1966" /></g></g>
+  <g id="shikoku"><g id="shikoku_hit"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="m 925.73897,2080.4723 c 51.0716,-63.1935 139.70463,-85.7429 221.16023,-82.2011" /></g><g id="shikoku_visual"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="m 925.73897,2080.4723 c 51.0716,-63.1935 139.70463,-85.7429 221.16023,-82.2011" /></g></g>
+  <g id="kyushu"><g id="kyushu_hit"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="m 714.36454,2147.0161 c -56.69319,44.5849 -83.49171,95.7622 -105.68723,150.7022" /></g><g id="kyushu_visual"><path
+     style="fill:none;fill-opacity:1;stroke:#800000;stroke-width:19.6063;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;paint-order:normal"
+     d="m 714.36454,2147.0161 c -56.69319,44.5849 -83.49171,95.7622 -105.68723,150.7022" /></g></g>
 </svg>
