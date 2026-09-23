@@ -393,7 +393,8 @@ const homePracticeCallbacks = {
   onPracticeWeakField: startWeaknessReview,
   onPracticeDormantField: startDormantReview,
   onLatestStudyClick: handleHomeLatestStudyClick,
-  onWeakCountClick: goToWeaknessScreen
+  onWeakCountClick: goToWeaknessScreen,
+  onStartTodaysReview: handleStartTodaysReview
 };
 
 const studentNameInput = document.getElementById("student-name-input");
@@ -865,6 +866,36 @@ function startWeaknessReview(fieldId, { errorTarget = homeError } = {}) {
 
 function startDormantReview(fieldId, { errorTarget = homeError } = {}) {
   return confirmAndAbandonResumeBeforeNewAttempt(() => startPracticeSession(fieldId, "dormant", { errorTarget }));
+}
+
+// 暗記モード-3 STEP M3-6: Home画面「{科目}の今日の復習をする」ボタン押下時のコールバック。
+// startWeaknessReview/startDormantReviewとは異なり、confirmAndAbandonResumeBeforeNewAttempt()
+// をここで別途ラップしない——startTodaysMemorizeReview(fieldId)（M3-5、無変更）が内部で
+// 既にこのgateを持つため（due 0件ならgate自体を通らず、due>0かつunfinished Runがある場合のみ
+// 確認ダイアログが出る、というM3-5確定契約をそのまま利用する）。
+// questionIdsはここでもhome-renderer.jsでも一切扱わない。fieldIdのみを渡し、
+// startTodaysMemorizeReview()内部でfresh historyから再deriveさせる（M3-5のstale ID対策を
+// 壊さないため）。
+async function handleStartTodaysReview(fieldId) {
+  homeError.textContent = "";
+
+  const result = await startTodaysMemorizeReview(fieldId);
+
+  if (!result.ok) {
+    homeError.textContent = result.errorMessage || "今日の復習を開始できませんでした。";
+    return;
+  }
+
+  if (result.status === "empty") {
+    // Home描画時点のdue件数はsnapshotに過ぎないため、クリック時には0件になっている
+    // 場合がある（正常）。Runは開始しない。
+    homeError.textContent = "対象の問題が見つかりませんでした。";
+    return;
+  }
+
+  // status === "started": 既存startMemorizeRunQuiz()がshowQuizScreen()で画面遷移済み。
+  // status === "cancelled"（unfinished Run確認でキャンセル）: 既存weak/dormantのcancelと
+  // 同じく、何も表示せずHome画面に留まる。
 }
 
 function getQuestionId(question) {

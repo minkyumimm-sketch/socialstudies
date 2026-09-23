@@ -21,9 +21,31 @@ import {
   getStudyPeriod,
   getCurrentStudyStreak,
   getStudiedFields,
-  getFieldDashboards
+  getFieldDashboards,
+  getStudentHistory
 } from "../history/history-service.js";
 import { getWeakDashboard } from "../weakness/weakness-service.js";
+import { deriveMemorizeLongTermEvents } from "../memorize/memorize-long-term-event-model.js";
+import { deriveMemorizeRunCompletionEvents } from "../memorize/memorize-run-completion-model.js";
+import { deriveMemorizeReviewSchedules } from "../memorize/memorize-review-schedule-model.js";
+import { selectTodaysMemorizeReviewQuestionIds } from "../memorize/memorize-todays-review-selector.js";
+
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+/**
+ * 現在時刻を日本標準時（Asia/Tokyo、UTC+9固定・DSTなし）基準の"YYYY-MM-DD"へ変換する。
+ * features/memorize/配下のM3-2/M3-2B/M3-3・app.jsのstartTodaysMemorizeReview()と
+ * 同一の変換ロジックだが、それらのpure moduleをHomeService専用にexportし直すことはせず、
+ * このHome表示専用の境界（現在時刻取得が許される場所）で独立して計算する
+ * （暗記モード-3 STEP M3-6）。
+ *
+ * @returns {string}
+ */
+function getJstTodayDateString_() {
+  const jst = new Date(Date.now() + JST_OFFSET_MS);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${jst.getUTCFullYear()}-${pad(jst.getUTCMonth() + 1)}-${pad(jst.getUTCDate())}`;
+}
 
 /**
  * 【取得】ホーム画面が必要とする情報をまとめて取得する。
@@ -117,6 +139,70 @@ export function getHomeFields(studentId) {
 }
 
 /**
+ * 【取得】ホーム画面で使う「今日の復習」情報（fieldId別のdue件数）をまとめて取得する。
+ *
+ * 暗記モード-3 M3-2〜M3-4のpure derivationを、Home表示専用の1回のfresh deriveとして
+ * まとめる（M3-5 features/memorize/memorize-review-run-controller.jsの内部ロジックとは
+ * 独立した、表示専用の呼び出し経路——M3-5自体は変更・再実装しない）。
+ *
+ * studentId+fieldId別の実際のRun開始判定は、既存app.jsのstartTodaysMemorizeReview()が
+ * クリック時に独立してfresh deriveし直すため、ここで算出するdueCountは
+ * 「Home描画時点のsnapshot」に過ぎない（stale許容。実開始時の安全性はM3-5契約が担保する）。
+ *
+ * getStudentHistory()・getStudiedFields()（いずれもfeatures/history/history-service.js、
+ * 既存）のみを外部データ源とする。M3-2/M3-2B/M3-3は生徒1人につき1回だけ実行し、
+ * fieldId単位のM3-4呼び出しだけをfieldId数分繰り返す（O(Q×history)を避けるM3-2〜M3-4
+ * 自身の設計方針をHome側でも壊さない）。
+ *
+ * いずれかの段階が失敗した場合（M3-2/M3-2B/M3-3のfail-closed、または予期しない例外）は、
+ * Home画面全体をエラー状態にはせず、空のfieldCounts（今日の復習セクション非表示）として
+ * fail-softに扱う（既存renderHomeForStudent()のtry/catchと同じ「表示専用機能の失敗で
+ * 既存クイズフロー・Home全体を巻き込まない」という既存方針を踏襲）。
+ *
+ * @param {string} studentId
+ * @returns {{ fieldCounts: Array<{ fieldId: string, dueCount: number }> }}
+ */
+export function getHomeTodaysReview(studentId) {
+  try {
+    const studiedFields = getStudiedFields(studentId);
+    const history = getStudentHistory(studentId);
+    const attempts = history.map((entry) => entry.attempt);
+    const answerRecords = history.flatMap((entry) => entry.answerRecords);
+    const today = getJstTodayDateString_();
+
+    const eventsResult = deriveMemorizeLongTermEvents({ studentId, attempts, answerRecords });
+    if (!eventsResult.ok) return { fieldCounts: [] };
+
+    const completionsResult = deriveMemorizeRunCompletionEvents({ studentId, attempts, answerRecords });
+    if (!completionsResult.ok) return { fieldCounts: [] };
+
+    const schedulesResult = deriveMemorizeReviewSchedules({
+      longTermQuestions: eventsResult.questions,
+      completionQuestions: completionsResult.questions
+    });
+    if (!schedulesResult.ok) return { fieldCounts: [] };
+
+    const fieldCounts = studiedFields
+      .map((field) => field.fieldId)
+      .map((fieldId) => {
+        const selection = selectTodaysMemorizeReviewQuestionIds({
+          studentId,
+          fieldId,
+          schedules: schedulesResult.schedules,
+          today
+        });
+        return { fieldId, dueCount: selection.ok ? selection.questionIds.length : 0 };
+      })
+      .filter((entry) => entry.dueCount > 0);
+
+    return { fieldCounts };
+  } catch (error) {
+    console.error("getHomeTodaysReview error（今日の復習セクションの表示のみ失敗。Home全体・既存クイズフローには影響しません）:", error);
+    return { fieldCounts: [] };
+  }
+}
+
+/**
  * 【取得】ホーム画面全体が必要とする情報を1回でまとめて取得する。
  *
  * 既存のHomeService公開API（getHomeOverview()・getHomeStudyInfo()・getHomeFields()・
@@ -126,6 +212,7 @@ export function getHomeFields(studentId) {
  *
  * Task19-2でWeaknessService由来のweaknessキーを追加した。既存のoverview/studyInfo/
  * fields/historyDashboardキーの意味・構造は変更していない。
+ * 暗記モード-3 M3-6でtodaysReviewキーを追加した（既存キーの意味・構造は変更していない）。
  *
  * @param {string} studentId
  * @returns {{
@@ -133,7 +220,8 @@ export function getHomeFields(studentId) {
  *   studyInfo: ReturnType<typeof getHomeStudyInfo>,
  *   fields: ReturnType<typeof getHomeFields>,
  *   historyDashboard: ReturnType<typeof getHomeData>["historyDashboard"],
- *   weakness: ReturnType<typeof getHomeWeakness>
+ *   weakness: ReturnType<typeof getHomeWeakness>,
+ *   todaysReview: ReturnType<typeof getHomeTodaysReview>
  * }}
  */
 export function getHomeDashboard(studentId) {
@@ -142,7 +230,8 @@ export function getHomeDashboard(studentId) {
     studyInfo: getHomeStudyInfo(studentId),
     fields: getHomeFields(studentId),
     historyDashboard: getHomeData(studentId).historyDashboard,
-    weakness: getHomeWeakness(studentId)
+    weakness: getHomeWeakness(studentId),
+    todaysReview: getHomeTodaysReview(studentId)
   };
 }
 

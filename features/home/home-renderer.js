@@ -151,9 +151,72 @@ function createPracticeButton(label, onPractice) {
   return button;
 }
 
-function renderFieldList(fieldDashboards, weakCountByField, listElement, onPracticeWeakField) {
-  listElement.innerHTML = "";
+/**
+ * 「今日の復習をする」ボタンを1つ生成する。createPracticeButton()と同じclass
+ * （secondary-button home-practice-button）を使うが、クリック時にボタン自身を
+ * disabled化し、コールバック（Promiseを返す想定）の解決後に再度有効化する点だけが
+ * createPracticeButton()と異なる（暗記モード-3 M3-6: M3-5にglobal lockが無いため、
+ * 二重押下防止をUI側のボタン局所状態だけで安全に行う。既存button.disabledパターン
+ * （executeStartMemorizeQuiz等）と同じ考え方をこのボタン単体に閉じて適用する）。
+ * 画面遷移が起きた場合（Run開始成功）は、Home画面ごと非表示になるため再有効化は無害。
+ *
+ * @param {string} label
+ * @param {() => Promise<void>|void} onStart
+ * @returns {HTMLButtonElement}
+ */
+function createTodaysReviewButton(label, onStart) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "secondary-button home-practice-button";
+  button.textContent = label;
+  button.addEventListener("click", async () => {
+    if (button.disabled) return;
+    button.disabled = true;
+    try {
+      await onStart();
+    } finally {
+      button.disabled = false;
+    }
+  });
+  return button;
+}
 
+/**
+ * 「今日の復習」セクションを描画する。dueCountが1件でもあるfieldIdだけボタンを表示し、
+ * 全fieldで0件（fieldCountsが空）ならセクション自体（見出しも含めて）を描画しない
+ * （既存renderFieldList/renderDormantListの「0件ならreturn falseで何も描画しない」
+ * パターンと同じ、暗記モード-3 M3-6）。
+ *
+ * @param {Array<{fieldId:string, dueCount:number}>} fieldCounts
+ * @param {HTMLElement} listElement
+ * @param {(fieldId:string) => Promise<void>|void} [onStartTodaysReview]
+ * @returns {boolean} 何か描画したか
+ */
+function renderTodaysReviewSection(fieldCounts, listElement, onStartTodaysReview) {
+  const items = Array.isArray(fieldCounts) ? fieldCounts : [];
+  if (items.length === 0 || typeof onStartTodaysReview !== "function") return false;
+
+  const title = document.createElement("p");
+  title.className = "home-section-title";
+  title.textContent = "今日の復習";
+  listElement.appendChild(title);
+
+  items.forEach(({ fieldId, dueCount }) => {
+    const item = document.createElement("div");
+    item.className = "home-field-item";
+    item.appendChild(
+      createTodaysReviewButton(
+        `${getSubjectLabel(fieldId) || fieldId}の今日の復習をする（${dueCount}問）`,
+        () => onStartTodaysReview(fieldId)
+      )
+    );
+    listElement.appendChild(item);
+  });
+
+  return true;
+}
+
+function renderFieldList(fieldDashboards, weakCountByField, listElement, onPracticeWeakField) {
   const items = Array.isArray(fieldDashboards) ? fieldDashboards : [];
   if (items.length === 0) return false;
 
@@ -258,6 +321,9 @@ function renderDormantList(dormantQuestions, dormantCountByField, listElement, o
  *   （Phase4C-1。completed済みAttemptが無い場合はカードがdisabledのため呼ばれない）
  * @property {() => void} [onWeakCountClick] - 「苦手問題」カード押下時
  *   （Phase4D-1+2。苦手問題が0件の場合はカードがdisabledのため呼ばれない）
+ * @property {(fieldId: string) => Promise<void>|void} [onStartTodaysReview] - 「今日の復習を
+ *   する」ボタン押下時（暗記モード-3 M3-6。Promiseを返す想定——解決までボタンがdisabledのまま
+ *   維持される。dueCountが1件も無いfieldIdではボタン自体が描画されないため呼ばれない）
  */
 
 /**
@@ -298,6 +364,16 @@ function renderHomeDashboard(homeInitialData, elements, callbacks) {
   const weakCountByField = buildWeakCountByField(weakDashboard.weakFields);
   const dormantCountByField = buildDormantCountByField(weakDashboard.dormantQuestions);
 
+  // 暗記モード-3 M3-6: 「今日の復習」を既存「科目別学習状況」より前（上）に表示するため、
+  // elements.fieldList（既存の科目別学習状況専用コンテナ、index.html無変更）を
+  // ここで1回だけリセットし、今日の復習→科目別学習状況の順に追記する
+  // （新しいDOMコンテナをindex.htmlへ追加しない、という既存Research確定方針のため）。
+  elements.fieldList.innerHTML = "";
+  const hasTodaysReview = renderTodaysReviewSection(
+    dashboard.todaysReview?.fieldCounts,
+    elements.fieldList,
+    callbacks?.onStartTodaysReview
+  );
   const hasFieldDetail = renderFieldList(
     dashboard.fields.fieldDashboards,
     weakCountByField,
@@ -311,7 +387,7 @@ function renderHomeDashboard(homeInitialData, elements, callbacks) {
     callbacks?.onPracticeDormantField
   );
 
-  elements.detailToggleWrap.classList.toggle("hidden", !(hasFieldDetail || hasDormantDetail));
+  elements.detailToggleWrap.classList.toggle("hidden", !(hasTodaysReview || hasFieldDetail || hasDormantDetail));
   elements.detail.classList.add("hidden");
 
   elements.infoContainer.classList.remove("hidden");
