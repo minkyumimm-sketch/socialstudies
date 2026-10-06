@@ -2070,6 +2070,32 @@ function handleHomeStudentSelect(student) {
   // ここではawaitしない）。復元完了時に生徒が切り替わっていた場合、古い生徒のデータで
   // 現在のHome表示を上書きしないよう、再描画前に選択中studentIdの一致を確認する。
   const restoringStudentId = state.session.studentId;
+
+  // Performance確定事項の修正（Phase 6.5系Research）: 以前はgetAttemptProgressの
+  // GAS requestを、restoreStudentLearningRecords（内部でgetStudentHistoryを送信）の
+  // 完了後にしか発行していなかったため、2本のGAS requestが直列waterfallになっていた
+  // （実測で確認済み）。学習記録GASは1リクエストあたり数秒〜十数秒かかることがあり、
+  // 直列化はその分そのまま合算されてしまう。getAttemptProgress自体はstudentIdのみに
+  // 依存する独立したread-only requestであり、ローカルのAttempt復元を待つ必要が
+  // 無いため、request発行だけを並列化する（結果の後処理＝loadAttempt照合は、
+  // 引き続き復元完了後のfetchResumeCandidateForStartScreen側で行う、正しさは変更しない）。
+  const prefetchedProgressPromise = getAttemptProgress(restoringStudentId);
+  // Phase 6.6A確定バグの修正: 生徒切替が割り込むと、下のfetchResumeCandidateForStartScreen側の
+  // fallback分岐（prefetched.forStudentIdが現在のstudentIdと不一致）が別の新規promiseを使うため、
+  // このpromiseは誰にもawaitされず孤立する。孤立後にこのpromiseがrejectすると、観測者が
+  // 存在しないままunhandled promise rejection（pageerror）になることを実機確認済み
+  // （Phase 6.6 Final Diff Audit時に新規High発見）。生成直後に観測専用の.catch()を登録して
+  // おくことで孤立時でもunhandledにしない。JS Promiseの.catch()は新しい派生promiseを返すだけで
+  // 元のpromise自体のreject理由・状態は変更しないため、正規consumer（fetchResumeCandidateForStartScreen）
+  // が同じpromiseをawaitした場合、rejectは変更されずそのまま検知・処理される（既存の
+  // features/history/learning-record-sync-integration.jsのsyncStartAttempt()と同じ確立済みパターン）。
+  prefetchedProgressPromise.catch(() => {});
+
+  const prefetchedProgress = {
+    forStudentId: restoringStudentId,
+    promise: prefetchedProgressPromise
+  };
+
   restoreStudentLearningRecords(restoringStudentId).then((result) => {
     if (result.ok && state.session.studentId === restoringStudentId) {
       renderHomeForStudent(state.session.studentId, homeElements, homePracticeCallbacks);
@@ -2077,7 +2103,7 @@ function handleHomeStudentSelect(student) {
     // STEP7: resume候補の判定(loadAttempt存在チェック、fetchResumeCandidateForStartScreen内)は
     // restoreStudentLearningRecordsによるAttempt Repository復元が終わった後でないと
     // 正しく行えないため、成否に関わらずこの直後に呼ぶ（内部でstudentId一致を再確認する）。
-    fetchResumeCandidateForStartScreen();
+    fetchResumeCandidateForStartScreen(prefetchedProgress);
   });
 }
 
@@ -2115,15 +2141,24 @@ function goToStartScreenFromHome() {
 // resume候補（getAttemptProgress）を取得する。生徒切替race対策として、
 // 発行時のrequestId・studentIdが取得完了時点でも最新であることを確認してから
 // 反映する（Phase5-4のrestoringStudentId確認と同じ考え方）。
-async function fetchResumeCandidateForStartScreen() {
+//
+// @param {{forStudentId: string, promise: Promise}} [prefetched] - Performance確定事項の
+//   修正（Phase 6.5系Research）で追加。呼び出し元（handleHomeStudentSelect）が
+//   restoreStudentLearningRecordsの完了を待たず並列で発行済みのgetAttemptProgress
+//   requestがある場合、それを渡す。prefetched.forStudentIdが現在のstudentIdと一致する
+//   場合のみ再利用し、不一致（この関数が呼ばれるまでの間に生徒切替が割り込んだ場合）は
+//   既存どおりその場で新規fetchする（古い生徒のデータを推測で使い回さない）。
+async function fetchResumeCandidateForStartScreen(prefetched) {
   const studentId = state.session.studentId;
   if (!studentId) return;
 
   const requestId = ++resumeCandidateRequestId;
 
+  const shouldUsePrefetched = Boolean(prefetched) && prefetched.forStudentId === studentId;
+
   let result;
   try {
-    result = await getAttemptProgress(studentId);
+    result = shouldUsePrefetched ? await prefetched.promise : await getAttemptProgress(studentId);
   } catch (error) {
     // STEP37: 取得失敗時もアプリ全体・新規開始は通常どおり利用可能なままにする。
     console.error("getAttemptProgress error（開始画面は通常どおり利用できます）:", error);
