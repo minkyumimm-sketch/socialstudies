@@ -104,7 +104,7 @@ function buildRunSummary_() {
     runId: runState.runId,
     fieldId: runState.fieldId,
     unit: runState.unit,
-    roundCount: runState.roundResults.length,
+    roundCount: runState.currentRound,
     // restore由来（Round2以降からの再開）ではRound1の対象集合を復元できないためnullになる。
     initialQuestionCount: runState.initialQuestionIds ? runState.initialQuestionIds.length : null,
     roundResults: runState.roundResults.map((result) => ({ ...result }))
