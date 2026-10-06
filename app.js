@@ -559,17 +559,30 @@ function ensureMapSelectionState() {
 async function initApp() {
   initLocalState();
 
-  try {
-    await Promise.all([
-      loadActiveStudents(state),
-      filterManager.syncFiltersForSubjectChange()
-    ]);
-    setupStudentAutocomplete();
-    setupHomeStudentAutocomplete();
-  } catch (error) {
-    console.error("initApp error:", error);
-    startError.textContent = "生徒一覧または問題設定の取得に失敗しました。GAS公開設定やCSVを確認してください。";
-  }
+  // Phase 8B-A2確定Highの修正: listener登録をStudent Master/CSV取得の成否から独立させる。
+  // state.session.activeStudents（既定[]、resetSessionStateで保証済み）は登録時点のsnapshotではなく
+  // イベント発火時に毎回読まれるため、ここで先に登録しても、後から取得が成功した場合は
+  // そのまま最新のactiveStudentsを使って候補表示できる（setupは従来どおりこの1箇所のみ、
+  // 重複登録のリスクはない）。
+  setupStudentAutocomplete();
+  setupHomeStudentAutocomplete();
+
+  // Student Master取得とCSV取得（filterManager.syncFiltersForSubjectChange）は無関係な処理だが、
+  // 従来は共通のPromise.all+1つのcatchに同居しており、CSV側だけの失敗でも生徒候補が
+  // （listener未登録のため）完全に無反応になっていた（実機確認済みHigh）。
+  // 両者を個別にcatchし、それぞれの既存エラー表示（homeError/startError）へ分離する。
+  // 同時発行（並列実行）自体は維持し、直列化はしない。
+  const studentsLoad = loadActiveStudents(state).catch((error) => {
+    console.error("initApp error (loadActiveStudents):", error);
+    homeError.textContent = "生徒一覧を取得できませんでした。ページを再読み込みしてください。";
+  });
+
+  const filtersLoad = filterManager.syncFiltersForSubjectChange().catch((error) => {
+    console.error("initApp error (syncFiltersForSubjectChange):", error);
+    startError.textContent = "問題設定の取得に失敗しました。ページを再読み込みしてください。";
+  });
+
+  await Promise.all([studentsLoad, filtersLoad]);
 }
 
 // Phase2 Task14-2: Task14-1で発行されたAttemptのIDを、回答確定時のAnswerRecord保存で使うために保持する。
