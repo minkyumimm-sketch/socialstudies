@@ -1481,6 +1481,16 @@ async function finishCurrentTestSetReviewGroupAndAdvance() {
   if (hasNextReviewGroup()) {
     advanceToNextReviewGroup();
     await startTestSetReviewGroup();
+
+    // Known Issue修正（Phase7A発見分）: startTestSetReviewGroup()内のbeginAttemptAndShowQuiz()が
+    // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、この時点ではまだquiz-screenが
+    // activeのままであり、Fix C（finishCurrentTestSetGroupAndAdvance）と同じ回復パターンを
+    // 同一関数内の別の呼び出し箇所にも適用する。
+    if (!currentDomainAttemptId) {
+      abortRun();
+      goToTestSetStudentScreen();
+      showTssError(tssElements.selectError, "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。");
+    }
     return;
   }
 
@@ -1522,6 +1532,13 @@ async function finishCurrentTestSetReviewGroupAndAdvance() {
   // Phase3D-4B-2確定方針のまま。round2以降は自動遷移のみで、途中summaryも表示しない）。
   startNextReviewRound(nextReview.groups);
   await startTestSetReviewGroup();
+
+  // Known Issue修正（Phase7A発見分）: 同関数内の上の呼び出し箇所と同じ理由・同じ回復パターン。
+  if (!currentDomainAttemptId) {
+    abortRun();
+    goToTestSetStudentScreen();
+    showTssError(tssElements.selectError, "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。");
+  }
 }
 
 // Phase4E-2: 完了画面の「もう一度復習する」へ渡すオプションを組み立てる。
@@ -1809,7 +1826,18 @@ async function finishCurrentMemorizeRoundAndAdvance() {
       return;
     }
 
-    await startMemorizeRoundQuiz(result.questionIds);
+    const roundResult = await startMemorizeRoundQuiz(result.questionIds);
+
+    // Known Issue修正（Phase7A発見分）: startMemorizeRoundQuiz()が内部のbeginAttemptAndShowQuiz()で
+    // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、#quiz-screen自体にはエラー表示要素が
+    // 無いため、既存のbackToStart()（暗記モード含む全quiz離脱ボタンの既存処理）と同じ回復先
+    // （quiz中断＋start-screenへ遷移）を再利用し、そこにある#start-errorへ表示する。
+    if (!roundResult || !roundResult.ok) {
+      backToStart();
+      startError.textContent =
+        roundResult?.errorMessage || "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。";
+      return;
+    }
   } finally {
     memorizeRoundTransitionInProgress = false;
   }
