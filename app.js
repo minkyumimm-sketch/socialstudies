@@ -1397,6 +1397,22 @@ async function finishCurrentTestSetGroupAndAdvance() {
 
   startReviewPhase(review.groups);
   await startTestSetReviewGroup();
+
+  // Phase 7A確定Mediumの修正: startTestSetReviewGroup()内のbeginAttemptAndShowQuiz()が
+  // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、この時点ではまだquiz-screenが
+  // activeのまま（showReviewStartBanner()もまだ呼ばれていない）であり、beginAttemptAndShowQuiz()
+  // 自身が書き込む#start-errorはどのscreenからも見えない。既存のpreflight失敗分岐
+  // （本関数の直前のif (!preflight.ok) ブロック）と同じ回復パターン（TestSet選択画面へ戻し、
+  // tssElements.selectErrorへ表示）を再利用する。startTestSetReviewGroup()自体は
+  // 「もう一度復習する」（restartTestSetReview）からも呼ばれる共有関数のため、
+  // 固定のerrorTargetをその内部へ埋め込まず、呼び出し元ごとにここで判定する。
+  if (!currentDomainAttemptId) {
+    abortRun();
+    goToTestSetStudentScreen();
+    showTssError(tssElements.selectError, "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。");
+    return;
+  }
+
   // Phase3D-4B-2: 案内は最初のreview Attempt開始・quiz画面表示後に一度だけ表示する
   // （review2以降では表示しない、Phase3D-4B設計監査STEP45/187の結論どおり）。
   showReviewStartBanner(getReviewQuestionCount(review.groups));
@@ -1542,6 +1558,16 @@ async function restartTestSetReview(restartSnapshot) {
   }
 
   await startTestSetReviewGroup();
+
+  // Phase 7A確定Mediumの修正: startTestSetReviewGroup()内のbeginAttemptAndShowQuiz()が
+  // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、以前はここで結果を確認せず
+  // 常にok:trueを返していたため、呼び出し元のtest-set-student-controller.jsの
+  // handleRestartReviewRequest()が持つ既存のresult.ok確認・tssElements.completeMessageへの
+  // エラー表示処理が一度も発火しなかった（この経路は既に#tss-complete-stepがvisibleなため、
+  // 画面遷移は不要。エラーを返すだけで既存の表示処理がそのまま機能する）。
+  if (!currentDomainAttemptId) {
+    return { ok: false, errorMessage: "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。" };
+  }
   return { ok: true };
 }
 
@@ -1596,7 +1622,17 @@ async function startMemorizeRunQuiz(fieldId, questionIds, unit = "") {
     return { ok: false, errorMessage: started.errorMessage };
   }
 
-  await startMemorizeRoundQuiz(questionIds);
+  // Phase 7A確定Mediumの修正: startMemorizeRoundQuiz()が内部のbeginAttemptAndShowQuiz()で
+  // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、以前はここで結果を確認せず
+  // 常にok:trueを返していたため、呼び出し元（executeStartMemorizeQuiz/startTodaysMemorizeReview）
+  // の既存のresult.ok確認・エラー表示処理（startError/homeError）が一度も発火しなかった。
+  const roundResult = await startMemorizeRoundQuiz(questionIds);
+  if (!roundResult || !roundResult.ok) {
+    return {
+      ok: false,
+      errorMessage: roundResult?.errorMessage || "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。"
+    };
+  }
   return { ok: true };
 }
 
@@ -1723,6 +1759,16 @@ async function startMemorizeRoundQuiz(questionIds) {
   state.quiz.quizQuestions = [...resolved.questions];
 
   await beginAttemptAndShowQuiz("memorize", null, runnerState.unit);
+
+  // Phase 7A確定Mediumの修正: この関数の既存の呼び出し元のうち、startMemorizeRunQuiz()
+  // （Round1開始、起点がstart-screenの暗記初回・Today's Reviewの両方）だけが戻り値を
+  // 確認するよう今回修正する。finishCurrentMemorizeRoundAndAdvance()（Round2以降の
+  // 自動進行）は戻り値を元から確認しておらず、今回のPhase 7Aスコープ外のため変更しない
+  // （Known Issueとして別途記録する、Medium 1・2と同様に今回混在させない）。
+  if (!currentDomainAttemptId) {
+    return { ok: false, errorMessage: "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。" };
+  }
+  return { ok: true };
 }
 
 // Round境界（最後の問題で「次へ」）は、次Round開始のためにawaitを挟む非同期処理
@@ -2895,6 +2941,15 @@ async function executeStartTestSetFromSelection(selectedTestSet) {
   const firstGroup = getCurrentGroup();
   await startTestSetGroupQuiz(firstGroup.fieldId, firstGroup.questionIds);
 
+  // Phase 7A確定Mediumの修正: startTestSetGroupQuiz()内のbeginAttemptAndShowQuiz()が
+  // GAS startAttempt失敗（M-2 fail-closed）を検知した場合、以前はここで結果を確認せず
+  // 常にok:trueを返していたため、呼び出し元のtest-set-student-controller.jsの
+  // handleStartRequest()が持つ既存のresult.ok確認・tssElements.confirmMessageへの
+  // エラー表示処理が一度も発火しなかった（#start-errorへ無言で書かれるだけで、
+  // 現在visibleな#test-set-student-screenからは見えなかった）。
+  if (!currentDomainAttemptId) {
+    return { ok: false, errorMessage: "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。" };
+  }
   return { ok: true };
 }
 
