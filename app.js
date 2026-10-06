@@ -1950,6 +1950,16 @@ async function resumeMemorizeRunQuiz(progress) {
   currentDomainAttemptId = progress.attemptId;
   restoreAttemptProgressContext(progress);
 
+  // 学習記録GASのstartAttempt契約にはtotalCountが含まれない（gas-api-contract-v1.md §5.1）ため、
+  // 復元直後のAttempt.totalCountは常に未確定(0)のままになる（非resumeの通常フローでは、
+  // Attemptオブジェクトが生成時からページ内に残り続けるため顕在化しなかった問題）。
+  // completeAttempt()が誤ったtotalCount=0を送信しないよう、progress.questionIds（そのRound開始時点の
+  // 出題数、resumeでも再抽選しない値）から復元する。既存resumeQuiz()と同一の修正パターン
+  // （将来GAS側がtotalCountを返すようになった場合に備え、既に正しい値が入っている場合は上書きしない）。
+  if (attempt && !attempt.totalCount) {
+    saveAttempt({ ...attempt, totalCount: progress.questionIds.length });
+  }
+
   showQuizScreen(quizScreen, allScreens);
 
   if (state.quiz.currentIndex >= state.quiz.quizQuestions.length) {
