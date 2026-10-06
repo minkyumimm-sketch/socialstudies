@@ -127,6 +127,11 @@ export function syncStartAttempt(attempt, fieldId) {
   promise.catch(() => {});
 
   startAttemptPromises.set(attempt.attemptId, promise);
+
+  // M-2確定バグの修正: 呼び出し元（quiz-start-integration.js）がGAS側startAttemptの
+  // 成否を確認してからQuiz画面を表示できるように、Promiseをそのまま返す。
+  // 既存の呼び出し元（この戻り値を使わない箇所）には影響しない（fire-and-forgetのまま）。
+  return promise;
 }
 
 async function waitForStartAttempt_(attemptId) {

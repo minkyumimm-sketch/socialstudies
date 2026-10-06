@@ -120,18 +120,32 @@ export async function startAttemptForQuiz({
 
     saveAttempt(attempt);
 
-    // Phase5-3: MemoryStorage保存成功後、学習記録専用GASへも非同期送信する
-    // （fire-and-forget、呼び出し元はawaitしない・失敗してもここでは影響しない）。
+    // Phase5-3: MemoryStorage保存成功後、学習記録専用GASへも送信する。
+    // M-2確定バグの修正（STEP Progress/Resume Coverage Completion）: 呼び出し元
+    // （app.js の beginAttemptAndShowQuiz）がGAS側startAttemptの成否を確認してから
+    // Quiz画面を表示できるように、この関数自身はここで完了を待つ（既存の直列queue・
+    // 送信順序保証（learning-record-sync-integration.jsのattemptTaskQueues）は一切
+    // 変更しない。待つのはこの関数の戻り値だけで、saveAnswerRecord/saveAttemptProgress/
+    // completeAttempt側の「startAttempt完了を待ってから送る」という既存の仕組みは
+    // そのまま）。
     // subjectはこの関数の引数そのもの＝クリーンなfieldId（旧saveRecordの合成subjectとは別物）。
-    syncStartAttempt(attempt, subject);
+    let gasStartAttemptOk = true;
+    try {
+      await syncStartAttempt(attempt, subject);
+    } catch {
+      gasStartAttemptOk = false;
+    }
 
     // Phase3B-2: attempt_progressの初回snapshotも、startAttemptと同じタイミングで送信する
     // （syncAttemptProgressは内部でsyncStartAttemptの完了を待ってから送信するため、
-    // Attempt不在エラーにはならない）。
+    // Attempt不在エラーにはならない）。GAS側startAttemptが失敗していた場合は、呼び出し元が
+    // Quizを開始させない（gasStartAttemptOk===false）ため、ここは送信しても既存の
+    // 「startAttempt失敗時はskip」ガード（learning-record-sync-integration.js）により
+    // 実際には送られない。
     initAttemptProgressContext({ attempt, fieldId: subject, unit, questionIds, retryWrongEnabled });
     syncAttemptProgress(attempt.attemptId, 0);
 
-    return { questionSet, attempt, questionIds };
+    return { questionSet, attempt, questionIds, gasStartAttemptOk };
   } catch (error) {
     console.error("startAttemptForQuiz error（裏側の記録のみ失敗。既存の出題フローには影響しません）:", error);
     return null;

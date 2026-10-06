@@ -217,6 +217,12 @@ export async function renderCurrentQuestion(params) {
 
   resetQuestionArea();
   nextButton.disabled = true;
+  // 暗記Run完了時（app.jsのshowMemorizeRunCompletion()）だけがnextButton.style.displayを
+  // "none"へ設定し、それ以外のどこにも復元箇所が無いため、reloadなしで次のRun/Quizを
+  // 開始すると次へボタンが永久に非表示のまま残ってしまう（新規確認バグ）。この関数は
+  // 出題形式を問わず全ての問題renderで必ず通る共通経路であり、かつ直後のdisabledの
+  // リセットと対になる場所のため、ここでdisplayも併せて既定値へ戻す。
+  nextButton.style.display = "";
 
   const question = state.quiz.currentQuestion;
 

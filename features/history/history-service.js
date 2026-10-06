@@ -464,9 +464,16 @@ export function getLatestField(studentId) {
  *
  * getStudentHistory(studentId)のみを利用する。Repository・Storage・AttemptService・
  * QuestionSetService・AnswerRecordServiceへは一切直接アクセスしない。
- * fieldIdはAttempt自体ではなくQuestionSet側の情報のため（features/question-set/
- * question-set-model.js参照）、questionSet.fieldIdが無いエントリ（QuestionSetが見つからない
- * Attempt）は集約対象から除外する（fieldId不明の科目集計は作れないため）。
+ * fieldIdはentry.questionSet?.fieldIdを優先し、無ければentry.answerRecords[0]?.fieldIdへ
+ * fallbackする（history-renderer.js・history-detail-service.jsの既存fallbackと同じ契約。
+ * QuestionSetはGASへ保存・復元されないため、別session（reload/新しいBrowserContext等）で
+ * 復元したAttemptは常にquestionSet:nullになる既存の仕様上の制約があり、このfallbackが
+ * 無いと復元後のAttemptがstudied fieldsから常に欠落してしまう）。1つのAttempt内の
+ * AnswerRecordは常に単一fieldIdのみを持つため（features/history/answer-record-integration.js、
+ * 呼び出し元が1Attemptにつき不変の単一fieldIdを渡す設計）、先頭1件のfieldIdで十分であり、
+ * 全件走査・dedupeは不要（既存fallbackと同じ前提）。questionSet・answerRecordsのいずれからも
+ * fieldIdが得られないエントリ（QuestionSetもAnswerRecordも無いAttempt）は、従来どおり
+ * 集約対象から除外する（fieldId不明の科目集計は作れないため）。
  * 最新値の抽出はgetMaxTimestamp()（＝compareTimestamps()）に委譲し、
  * sortHistoryByRecency()と同じ比較ロジックを再利用する（重複実装しない）。
  *
@@ -483,7 +490,7 @@ export function getStudiedFields(studentId) {
 
   const entriesByField = new Map();
   history.forEach((entry) => {
-    const fieldId = entry?.questionSet?.fieldId;
+    const fieldId = entry?.questionSet?.fieldId || entry?.answerRecords?.[0]?.fieldId;
     if (!fieldId) return;
 
     if (!entriesByField.has(fieldId)) {

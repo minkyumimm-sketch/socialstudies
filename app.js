@@ -575,6 +575,16 @@ async function initApp() {
 // Phase2 Task14-2: Task14-1で発行されたAttemptのIDを、回答確定時のAnswerRecord保存で使うために保持する。
 let currentDomainAttemptId = "";
 
+// Rapid Start Duplicate Attempt確定バグの修正: beginAttemptAndShowQuiz()はモードを問わず
+// 新規Attemptを発行する唯一の共通境界だが、これまで多重実行を防ぐ仕組みを持たず、
+// 呼び出し元（各開始ボタン）側のdisabled化に個別に依存していた。weak_review/dormant_reviewの
+// 開始ボタン（home-renderer.jsのcreatePracticeButton）だけがそのdisabled化を欠いていたため、
+// 高速連打時にAttemptが複数生成されていた（実機確認済み）。アプリ全体で同時に有効な新規
+// Attempt開始処理は1本のみという前提のもと、global（モード非依存）のin-flight guardをここに
+// 一本化する。既存の各開始ボタンのdisabled化はUIフィードバックとして維持し、削除しない
+// （このflagはその代替ではなく、取りこぼし防止の安全網）。
+let attemptStartInFlight = false;
+
 // Phase3C本体: 開始画面の再開候補（getAttemptProgressの結果、候補なしはnull）。
 let resumeCandidate = null;
 // 生徒切替race対策: この番号が発行時点の最新値と一致する場合のみ結果を反映する。
@@ -776,31 +786,59 @@ function resolveRunIdentityForSourceType(sourceType) {
   return { runId: null, reviewRound: null };
 }
 
-async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter = "") {
-  try {
-    const { runId, reviewRound } = resolveRunIdentityForSourceType(sourceType);
-    const domainAttemptResult = await startAttemptForQuiz({
-      quizQuestions: state.quiz.quizQuestions,
-      subject: state.session.subject,
-      studentId: state.session.studentId,
-      sourceType,
-      testSetId,
-      runId,
-      reviewRound,
-      unit: resolveUnitForSourceType(sourceType, unitFilter),
-      retryWrongEnabled: state.session.retryWrongEnabled
-    });
-    currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
-  } catch (domainError) {
-    console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
-    currentDomainAttemptId = "";
+async function beginAttemptAndShowQuiz(sourceType, testSetId = null, unitFilter = "", { errorTarget = startError } = {}) {
+  // Rapid Start Duplicate Attempt確定バグの修正: 多重クリック・非同期再入により、この関数が
+  // 同時に複数本走ってしまうと、呼び出すたびに新規attemptIdが発行されてしまう
+  // （startAttemptForQuiz→createAttempt()の仕様どおり）。先頭でガードし、既に開始処理中なら
+  // 何もせず無視する（ユーザーへのエラー表示はしない。これは不正な操作ではなく、既に処理中の
+  // 操作の重複に過ぎないため）。
+  if (attemptStartInFlight) {
+    return;
   }
+  attemptStartInFlight = true;
 
-  await renderQuestion();
-  // TestSet実行中は「開始画面へ戻る」が通常学習のstart-screenへ迷い込ませてしまうため、
-  // 文言を「テスト対策へ戻る」に変える（backToStart()側の遷移先切り替えと対）。
-  backToStartButton.textContent = isRunnerActive() ? "テスト対策へ戻る" : "開始画面へ戻る";
-  showQuizScreen(quizScreen, allScreens);
+  try {
+    let domainAttemptResult = null;
+
+    try {
+      const { runId, reviewRound } = resolveRunIdentityForSourceType(sourceType);
+      domainAttemptResult = await startAttemptForQuiz({
+        quizQuestions: state.quiz.quizQuestions,
+        subject: state.session.subject,
+        studentId: state.session.studentId,
+        sourceType,
+        testSetId,
+        runId,
+        reviewRound,
+        unit: resolveUnitForSourceType(sourceType, unitFilter),
+        retryWrongEnabled: state.session.retryWrongEnabled
+      });
+    } catch (domainError) {
+      console.error("startAttemptForQuiz error（既存の出題フローには影響しません）:", domainError);
+    }
+
+    // M-2確定バグの修正: 学習記録GASへのstartAttemptが失敗した場合、記録が一切残らない
+    // Quizを生徒に開始させない（実機確認済みの再現手順: unfinished Runをabandonした直後に
+    // 新AttemptのstartAttemptだけGAS側で失敗させると、従来はquiz画面がそのまま表示され、
+    // 生徒へ見えるエラーが一切無いまま回答が無言で保存されなかった）。ローカルのAttempt生成
+    // 自体が失敗した場合（domainAttemptResult===null）は既存どおりの挙動を維持する
+    // （このSTEPのConfirmed bugの対象外、既存の安全側fallbackをそのまま維持）。
+    if (domainAttemptResult && domainAttemptResult.gasStartAttemptOk === false) {
+      currentDomainAttemptId = "";
+      errorTarget.textContent = "学習記録の開始に失敗しました。通信状況を確認して、もう一度やり直してください。";
+      return;
+    }
+
+    currentDomainAttemptId = domainAttemptResult ? domainAttemptResult.attempt.attemptId : "";
+
+    await renderQuestion();
+    // TestSet実行中は「開始画面へ戻る」が通常学習のstart-screenへ迷い込ませてしまうため、
+    // 文言を「テスト対策へ戻る」に変える（backToStart()側の遷移先切り替えと対）。
+    backToStartButton.textContent = isRunnerActive() ? "テスト対策へ戻る" : "開始画面へ戻る";
+    showQuizScreen(quizScreen, allScreens);
+  } finally {
+    attemptStartInFlight = false;
+  }
 }
 
 // Phase5-6: home-practice-controller.jsのpracticeType（"weak"/"dormant"、既存の内部呼称）と、
@@ -851,7 +889,7 @@ async function startPracticeSession(fieldId, practiceType, { errorTarget = homeE
   state.quiz.allQuestions = practiceResult.questions;
   state.quiz.quizQuestions = pickQuestions(practiceResult.questions, practiceResult.questions.length);
 
-  await beginAttemptAndShowQuiz(PRACTICE_TYPE_TO_SOURCE_TYPE[practiceType] || null, null, state.session.unitFilter);
+  await beginAttemptAndShowQuiz(PRACTICE_TYPE_TO_SOURCE_TYPE[practiceType] || null, null, state.session.unitFilter, { errorTarget });
 }
 
 // STEP7: 苦手復習・復習推奨もresume候補競合の共通ガードを通す
@@ -1750,8 +1788,13 @@ function showMemorizeRunCompletion(summary) {
   answerResult.classList.remove("incorrect");
   answerResult.classList.add("correct");
   answerResult.style.color = "";
+  // Round2以降からのResumeで復帰したrunはinitialQuestionCountがnull（Round1の対象数を
+  // 復元できないため、memorize-runner.jsのrestoreMemorizeRun()が意図的にnullのままにする）。
+  // 数値を偽って表示しない（M1-1設計Gateの「推測しない」方針を完了表示でも維持する）。
   answerResult.textContent =
-    `暗記モード完了：全${summary.initialQuestionCount}問を習得しました（${summary.roundCount}周）。`;
+    typeof summary.initialQuestionCount === "number"
+      ? `暗記モード完了：全${summary.initialQuestionCount}問を習得しました（${summary.roundCount}周）。`
+      : `暗記モード完了：すべての問題を習得しました（${summary.roundCount}周）。`;
   questionElements.questionText.textContent = "暗記モード：完了";
   // 暗記モード-1 STEP M1-18: 完了時点では直前Roundの「進行：N/N」「正解数：N」が
   // 残留し視覚的に紛らわしいため非表示にする（単元表示quizUnitは「何を暗記したか」の
