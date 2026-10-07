@@ -617,7 +617,7 @@ select {
 
 .line-hit {
   fill: none !important;
-  stroke: rgba(0, 0, 0, 0.01) !important;
+  stroke: transparent !important;
   stroke-width: 40 !important;
   stroke-linecap: round !important;
   stroke-linejoin: round !important;
